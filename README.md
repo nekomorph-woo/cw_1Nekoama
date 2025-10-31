@@ -1,6 +1,6 @@
-# Nym — AI-powered Naming & Comments for IntelliJ IDEA
+# Nekoama — AI-powered Naming & Comments for IntelliJ IDEA
 
-Nym is an IntelliJ Platform plugin that helps you name things better and generate documentation comments with the help of LLMs. It integrates seamlessly into the editor with lightweight actions, a settings page, and a simple Tool Window for usage statistics.
+Nekoama is an IntelliJ Platform plugin that helps you name things better and generate documentation comments with the help of LLMs. It integrates seamlessly into the editor with lightweight actions, a settings page, and a simple Tool Window for usage statistics.
 
 This README explains what the plugin does, how to install it, how to configure AI providers, and how to use each feature safely and effectively.
 
@@ -25,7 +25,7 @@ This README explains what the plugin does, how to install it, how to configure A
   - Generate Comment
   - Custom Generate
   - Analyze Unused Code
-  - Nym Tool Window
+  - Nekoama Tool Window
 - Privacy & Security
 - Troubleshooting
 - Development
@@ -34,7 +34,7 @@ This README explains what the plugin does, how to install it, how to configure A
 
 
 ## Overview
-Nym augments your coding workflow by using an LLM provider (OpenAI or any OpenAI-compatible endpoint) to:
+Nekoama augments your coding workflow by using an LLM provider (OpenAI or any OpenAI-compatible endpoint) to:
 - Suggest better names for classes, methods, and variables.
 - Generate documentation comments for the selected element.
 - Run custom prompt-based generations with code context.
@@ -45,11 +45,11 @@ All heavy work is executed in background tasks to keep the IDE responsive, and s
 
 ## Features
 - Editor actions (right-click menu and Code menu):
-  - Nym: Generate Naming
-  - Nym: Generate Comment
-  - Nym: Custom Generate
+  - Nekoama: Generate Naming
+  - Nekoama: Generate Comment
+  - Nekoama: Custom Generate
 - Tools menu action:
-  - Nym: Analyze Unused Code (scans for unused files/classes/methods and reports counts)
+  - Nekoama: Analyze Unused Code (scans for unused files/classes/methods and reports counts)
 - Settings page: configure provider, endpoint, model, temperature, API key, timeouts and concurrency.
 - Tool Window: shows usage statistics and token counters; manual Refresh.
 - i18n: English and Simplified Chinese resources.
@@ -69,7 +69,7 @@ All heavy work is executed in background tasks to keep the IDE responsive, and s
 3. From a terminal:
    - Windows: `gradlew.bat runIde`
    - macOS/Linux: `./gradlew runIde`
-4. A sandbox IDE will start with Nym installed.
+4. A sandbox IDE will start with Nekoama installed.
 
 ### Install from disk (ZIP)
 1. Build the plugin ZIP:
@@ -80,7 +80,7 @@ All heavy work is executed in background tasks to keep the IDE responsive, and s
 
 
 ## Configuration
-Open Settings/Preferences and navigate to Tools > Nym (displayed as “Nym”). Configure the following:
+Open Settings/Preferences and navigate to Tools > Nekoama (displayed as “Nekoama”). Configure the following:
 
 ### AI Provider and API Key
 - AI Provider: choose “OpenAI” or “Custom” (OpenAI-compatible APIs).
@@ -110,35 +110,35 @@ Open Settings/Preferences and navigate to Tools > Nym (displayed as “Nym”). 
 ### 1) Generate Naming
 - Place the caret on a class, method/function, or variable/property in a Java or Kotlin file.
 - Use one of:
-  - Right-click the editor > Nym: Generate Naming
-  - Code menu > Nym: Generate Naming
-- Nym analyzes surrounding code context and asks your AI provider for suggestions.
+  - Right-click the editor > Nekoama: Generate Naming
+  - Code menu > Nekoama: Generate Naming
+- Nekoama analyzes surrounding code context and asks your AI provider for suggestions.
 - Suggestions are reported in a notification. Pick your preferred name and apply the rename manually (refactor shortcut or Rename).
 
 ### 2) Generate Comment
 - Place the caret on a class or method/function without a comment.
 - Run:
-  - Right-click the editor > Nym: Generate Comment
-  - Code menu > Nym: Generate Comment
-- Nym builds a context snapshot and requests a documentation comment (e.g., Javadoc/KDoc based on Preferences). The generated comment is inserted at the target element.
+  - Right-click the editor > Nekoama: Generate Comment
+  - Code menu > Nekoama: Generate Comment
+- Nekoama builds a context snapshot and requests a documentation comment (e.g., Javadoc/KDoc based on Preferences). The generated comment is inserted at the target element.
 
 ### 3) Custom Generate
 - Select some text to use as your custom prompt (e.g., “explain this algorithm”).
-- Run: Right-click the editor > Nym: Custom Generate
-- Nym mixes your selection with local code context and returns an AI result in a notification for quick copy.
+- Run: Right-click the editor > Nekoama: Custom Generate
+- Nekoama mixes your selection with local code context and returns an AI result in a notification for quick copy.
 
 ### 4) Analyze Unused Code
-- Tools menu > Nym: Analyze Unused Code.
+- Tools menu > Nekoama: Analyze Unused Code.
 - Scans the project and reports counts of unused files/classes/methods. This is a lightweight summary—no refactoring is performed.
 
-### 5) Nym Tool Window
-- View > Tool Windows > Nym (right side).
+### 5) Nekoama Tool Window
+- View > Tool Windows > Nekoama (right side).
 - Shows usage statistics: today/total counts, success rate, average latency, and token usage (today/week/month/total). Click Refresh to update.
 
 
 ## Privacy & Security
 - API Key is stored via IntelliJ Password Safe and is not written in plain text to configuration files.
-- Nym processes PSI/AST locally to build compact prompts. When you trigger an action, the relevant code context may be sent to your configured provider. Do not enable the plugin on projects where sending code to third parties is disallowed.
+- Nekoama processes PSI/AST locally to build compact prompts. When you trigger an action, the relevant code context may be sent to your configured provider. Do not enable the plugin on projects where sending code to third parties is disallowed.
 - Avoid using the plugin on the Event Dispatch Thread; all network/IO work is done in background tasks and can be canceled.
 
 
@@ -153,7 +153,7 @@ Open Settings/Preferences and navigate to Tools > Nym (displayed as “Nym”). 
 - Timeouts or slow responses:
   - Increase request timeout, reduce concurrency, or try a lighter model.
 - Logs & notifications:
-  - See IDE log and Nym notifications; sensitive data is not logged.
+  - See IDE log and Nekoama notifications; sensitive data is not logged.
 
 
 ## Development

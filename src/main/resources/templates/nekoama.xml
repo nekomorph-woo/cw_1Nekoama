@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templateSet group="Nekoama">
+    <!--
+      中文说明：
+      - 该模板组提供最小可用的动态模板示例，后续可以通过 AI 结果填充变量内容。
+      - 目前提供两个示例：
+        1) nekoamac: 生成注释块占位，适用于 Kotlin/Java/通用场景。
+        2) nekoamatodo: 生成带作者与日期的 TODO 注释。
+      - 预览文本内嵌在模板值中，IDE 会自动展示预览。
+    -->
+
+    <template name="nekoamac" value="/**\n * $DESC$\n */" description="Nekoama: comment block placeholder" toReformat="true" toShortenFQNames="true">
+        <!-- 将变量表达式切换为自定义宏：集成 AI 生成结果 -->
+        <variable name="DESC" expression="nekoamaAiComment()" defaultValue="Nekoama: TODO 自动注释" alwaysStopAt="true"/>
+        <context>
+            <option name="JAVA_CODE" value="true"/>
+            <option name="KOTLIN" value="true"/>
+            <option name="OTHER" value="true"/>
+        </context>
+    </template>
+
+    <template name="nekoamatodo" value="// TODO($AUTHOR$ @ $DATE$): $WHAT$" description="Nekoama: TODO with author/date" toReformat="false" toShortenFQNames="false">
+        <variable name="AUTHOR" expression="user()" defaultValue="" alwaysStopAt="false"/>
+        <variable name="DATE" expression="date()" defaultValue="" alwaysStopAt="false"/>
+        <variable name="WHAT" expression="complete()" defaultValue="Nekoama: 待办事项" alwaysStopAt="true"/>
+        <context>
+            <option name="JAVA_CODE" value="true"/>
+            <option name="KOTLIN" value="true"/>
+            <option name="OTHER" value="true"/>
+        </context>
+    </template>
+</templateSet>

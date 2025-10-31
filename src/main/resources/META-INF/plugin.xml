@@ -1,11 +1,11 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
-    <id>me.cw2.nym</id>
-    <name>Nym</name>
+    <id>me.cw2.Nekoama</id>
+    <name>Nekoama</name>
     <vendor url="https://github.com/cw2me">cw2</vendor>
     <description><![CDATA[
-        <h2>Nym：面向 IntelliJ IDEA 的 AI 命名与注释插件</h2>
-        <p>Nym 是一个轻量的 IntelliJ 平台插件，利用大语言模型（LLM）为你的代码提供更好的命名建议与文档注释生成，
+        <h2>Nekoama：面向 IntelliJ IDEA 的 AI 命名与注释插件</h2>
+        <p>Nekoama 是一个轻量的 IntelliJ 平台插件，利用大语言模型（LLM）为你的代码提供更好的命名建议与文档注释生成，
         并支持自定义生成与未使用代码分析。任务均在后台执行以保持 IDE 流畅，API Key 通过 IntelliJ Password Safe 安全保存。</p>
         <ul>
             <li><b>编辑器动作</b>：Generate Naming、Generate Comment、Custom Generate（右键与 Code 菜单）</li>
@@ -20,7 +20,7 @@
     <idea-version since-build="251" until-build="252.*"/>
 
     <!-- Resource bundle for i18n -->
-    <resource-bundle>messages.NymBundle</resource-bundle>
+    <resource-bundle>messages.NekoamaBundle</resource-bundle>
 
     <depends>com.intellij.modules.platform</depends>
     <!-- 依赖 Java 与 Kotlin 插件，确保 PSI 类可用且类加载顺序正确 -->
@@ -30,20 +30,20 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <!-- ToolWindow 注册 -->
-        <toolWindow id="Nym" anchor="right" factoryClass="com.cw2.nym.presentation.toolwindow.NymToolWindowFactory" icon="/icons/nymToolWindow.svg"/>
+        <toolWindow id="Nekoama" anchor="right" factoryClass="com.cw2.nekoama.presentation.toolwindow.NekoamaToolWindowFactory" icon="/icons/NekoamaToolWindow.svg"/>
 
         <!-- 设置页面注册 -->
-        <applicationConfigurable id="nym.settings" displayName="Nym" instance="com.cw2.nym.presentation.settings.NymConfigurable"/>
+        <applicationConfigurable id="Nekoama.settings" displayName="Nekoama" instance="com.cw2.nekoama.presentation.settings.NekoamaConfigurable"/>
 
         <!-- 通知分组注册（使用稳定的分组ID，不随本地化变化） -->
-        <notificationGroup id="Nym.Notifications" displayType="BALLOON" isLogByDefault="true"/>
+        <notificationGroup id="Nekoama.Notifications" displayType="BALLOON" isLogByDefault="true"/>
 
 
         <!-- 启动时安装键入处理器（避免使用将移除的扩展点） -->
-        <postStartupActivity implementation="com.cw2.nym.platform.lifecycle.NymProjectActivity"/>
+        <postStartupActivity implementation="com.cw2.nekoama.platform.lifecycle.NekoamaProjectActivity"/>
 
         <!-- Live Template 自定义宏注册：用于 AI 注释生成占位与替换 -->
-        <liveTemplateMacro implementation="com.cw2.nym.presentation.templates.NymAiCommentMacro"/>
+        <liveTemplateMacro implementation="com.cw2.nekoama.presentation.templates.NekoamaAiCommentMacro"/>
     </extensions>
 
     <extensions defaultExtensionNs="org.jetbrains.kotlin">
@@ -51,34 +51,34 @@
     </extensions>
 
     <actions>
-        <!-- 顶层 Nym 组（可用于扩展） -->
-        <group id="Nym.Actions" text="Nym" popup="true">
-            <action id="Nym.GenerateNaming" class="com.cw2.nym.presentation.actions.GenerateNamingAction" text="Generate Naming" description="Generate naming suggestions" icon="AllIcons.Actions.IntentionBulb"/>
-            <action id="Nym.GenerateComment" class="com.cw2.nym.presentation.actions.GenerateCommentAction" text="Generate Comment" description="Generate documentation" icon="AllIcons.Actions.IntentionBulb"/>
-            <action id="Nym.CustomGenerate" class="com.cw2.nym.presentation.actions.CustomGenerateAction" text="Nym: Custom Generate" description="Custom generate with context" icon="AllIcons.Actions.IntentionBulb"/>
+        <!-- 顶层 Nekoama 组（可用于扩展） -->
+        <group id="Nekoama.Actions" text="Nekoama" popup="true">
+            <action id="Nekoama.GenerateNaming" class="com.cw2.nekoama.presentation.actions.GenerateNamingAction" text="Generate Naming" description="Generate naming suggestions" icon="AllIcons.Actions.IntentionBulb"/>
+            <action id="Nekoama.GenerateComment" class="com.cw2.nekoama.presentation.actions.GenerateCommentAction" text="Generate Comment" description="Generate documentation" icon="AllIcons.Actions.IntentionBulb"/>
+            <action id="Nekoama.CustomGenerate" class="com.cw2.nekoama.presentation.actions.CustomGenerateAction" text="Nekoama: Custom Generate" description="Custom generate with context" icon="AllIcons.Actions.IntentionBulb"/>
         </group>
 
         <!-- 未使用代码扫描 Action -->
-        <action id="Nym.AnalyzeUnusedCode" class="com.cw2.nym.presentation.actions.AnalyzeUnusedCodeAction" text="Nym: Analyze Unused Code" description="Scan project for unused files/classes/methods">
+        <action id="Nekoama.AnalyzeUnusedCode" class="com.cw2.nekoama.presentation.actions.AnalyzeUnusedCodeAction" text="Nekoama: Analyze Unused Code" description="Scan project for unused files/classes/methods">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
         </action>
 
         <!-- 右键菜单集成 -->
-        <action id="Nym.GenerateNaming.Popup" class="com.cw2.nym.presentation.actions.GenerateNamingAction" text="Nym: Generate Naming" icon="AllIcons.Actions.IntentionBulb">
+        <action id="Nekoama.GenerateNaming.Popup" class="com.cw2.nekoama.presentation.actions.GenerateNamingAction" text="Nekoama: Generate Naming" icon="AllIcons.Actions.IntentionBulb">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
         </action>
-        <action id="Nym.GenerateComment.Popup" class="com.cw2.nym.presentation.actions.GenerateCommentAction" text="Nym: Generate Comment" icon="AllIcons.Actions.IntentionBulb">
+        <action id="Nekoama.GenerateComment.Popup" class="com.cw2.nekoama.presentation.actions.GenerateCommentAction" text="Nekoama: Generate Comment" icon="AllIcons.Actions.IntentionBulb">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
         </action>
-        <action id="Nym.CustomGenerate.Popup" class="com.cw2.nym.presentation.actions.CustomGenerateAction" text="Nym: Custom Generate" icon="AllIcons.Actions.IntentionBulb">
+        <action id="Nekoama.CustomGenerate.Popup" class="com.cw2.nekoama.presentation.actions.CustomGenerateAction" text="Nekoama: Custom Generate" icon="AllIcons.Actions.IntentionBulb">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
         </action>
 
         <!-- Code 菜单集成 -->
-        <action id="Nym.GenerateNaming.CodeMenu" class="com.cw2.nym.presentation.actions.GenerateNamingAction" text="Nym: Generate Naming">
+        <action id="Nekoama.GenerateNaming.CodeMenu" class="com.cw2.nekoama.presentation.actions.GenerateNamingAction" text="Nekoama: Generate Naming">
             <add-to-group group-id="CodeMenu" anchor="last"/>
         </action>
-        <action id="Nym.GenerateComment.CodeMenu" class="com.cw2.nym.presentation.actions.GenerateCommentAction" text="Nym: Generate Comment">
+        <action id="Nekoama.GenerateComment.CodeMenu" class="com.cw2.nekoama.presentation.actions.GenerateCommentAction" text="Nekoama: Generate Comment">
             <add-to-group group-id="CodeMenu" anchor="last"/>
         </action>
     </actions>

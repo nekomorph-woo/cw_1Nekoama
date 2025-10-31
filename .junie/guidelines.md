@@ -14,7 +14,7 @@
 - 平台：IntelliJ 平台版本由构建脚本统一管理，使用 since/until 控制兼容范围。
 
 ## 3. 目录与模块（建议）
-- src/main/kotlin/com.cw2.nym
+- src/main/kotlin/com.cw2.nekoama
     - core：异常、结果类型、日志、时间工具、序列化、DI。
     - ai：Provider 接口与实现、限流、重试、缓存、统计。
     - domain：命名策略、注释模板、规则引擎接口。

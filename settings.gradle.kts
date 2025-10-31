@@ -1,4 +1,4 @@
-rootProject.name = "nym"
+rootProject.name = "nekoama"
 
 pluginManagement {
     repositories {
