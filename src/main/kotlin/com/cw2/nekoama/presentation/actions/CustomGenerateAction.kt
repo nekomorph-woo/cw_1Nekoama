@@ -84,19 +84,19 @@ internal class CustomGenerateAction : BaseAction() {
 
                     if (indicator.isCanceled) return
 
-                    // 处理结果：将AI返回内容以Javadoc/KDoc的方式插入到选中内容的上方
+                    // 处理结果：将AI返回内容以行注释的方式插入到选中内容的上方
                     if (result.isSuccess) {
                         val generatedContent = result.getOrNull() ?: NekoamaBundle.message("action.custom.emptyResult")
-                        val docBody = generatedContent
+                        val lineComment = generatedContent
                             .lines()
-                            .joinToString(separator = "\n * ") { it.trimEnd() }
-                        val docComment = "/**\n * $docBody\n */\n"
+                            .joinToString(separator = "\n// ") { it.trimEnd() }
+                            .let { "// $it" }
                         WriteCommandAction.runWriteCommandAction(project, NekoamaBundle.message("action.customGenerate.text"), null, Runnable {
                             val document = editor.document
                             val startOffset = editor.selectionModel.selectionStart
                             val lineNumber = document.getLineNumber(startOffset)
                             val insertionOffset = document.getLineStartOffset(lineNumber)
-                            document.insertString(insertionOffset, docComment)
+                            document.insertString(insertionOffset, "$lineComment\n\n")
                         })
                         NekoamaNotifier.info(NekoamaBundle.message("action.comment.generatedOk"))
                     } else {
