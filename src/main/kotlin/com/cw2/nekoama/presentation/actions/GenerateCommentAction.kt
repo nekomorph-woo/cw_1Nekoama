@@ -1,18 +1,13 @@
 package com.cw2.nekoama.presentation.actions
 
-import com.cw2.nekoama.ai.model.CodeContext
-import com.cw2.nekoama.ai.model.MethodContext
-import com.cw2.nekoama.ai.model.ClassContext
-import com.cw2.nekoama.ai.model.ProgrammingLanguage
-import com.cw2.nekoama.ai.model.SurroundingContext
-import com.cw2.nekoama.ai.model.TypeInfo
-import com.cw2.nekoama.ai.provider.openai.OpenAIProvider
-import com.cw2.nekoama.ai.provider.openai.OpenAIConfig
-import com.cw2.nekoama.ai.provider.custom.CustomAPIProvider
+import com.cw2.nekoama.ai.model.*
 import com.cw2.nekoama.ai.provider.custom.CustomAPIConfig
+import com.cw2.nekoama.ai.provider.custom.CustomAPIProvider
+import com.cw2.nekoama.ai.provider.openai.OpenAIConfig
+import com.cw2.nekoama.ai.provider.openai.OpenAIProvider
 import com.cw2.nekoama.core.logging.NekoamaLogger
-import com.cw2.nekoama.data.settings.NekoamaSettings
 import com.cw2.nekoama.data.settings.NekoamaSecureStorage
+import com.cw2.nekoama.data.settings.NekoamaSettings
 import com.cw2.nekoama.integrations.psi.UniversalCodeAnalyzer
 import com.cw2.nekoama.presentation.messages.NekoamaBundle
 import com.cw2.nekoama.presentation.notifications.NekoamaNotifier
@@ -25,19 +20,11 @@ import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
-import com.intellij.psi.JavaPsiFacade
-import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiFile
-import com.intellij.psi.PsiMethod
-import com.intellij.psi.PsiModifier
-import com.intellij.psi.PsiClass
+import com.intellij.psi.*
 import com.intellij.psi.codeStyle.CodeStyleManager
 import com.intellij.psi.util.PsiTreeUtil
-import org.jetbrains.kotlin.psi.KtDeclaration
-import org.jetbrains.kotlin.psi.KtFunction
-import org.jetbrains.kotlin.psi.KtClass
-import org.jetbrains.kotlin.psi.KtPsiFactory
 import kotlinx.coroutines.runBlocking
+import org.jetbrains.kotlin.psi.*
 
 /**
  * 生成注释（KDoc/JavaDoc）
@@ -56,25 +43,35 @@ internal class GenerateCommentAction : BaseAction() {
             return
         }
         val offset = editor.caretModel.offset
-        val methodElementAndLang = ReadAction.compute<Pair<PsiElement, ProgrammingLanguage>?, Throwable> {
+        val elementAndLang = ReadAction.compute<Pair<PsiElement, ProgrammingLanguage>?, Throwable> {
             val element = psiFile.findElementAt(offset)
             if (element != null) {
+                // 检查Kotlin字段/属性
+                val ktProp = PsiTreeUtil.getParentOfType(element, KtProperty::class.java)
+                if (ktProp != null) return@compute Pair(ktProp, ProgrammingLanguage.KOTLIN)
+                // 检查Java字段
+                val jmField = PsiTreeUtil.getParentOfType(element, PsiField::class.java)
+                if (jmField != null) return@compute Pair(jmField, ProgrammingLanguage.JAVA)
+                // 检查Kotlin方法
                 val kt = PsiTreeUtil.getParentOfType(element, KtFunction::class.java)
                 if (kt != null) return@compute Pair(kt, ProgrammingLanguage.KOTLIN)
+                // 检查Java方法
                 val jm = PsiTreeUtil.getParentOfType(element, PsiMethod::class.java)
                 if (jm != null) return@compute Pair(jm, ProgrammingLanguage.JAVA)
+                // 检查Kotlin类
                 val kc = PsiTreeUtil.getParentOfType(element, KtClass::class.java)
                 if (kc != null) return@compute Pair(kc, ProgrammingLanguage.KOTLIN)
+                // 检查Java类
                 val jc = PsiTreeUtil.getParentOfType(element, PsiClass::class.java)
                 if (jc != null) return@compute Pair(jc, ProgrammingLanguage.JAVA)
             }
             null
         }
-        if (methodElementAndLang == null) {
+        if (elementAndLang == null) {
             NekoamaNotifier.warn(NekoamaBundle.message("action.comment.notSupportedHere"))
             return
         }
-        val (methodElement, detectedLang) = methodElementAndLang
+        val (element, detectedLang) = elementAndLang
 
         val title = NekoamaBundle.message("action.generateComment.text")
         ProgressManager.getInstance().run(object : Task.Backgroundable(project, title, true) {
@@ -85,7 +82,9 @@ internal class GenerateCommentAction : BaseAction() {
                 try {
                     // 检查是否已存在注释
                     val hasExistingDoc = ReadAction.compute<Boolean, Throwable> {
-                        when (val el = methodElement) {
+                        when (val el = element) {
+                            is KtProperty -> el.docComment != null
+                            is PsiField -> el.docComment != null
                             is KtFunction -> el.docComment != null
                             is PsiMethod -> el.docComment != null
                             is KtClass -> el.docComment != null
@@ -110,7 +109,7 @@ internal class GenerateCommentAction : BaseAction() {
                     indicator.text = NekoamaBundle.message("progress.analyzingTargetContext")
 
                     // 构建代码上下文
-                    val codeContext = buildCodeContext(project, methodElement, indicator)
+                    val codeContext = buildCodeContext(project, element, indicator)
                     if (codeContext == null || indicator.isCanceled) return
 
                     indicator.text = NekoamaBundle.message("progress.generatingComment")
@@ -125,33 +124,51 @@ internal class GenerateCommentAction : BaseAction() {
                     // 处理结果并插入注释
                     if (result.isSuccess) {
                         val commentSuggestion = result.getOrNull()
-                        val commentContent = commentSuggestion?.content ?: NekoamaBundle.message("action.comment.generatedPlaceholder")
-                        
+                        val commentContent =
+                            commentSuggestion?.content ?: NekoamaBundle.message("action.comment.generatedPlaceholder")
+
                         // 写命令：插入AI生成的注释（KDoc/JavaDoc）
                         WriteCommandAction.runWriteCommandAction(project, title, null, Runnable {
-                            when (val el = methodElement) {
+                            when (val el = element) {
+                                is KtProperty -> {
+                                    val psiFactory = KtPsiFactory(project)
+                                    val doc = psiFactory.createComment("/**\n * $commentContent\n */")
+                                    (el as KtDeclaration).addBefore(doc, el.firstChild)
+                                }
+
+                                is PsiField -> {
+                                    val factory = JavaPsiFacade.getElementFactory(project)
+                                    val doc = factory.createDocCommentFromText("/**\n * $commentContent\n */")
+                                    el.addBefore(doc, el.firstChild)
+                                    CodeStyleManager.getInstance(project).reformat(el)
+                                }
+
                                 is KtFunction -> {
                                     val psiFactory = KtPsiFactory(project)
                                     val doc = psiFactory.createComment("/**\n * $commentContent\n */")
                                     (el as KtDeclaration).addBefore(doc, el.firstChild)
                                 }
+
                                 is PsiMethod -> {
                                     val factory = JavaPsiFacade.getElementFactory(project)
                                     val doc = factory.createDocCommentFromText("/**\n * $commentContent\n */")
                                     el.addBefore(doc, el.firstChild)
                                     CodeStyleManager.getInstance(project).reformat(el)
                                 }
+
                                 is KtClass -> {
                                     val psiFactory = KtPsiFactory(project)
                                     val doc = psiFactory.createComment("/**\n * $commentContent\n */")
                                     (el as KtDeclaration).addBefore(doc, el.firstChild)
                                 }
+
                                 is PsiClass -> {
                                     val factory = JavaPsiFacade.getElementFactory(project)
                                     val doc = factory.createDocCommentFromText("/**\n * $commentContent\n */")
                                     el.addBefore(doc, el.firstChild)
                                     CodeStyleManager.getInstance(project).reformat(el)
                                 }
+
                                 else -> {
                                     // 未知类型：不进行插入
                                 }
@@ -167,9 +184,11 @@ internal class GenerateCommentAction : BaseAction() {
                     }
 
                 } catch (t: Throwable) {
-                    NekoamaLogger.logError("GenerateCommentAction",
+                    NekoamaLogger.logError(
+                        "GenerateCommentAction",
                         com.cw2.nekoama.core.exception.NekoamaError.APIError.ServerError("注释生成异常: ${t.message}"),
-                        mapOf("exception" to (t.message ?: "unknown")))
+                        mapOf("exception" to (t.message ?: "unknown"))
+                    )
                     run {
                         val errMsg = t.message ?: NekoamaBundle.message("common.unknownError")
                         NekoamaNotifier.warn(NekoamaBundle.message("action.common.failed", errMsg))
@@ -185,8 +204,9 @@ internal class GenerateCommentAction : BaseAction() {
     private fun createAIProvider(): com.cw2.nekoama.ai.provider.AIProvider? {
         val settings = NekoamaSettings.getInstance()
         val secureKey = NekoamaSecureStorage.getApiKey()
-        val resolvedKey = if (secureKey.isNotBlank()) secureKey else settings.apiKey.ifBlank { System.getenv("OPENAI_API_KEY") ?: "" }
-        
+        val resolvedKey =
+            if (secureKey.isNotBlank()) secureKey else settings.apiKey.ifBlank { System.getenv("OPENAI_API_KEY") ?: "" }
+
         if (resolvedKey.isBlank()) return null
 
         return when (settings.aiProvider) {
@@ -204,6 +224,7 @@ internal class GenerateCommentAction : BaseAction() {
                     )
                 )
             }
+
             else -> {
                 OpenAIProvider(
                     OpenAIConfig(
@@ -221,27 +242,26 @@ internal class GenerateCommentAction : BaseAction() {
     /**
      * 构建代码上下文（专为注释生成优化）
      */
-    private fun buildCodeContext(project: Project, methodElement: PsiElement, indicator: ProgressIndicator): CodeContext? {
+    private fun buildCodeContext(project: Project, element: PsiElement, indicator: ProgressIndicator): CodeContext? {
         return try {
             ReadAction.compute<CodeContext?, Throwable> {
                 val analyzer = UniversalCodeAnalyzer(project)
-                val language = analyzer.detectLanguage(methodElement)
+                val language = analyzer.detectLanguage(element)
                 val projectInfo = analyzer.getProjectInfo()
-                val surroundingContext = analyzer.extractSurroundingContext(methodElement).getOrNull() ?: 
-                    SurroundingContext(
-                        precedingCode = emptyList(),
-                        followingCode = emptyList(),
-                        imports = emptyList(),
-                        packageDeclaration = null,
-                        fileComments = emptyList(),
-                        siblingElements = emptyList(),
-                        namingPatterns = null,
-                        codeStyleAnalysis = null
-                    )
+                val surroundingContext = analyzer.extractSurroundingContext(element).getOrNull() ?: SurroundingContext(
+                    precedingCode = emptyList(),
+                    followingCode = emptyList(),
+                    imports = emptyList(),
+                    packageDeclaration = null,
+                    fileComments = emptyList(),
+                    siblingElements = emptyList(),
+                    namingPatterns = null,
+                    codeStyleAnalysis = null
+                )
 
-                when (methodElement) {
+                when (element) {
                     is KtFunction -> {
-                        val analyzeResult = analyzer.analyzeMethod(methodElement)
+                        val analyzeResult = analyzer.analyzeMethod(element)
                         if (analyzeResult.isSuccess) {
                             analyzeResult.getOrNull() as? MethodContext
                         } else {
@@ -249,21 +269,22 @@ internal class GenerateCommentAction : BaseAction() {
                                 language = language,
                                 projectInfo = projectInfo,
                                 surroundingContext = surroundingContext,
-                                methodName = methodElement.name,
+                                methodName = element.name,
                                 parameters = emptyList(),
                                 returnType = TypeInfo("Unit"),
                                 modifiers = emptyList(),
                                 annotations = emptyList(),
                                 exceptions = emptyList(),
-                                methodBody = methodElement.bodyExpression?.text,
+                                methodBody = element.bodyExpression?.text,
                                 isConstructor = false,
                                 isAbstract = false,
                                 containingClass = null
                             )
                         }
                     }
+
                     is PsiMethod -> {
-                        val analyzeResult = analyzer.analyzeMethod(methodElement)
+                        val analyzeResult = analyzer.analyzeMethod(element)
                         if (analyzeResult.isSuccess) {
                             analyzeResult.getOrNull() as? MethodContext
                         } else {
@@ -271,21 +292,70 @@ internal class GenerateCommentAction : BaseAction() {
                                 language = language,
                                 projectInfo = projectInfo,
                                 surroundingContext = surroundingContext,
-                                methodName = methodElement.name,
+                                methodName = element.name,
                                 parameters = emptyList(),
-                                returnType = TypeInfo(methodElement.returnType?.presentableText ?: "void"),
+                                returnType = TypeInfo(element.returnType?.presentableText ?: "void"),
                                 modifiers = emptyList(),
                                 annotations = emptyList(),
                                 exceptions = emptyList(),
-                                methodBody = methodElement.body?.text,
-                                isConstructor = methodElement.isConstructor,
-                                isAbstract = methodElement.hasModifierProperty(PsiModifier.ABSTRACT),
+                                methodBody = element.body?.text,
+                                isConstructor = element.isConstructor,
+                                isAbstract = element.hasModifierProperty(PsiModifier.ABSTRACT),
                                 containingClass = null
                             )
                         }
                     }
+
+                    is KtProperty -> {
+                        val analyzeResult = analyzer.analyzeVariable(element)
+                        if (analyzeResult.isSuccess) {
+                            analyzeResult.getOrNull() as? VariableContext
+                        } else {
+                            VariableContext(
+                                language = language,
+                                projectInfo = projectInfo,
+                                surroundingContext = surroundingContext,
+                                variableName = element.name,
+                                variableType = TypeInfo("Any"),
+                                modifiers = emptyList(),
+                                annotations = emptyList(),
+                                initializer = element.initializer?.text,
+                                scope = com.cw2.nekoama.ai.model.VariableScope.LOCAL,
+                                isConstant = !element.isVar,
+                                isStatic = false,
+                                usagePattern = null,
+                                containingClass = null,
+                                containingMethod = null
+                            )
+                        }
+                    }
+
+                    is PsiField -> {
+                        val analyzeResult = analyzer.analyzeVariable(element)
+                        if (analyzeResult.isSuccess) {
+                            analyzeResult.getOrNull() as? VariableContext
+                        } else {
+                            VariableContext(
+                                language = language,
+                                projectInfo = projectInfo,
+                                surroundingContext = surroundingContext,
+                                variableName = element.name,
+                                variableType = TypeInfo(element.type.presentableText),
+                                modifiers = emptyList(),
+                                annotations = emptyList(),
+                                initializer = element.initializer?.text,
+                                scope = if (element.hasModifierProperty(PsiModifier.STATIC)) com.cw2.nekoama.ai.model.VariableScope.STATIC_FIELD else com.cw2.nekoama.ai.model.VariableScope.FIELD,
+                                isConstant = element.hasModifierProperty(PsiModifier.FINAL),
+                                isStatic = element.hasModifierProperty(PsiModifier.STATIC),
+                                usagePattern = null,
+                                containingClass = null,
+                                containingMethod = null
+                            )
+                        }
+                    }
+
                     is KtClass -> {
-                        val analyzeResult = analyzer.analyzeClass(methodElement)
+                        val analyzeResult = analyzer.analyzeClass(element)
                         if (analyzeResult.isSuccess) {
                             analyzeResult.getOrNull() as? ClassContext
                         } else {
@@ -293,7 +363,7 @@ internal class GenerateCommentAction : BaseAction() {
                                 language = language,
                                 projectInfo = projectInfo,
                                 surroundingContext = surroundingContext,
-                                className = methodElement.name,
+                                className = element.name,
                                 superClass = null,
                                 interfaces = emptyList(),
                                 modifiers = emptyList(),
@@ -308,8 +378,9 @@ internal class GenerateCommentAction : BaseAction() {
                             )
                         }
                     }
+
                     is PsiClass -> {
-                        val analyzeResult = analyzer.analyzeClass(methodElement)
+                        val analyzeResult = analyzer.analyzeClass(element)
                         if (analyzeResult.isSuccess) {
                             analyzeResult.getOrNull() as? ClassContext
                         } else {
@@ -317,7 +388,7 @@ internal class GenerateCommentAction : BaseAction() {
                                 language = language,
                                 projectInfo = projectInfo,
                                 surroundingContext = surroundingContext,
-                                className = methodElement.name,
+                                className = element.name,
                                 superClass = null,
                                 interfaces = emptyList(),
                                 modifiers = emptyList(),
@@ -325,13 +396,14 @@ internal class GenerateCommentAction : BaseAction() {
                                 fields = emptyList(),
                                 methods = emptyList(),
                                 innerClasses = emptyList(),
-                                isInterface = methodElement.isInterface,
-                                isAbstract = methodElement.hasModifierProperty(PsiModifier.ABSTRACT),
-                                isEnum = methodElement.isEnum,
+                                isInterface = element.isInterface,
+                                isAbstract = element.hasModifierProperty(PsiModifier.ABSTRACT),
+                                isEnum = element.isEnum,
                                 packageName = surroundingContext.packageDeclaration ?: ""
                             )
                         }
                     }
+
                     else -> {
                         MethodContext(
                             language = language,
@@ -352,9 +424,11 @@ internal class GenerateCommentAction : BaseAction() {
                 }
             }
         } catch (t: Throwable) {
-            NekoamaLogger.logError("buildCodeContext",
+            NekoamaLogger.logError(
+                "buildCodeContext",
                 com.cw2.nekoama.core.exception.NekoamaError.ParseError.InvalidConfiguration("构建代码上下文失败: ${t.message}"),
-                mapOf("exception" to (t.message ?: "unknown")))
+                mapOf("exception" to (t.message ?: "unknown"))
+            )
             null
         }
     }
