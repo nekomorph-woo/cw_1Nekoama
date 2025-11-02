@@ -69,13 +69,7 @@ class NekoamaConfigurable : Configurable {
     // - 仅做基本 UI 绑定，不在此处引入实际的限流/超时联动，避免超出本次改动范围
     private val perfSectionLabel = JLabel(NekoamaBundle.message("settings.perf.section"))
     private val timeoutLabel = JLabel(NekoamaBundle.message("settings.perf.timeout"))
-    private val timeoutSpinner = JSpinner(SpinnerNumberModel(30000, 1000, 120000, 1000))
-    private val concurrentLabel = JLabel(NekoamaBundle.message("settings.perf.maxConcurrent"))
-    private val concurrentSpinner = JSpinner(SpinnerNumberModel(6, 1, 32, 1))
-    private val cacheMaxLabel = JLabel(NekoamaBundle.message("settings.perf.cacheMaxEntries"))
-    private val cacheMaxSpinner = JSpinner(SpinnerNumberModel(500, 0, 100000, 50))
-    private val memoryThresholdLabel = JLabel(NekoamaBundle.message("settings.perf.memoryThreshold"))
-    private val memoryThresholdSpinner = JSpinner(SpinnerNumberModel(200, 100, 1024, 50))
+    private val timeoutSpinner = JSpinner(SpinnerNumberModel(30000, 1000, 600000, 1000))
 
     // 偏好设置区域（第三阶段：2.2-13）
     // 说明（中文）：
@@ -83,8 +77,6 @@ class NekoamaConfigurable : Configurable {
     private val prefSectionLabel = JLabel(NekoamaBundle.message("settings.pref.section"))
     private val langPrefLabel = JLabel(NekoamaBundle.message("settings.pref.language"))
     private val langPrefCombo = JComboBox(arrayOf("AUTO", "EN", "ZH"))
-    private val uiLangLabel = JLabel(NekoamaBundle.message("settings.pref.uiLanguage"))
-    private val uiLangCombo = JComboBox(arrayOf("AUTO", "EN", "ZH"))
     private val namingStyleLabel = JLabel(NekoamaBundle.message("settings.pref.namingStyle"))
     private val namingStyleCombo = JComboBox(arrayOf("CAMEL_CASE", "SNAKE_CASE"))
     private val commentFormatLabel = JLabel(NekoamaBundle.message("settings.pref.commentFormat"))
@@ -178,27 +170,6 @@ class NekoamaConfigurable : Configurable {
         c.gridx = 1
         form.add(timeoutSpinner, c)
 
-        // 最大并发请求数
-        c.gridx = 0
-        c.gridy++
-        form.add(concurrentLabel, c)
-        c.gridx = 1
-        form.add(concurrentSpinner, c)
-
-        // 缓存最大条目数
-        c.gridx = 0
-        c.gridy++
-        form.add(cacheMaxLabel, c)
-        c.gridx = 1
-        form.add(cacheMaxSpinner, c)
-
-        // 内存使用阈值（MB）
-        c.gridx = 0
-        c.gridy++
-        form.add(memoryThresholdLabel, c)
-        c.gridx = 1
-        form.add(memoryThresholdSpinner, c)
-
         // ===== 分隔线：偏好设置区域 =====
         c.gridx = 0
         c.gridy++
@@ -209,13 +180,6 @@ class NekoamaConfigurable : Configurable {
         form.add(langPrefLabel, c)
         c.gridx = 1
         form.add(langPrefCombo, c)
-
-        // 界面语言
-        c.gridx = 0
-        c.gridy++
-        form.add(uiLangLabel, c)
-        c.gridx = 1
-        form.add(uiLangCombo, c)
 
         // 命名风格
         c.gridx = 0
@@ -372,11 +336,7 @@ class NekoamaConfigurable : Configurable {
             String(apiKeyField.password) != cachedApiKey ||
             tempSlider.value != settings.modelTemperature ||
             (timeoutSpinner.value as Number).toInt() != settings.requestTimeoutMs ||
-            (concurrentSpinner.value as Number).toInt() != settings.maxConcurrentRequests ||
-            (cacheMaxSpinner.value as Number).toInt() != settings.cacheMaxEntries ||
-            (memoryThresholdSpinner.value as Number).toInt() != settings.memoryUsageThresholdMb ||
             langPrefCombo.selectedItem?.toString() != settings.languagePreference ||
-            uiLangCombo.selectedItem?.toString() != settings.uiLanguagePreference ||
             namingStyleCombo.selectedItem?.toString() != settings.namingStyle ||
             commentFormatCombo.selectedItem?.toString() != settings.commentFormat
     }
@@ -405,13 +365,9 @@ class NekoamaConfigurable : Configurable {
 
         // 高级性能设置（仅保存数值，实际联动由相关组件读取使用）
         settings.requestTimeoutMs = (timeoutSpinner.value as Number).toInt()
-        settings.maxConcurrentRequests = (concurrentSpinner.value as Number).toInt()
-        settings.cacheMaxEntries = (cacheMaxSpinner.value as Number).toInt()
-        settings.memoryUsageThresholdMb = (memoryThresholdSpinner.value as Number).toInt()
 
         // 偏好设置
         settings.languagePreference = langPrefCombo.selectedItem?.toString() ?: settings.languagePreference
-        settings.uiLanguagePreference = uiLangCombo.selectedItem?.toString() ?: settings.uiLanguagePreference
         settings.namingStyle = namingStyleCombo.selectedItem?.toString() ?: settings.namingStyle
         settings.commentFormat = commentFormatCombo.selectedItem?.toString() ?: settings.commentFormat
     }
@@ -437,13 +393,9 @@ class NekoamaConfigurable : Configurable {
 
         // 高级性能设置
         timeoutSpinner.value = settings.requestTimeoutMs
-        concurrentSpinner.value = settings.maxConcurrentRequests
-        cacheMaxSpinner.value = settings.cacheMaxEntries
-        memoryThresholdSpinner.value = settings.memoryUsageThresholdMb
 
         // 偏好设置
         langPrefCombo.selectedItem = settings.languagePreference
-        uiLangCombo.selectedItem = settings.uiLanguagePreference
         namingStyleCombo.selectedItem = settings.namingStyle
         commentFormatCombo.selectedItem = settings.commentFormat
     }
