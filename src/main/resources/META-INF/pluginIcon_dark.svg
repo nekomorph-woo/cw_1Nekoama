@@ -1,18 +1,30 @@
 <svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" fill="none">
     <defs>
-        <linearGradient id="g" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#7B5CFF"/>
-            <stop offset="1" stop-color="#FF4D91"/>
-        </linearGradient>
         <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity=".22"/>
+            <feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity=".4"/>
         </filter>
     </defs>
-    <rect x="4" y="4" width="56" height="56" rx="12" fill="url(#g)"/>
-    <!-- Monogram N with rounded stroke -->
-    <path d="M20 44 V20 L44 44 V20" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" filter="url(#shadow)"/>
-    <!-- Spark -->
-    <g transform="translate(44,12)" fill="#FFFFFF">
-        <path d="M4 0c.6 1.7 1.7 2.8 3.4 3.4C5.7 4 4.6 5.1 4 6.8 3.4 5.1 2.3 4 0.6 3.4 2.3 2.8 3.4 1.7 4 0z"/>
-    </g>
+
+    <!-- Background rounded square (dark theme) -->
+    <rect x="4" y="4" width="56" height="56" rx="12" fill="#2B2B2B"/>
+
+    <!-- Dark circle background behind cat -->
+    <circle cx="32" cy="32" r="24" fill="#3C3C3C" filter="url(#shadow)"/>
+
+    <!-- Left ear (lighter for dark theme) -->
+    <path d="M 19.2 32 L 12.8 15 L 25.6 22.4 Z" fill="#E0E0E0" stroke="#E0E0E0" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"/>
+    <!-- Right ear (lighter for dark theme) -->
+    <path d="M 44.8 28.8 L 51.2 15 L 38.4 22.4 Z" fill="#E0E0E0" stroke="#E0E0E0" stroke-width="2.88" stroke-linejoin="round" stroke-linecap="round"/>
+
+    <!-- Cat head (lighter for dark theme) -->
+    <rect x="16" y="19.2" width="32" height="28.8" rx="9.6" fill="#E0E0E0"/>
+
+    <!-- Left eye (dark on light cat) -->
+    <circle cx="25.6" cy="32" r="3.2" fill="#2B2B2B"/>
+    <!-- Right eye (dark on light cat) -->
+    <circle cx="38.4" cy="32" r="3.2" fill="#2B2B2B"/>
+
+    <!-- Tail (lighter for dark theme) -->
+    <path d="M 44.8 44.8 Q 54.4 48 54.4 32"
+          stroke="#E0E0E0" stroke-width="4.8" fill="none" stroke-linecap="round"/>
 </svg>
