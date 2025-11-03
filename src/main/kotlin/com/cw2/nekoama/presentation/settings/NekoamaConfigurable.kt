@@ -71,7 +71,7 @@ class NekoamaConfigurable : Configurable {
     // - 仅做基本 UI 绑定，不在此处引入实际的限流/超时联动，避免超出本次改动范围
     private val perfSectionLabel = JLabel(NekoamaBundle.message("settings.perf.section"))
     private val timeoutLabel = JLabel(NekoamaBundle.message("settings.perf.timeout"))
-    private val timeoutSpinner = JSpinner(SpinnerNumberModel(30000, 1000, 600000, 1000))
+    private val timeoutSpinner = JSpinner(SpinnerNumberModel(30000, 1000, 1200000, 1000))
 
     // 偏好设置区域（第三阶段：2.2-13）
     // 说明（中文）：
