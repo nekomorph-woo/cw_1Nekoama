@@ -43,6 +43,7 @@ class NekoamaConfigurable : Configurable {
     private val autoTrigger = JCheckBox(NekoamaBundle.message("settings.auto.trigger"))
     private val depthLabel = JLabel(NekoamaBundle.message("settings.context.depth"))
     private val depthSlider = JSlider(1, 3, 2)
+    private val depthValueLabel = JLabel("2 (1-3)") // 显示当前值和范围
 
     // AI 服务配置区域（第三阶段新增）
     private val providerLabel = JLabel(NekoamaBundle.message("settings.ai.provider"))
@@ -60,6 +61,7 @@ class NekoamaConfigurable : Configurable {
     private val clearSecretButton = JButton(NekoamaBundle.message("settings.ai.apikey.clear"))
     private val tempLabel = JLabel(NekoamaBundle.message("settings.ai.temperature"))
     private val tempSlider = JSlider(0, 100, 70)
+    private val tempValueLabel = JLabel("0.70 (0.00-1.00)") // 显示当前值和范围
     private val testButton = JButton(NekoamaBundle.message("settings.ai.test"))
     private val testResultLabel = JLabel("")
 
@@ -92,11 +94,17 @@ class NekoamaConfigurable : Configurable {
     private var cachedApiKey: String = ""
 
     init {
-        // 表单布局（左标签右控件），保持最小可用
+        // 设置区域标题的字体为粗体，使其更加醒目
+        val boldFont = perfSectionLabel.font.deriveFont(java.awt.Font.BOLD)
+        perfSectionLabel.font = boldFont
+        prefSectionLabel.font = boldFont
+
+        // 表单布局（左标签右控件），添加合理的间距使界面更美观
         val c = GridBagConstraints().apply {
             gridx = 0
             gridy = 0
             anchor = GridBagConstraints.WEST
+            insets = java.awt.Insets(5, 5, 5, 5) // 默认间距：上、左、下、右各5像素
         }
         // 功能开关
         form.add(enableNaming, c)
@@ -110,11 +118,15 @@ class NekoamaConfigurable : Configurable {
         form.add(depthLabel, c)
         c.gridx = 1
         form.add(depthSlider, c)
+        c.gridx = 2
+        form.add(depthValueLabel, c)
 
-        // 分隔：回到首列，添加 AI 配置
+        // ===== AI 服务配置区域 =====
         c.gridx = 0
         c.gridy++
+        c.insets = java.awt.Insets(20, 5, 5, 5) // 区域顶部增加间距
         form.add(providerLabel, c)
+        c.insets = java.awt.Insets(5, 5, 5, 5) // 恢复默认间距
         c.gridx = 1
         form.add(providerCombo, c)
 
@@ -149,34 +161,42 @@ class NekoamaConfigurable : Configurable {
         form.add(tempLabel, c)
         c.gridx = 1
         form.add(tempSlider, c)
+        c.gridx = 2
+        form.add(tempValueLabel, c)
 
         // 测试按钮占满一行
         c.gridx = 0
         c.gridy++
+        c.insets = java.awt.Insets(10, 5, 5, 5) // 测试按钮上方增加间距
         form.add(testButton, c)
-        
+
         // 测试结果标签
         c.gridy++
+        c.insets = java.awt.Insets(5, 5, 5, 5) // 恢复默认间距
         form.add(testResultLabel, c)
 
-        // ===== 分隔线：性能优化设置区域 =====
+        // ===== 性能优化设置区域 =====
         c.gridx = 0
         c.gridy++
+        c.insets = java.awt.Insets(20, 5, 10, 5) // 区域标题：上间距20，下间距10
         form.add(perfSectionLabel, c)
 
         // 请求超时（毫秒）
         c.gridy++
+        c.insets = java.awt.Insets(5, 5, 5, 5) // 恢复默认间距
         form.add(timeoutLabel, c)
         c.gridx = 1
         form.add(timeoutSpinner, c)
 
-        // ===== 分隔线：偏好设置区域 =====
+        // ===== 偏好设置区域 =====
         c.gridx = 0
         c.gridy++
+        c.insets = java.awt.Insets(20, 5, 10, 5) // 区域标题：上间距20，下间距10
         form.add(prefSectionLabel, c)
 
         // 语言偏好（生成内容）
         c.gridy++
+        c.insets = java.awt.Insets(5, 5, 5, 5) // 恢复默认间距
         form.add(langPrefLabel, c)
         c.gridx = 1
         form.add(langPrefCombo, c)
@@ -197,6 +217,17 @@ class NekoamaConfigurable : Configurable {
 
         // 记录默认的回显字符，用于显示/隐藏切换
         defaultEchoChar = apiKeyField.echoChar
+
+        // 上下文分析深度滑块监听器：更新数值标签
+        depthSlider.addChangeListener {
+            depthValueLabel.text = "${depthSlider.value} (1-3)"
+        }
+
+        // 模型温度滑块监听器：更新数值标签（显示为0.00-1.00范围）
+        tempSlider.addChangeListener {
+            val tempValue = tempSlider.value / 100.0
+            tempValueLabel.text = String.format("%.2f (0.00-1.00)", tempValue)
+        }
 
         // 显示/隐藏 API Key 回显（中文说明：仅改变 JPasswordField 回显，不改变存储安全性）
         toggleSecretButton.addActionListener {
@@ -379,6 +410,7 @@ class NekoamaConfigurable : Configurable {
         cacheEnabled.isSelected = settings.cacheEnabled
         autoTrigger.isSelected = settings.autoTrigger
         depthSlider.value = settings.contextDepth
+        depthValueLabel.text = "${settings.contextDepth} (1-3)" // 更新深度值标签
 
         providerCombo.selectedItem = settings.aiProvider
         endpointField.text = settings.apiEndpoint
@@ -390,6 +422,7 @@ class NekoamaConfigurable : Configurable {
         toggleSecretButton.text = NekoamaBundle.message("settings.ai.apikey.show")
         apiKeyField.echoChar = defaultEchoChar
         tempSlider.value = settings.modelTemperature
+        tempValueLabel.text = String.format("%.2f (0.00-1.00)", settings.modelTemperature / 100.0) // 更新温度值标签
 
         // 高级性能设置
         timeoutSpinner.value = settings.requestTimeoutMs
