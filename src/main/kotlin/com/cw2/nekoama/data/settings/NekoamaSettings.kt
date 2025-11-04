@@ -33,8 +33,8 @@ class NekoamaSettings : PersistentStateComponent<NekoamaSettings> {
     // ===== AI 服务配置（第三阶段新增） =====
     // 说明：
     // - 为了最小变更，先使用明文字段存储；后续阶段将迁移到 IDE 安全存储（见安全与隐私章节）。
-    // - provider 取值建议：OpenAI / Custom（与现有 provider 实现对应）。
-    var aiProvider: String = "OpenAI"
+    // - provider 固定为 Custom，支持 OpenAI 兼容的自定义 API。
+    var aiProvider: String = "Custom"
     var apiEndpoint: String = ""
     var apiKey: String = ""
     // 自定义/兼容 OpenAI 的模型名称（Custom 模式下可编辑），例如：gpt-4o-mini、gpt-4、qwen2.5

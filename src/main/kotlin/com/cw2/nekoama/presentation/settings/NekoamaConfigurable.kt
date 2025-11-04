@@ -46,8 +46,6 @@ class NekoamaConfigurable : Configurable {
     private val depthValueLabel = JLabel("2 (1-3)") // 显示当前值和范围
 
     // AI 服务配置区域（第三阶段新增）
-    private val providerLabel = JLabel(NekoamaBundle.message("settings.ai.provider"))
-    private val providerCombo = JComboBox(arrayOf("OpenAI", "Custom"))
     private val endpointLabel = JLabel(NekoamaBundle.message("settings.ai.endpoint"))
     private val endpointField = JTextField(24)
     private val endpointHelpLabel = JLabel(NekoamaBundle.message("settings.ai.endpoint.hint"))
@@ -125,14 +123,8 @@ class NekoamaConfigurable : Configurable {
         c.gridx = 0
         c.gridy++
         c.insets = java.awt.Insets(20, 5, 5, 5) // 区域顶部增加间距
-        form.add(providerLabel, c)
-        c.insets = java.awt.Insets(5, 5, 5, 5) // 恢复默认间距
-        c.gridx = 1
-        form.add(providerCombo, c)
-
-        c.gridx = 0
-        c.gridy++
         form.add(endpointLabel, c)
+        c.insets = java.awt.Insets(5, 5, 5, 5) // 恢复默认间距
         c.gridx = 1
         form.add(endpointField, c)
         c.gridx = 2
@@ -150,11 +142,6 @@ class NekoamaConfigurable : Configurable {
         form.add(apiKeyLabel, c)
         c.gridx = 1
         form.add(apiKeyField, c)
-        // 在同一行右侧附加显示/隐藏与清除按钮，尽量不破坏现有布局
-        c.gridx = 2
-        form.add(toggleSecretButton, c)
-        c.gridx = 3
-        form.add(clearSecretButton, c)
 
         c.gridx = 0
         c.gridy++
@@ -164,13 +151,19 @@ class NekoamaConfigurable : Configurable {
         c.gridx = 2
         form.add(tempValueLabel, c)
 
-        // 测试按钮占满一行
+        // 测试按钮行：从左开始排列三个按钮
         c.gridx = 0
         c.gridy++
         c.insets = java.awt.Insets(10, 5, 5, 5) // 测试按钮上方增加间距
         form.add(testButton, c)
+        c.insets = java.awt.Insets(10, 5, 5, 5) // 保持相同间距
+        c.gridx = 1
+        form.add(toggleSecretButton, c)
+        c.gridx = 2
+        form.add(clearSecretButton, c)
 
         // 测试结果标签
+        c.gridx = 0
         c.gridy++
         c.insets = java.awt.Insets(5, 5, 5, 5) // 恢复默认间距
         form.add(testResultLabel, c)
@@ -245,20 +238,11 @@ class NekoamaConfigurable : Configurable {
             NekoamaNotifier.info(NekoamaBundle.message("notification.success"))
         }
 
-        // Provider 切换时更新可编辑状态
-        providerCombo.addActionListener {
-            val isCustom = providerCombo.selectedItem?.toString() == "Custom"
-            modelLabel.isEnabled = isCustom
-            modelField.isEnabled = isCustom
-            endpointHelpLabel.isVisible = isCustom
-        }
-
         // 测试连接：在后台线程执行实际网络请求，避免阻塞 EDT
         testButton.addActionListener {
             testButton.isEnabled = false
             testResultLabel.text = NekoamaBundle.message("settings.ai.test.connecting")
             testResultLabel.foreground = JBColor.CYAN
-            val provider = providerCombo.selectedItem?.toString()?.trim().orEmpty()
             val endpoint = endpointField.text.trim()
             val inlineKey = String(apiKeyField.password).trim()
             val model = modelField.text.trim().ifEmpty { settings.model }
@@ -271,46 +255,25 @@ class NekoamaConfigurable : Configurable {
                 val anyKey = inlineKey.ifBlank { storedKey }
                 var errorMessage: String? = null
                 val success = try {
-                    if (provider == "OpenAI") {
-                        val cfg = com.cw2.nekoama.ai.provider.openai.OpenAIConfig(
-                            apiUrl = endpoint.ifBlank { "https://api.openai.com/v1" },
-                            apiKey = anyKey,
-                            model = model.ifBlank { "gpt-4o-mini" },
-                            temperature = temperature,
-                            timeoutMs = settings.requestTimeoutMs.toLong()
-                        )
-                        val client = com.cw2.nekoama.ai.provider.openai.OpenAIHttpClient(cfg)
-                        val req = com.cw2.nekoama.ai.provider.openai.OpenAIRequest(
-                            model = cfg.model,
-                            messages = listOf(com.cw2.nekoama.ai.provider.openai.OpenAIMessage("user", "ping")),
-                            maxTokens = 1
-                        )
-                        val result = client.sendRequestSync(req)
-                        if (!result.isSuccess) {
-                            errorMessage = result.errorOrNull()?.message ?: "未知错误"
-                        }
-                        result.isSuccess
-                    } else {
-                        val cfg = com.cw2.nekoama.ai.provider.custom.CustomAPIConfig(
-                            providerName = "Custom",
-                            apiUrl = endpoint,
-                            apiKey = anyKey,
-                            model = model.ifBlank { "gpt-4o-mini" },
-                            temperature = temperature,
-                            timeoutMs = settings.requestTimeoutMs.toLong()
-                        )
-                        val client = com.cw2.nekoama.ai.provider.custom.CustomAPIHttpClient(cfg)
-                        val req = com.cw2.nekoama.ai.provider.openai.OpenAIRequest(
-                            model = cfg.model,
-                            messages = listOf(com.cw2.nekoama.ai.provider.openai.OpenAIMessage("user", "ping")),
-                            maxTokens = 10
-                        )
-                        val result = client.sendRequestSync(req)
-                        if (!result.isSuccess) {
-                            errorMessage = result.errorOrNull()?.message ?: "未知错误"
-                        }
-                        result.isSuccess
+                    val cfg = com.cw2.nekoama.ai.provider.custom.CustomAPIConfig(
+                        providerName = "Custom",
+                        apiUrl = endpoint,
+                        apiKey = anyKey,
+                        model = model.ifBlank { "gpt-4o-mini" },
+                        temperature = temperature,
+                        timeoutMs = settings.requestTimeoutMs.toLong()
+                    )
+                    val client = com.cw2.nekoama.ai.provider.custom.CustomAPIHttpClient(cfg)
+                    val req = com.cw2.nekoama.ai.provider.openai.OpenAIRequest(
+                        model = cfg.model,
+                        messages = listOf(com.cw2.nekoama.ai.provider.openai.OpenAIMessage("user", "ping")),
+                        maxTokens = 10
+                    )
+                    val result = client.sendRequestSync(req)
+                    if (!result.isSuccess) {
+                        errorMessage = result.errorOrNull()?.message ?: "未知错误"
                     }
+                    result.isSuccess
                 } catch (t: Throwable) {
                     errorMessage = t.message ?: "网络连接异常"
                     false
@@ -334,14 +297,6 @@ class NekoamaConfigurable : Configurable {
             }
         }
 
-        // 初始化可见性状态
-        run {
-            val isCustom = providerCombo.selectedItem?.toString() == "Custom"
-            modelLabel.isEnabled = isCustom
-            modelField.isEnabled = isCustom
-            endpointHelpLabel.isVisible = isCustom
-        }
-
         panel.add(form, BorderLayout.NORTH)
         
         // 在后台线程初始化缓存的 API Key，避免 EDT 违规
@@ -360,7 +315,6 @@ class NekoamaConfigurable : Configurable {
             cacheEnabled.isSelected != settings.cacheEnabled ||
             autoTrigger.isSelected != settings.autoTrigger ||
             depthSlider.value != settings.contextDepth ||
-            providerCombo.selectedItem?.toString() != settings.aiProvider ||
             endpointField.text != settings.apiEndpoint ||
             modelField.text != settings.model ||
             // 比对输入框与缓存的安全存储值，避免泄露明文到配置和 EDT 违规
@@ -380,7 +334,7 @@ class NekoamaConfigurable : Configurable {
         settings.autoTrigger = autoTrigger.isSelected
         settings.contextDepth = depthSlider.value
 
-        settings.aiProvider = providerCombo.selectedItem?.toString() ?: settings.aiProvider
+        settings.aiProvider = "Custom"  // 固定为 Custom
         settings.apiEndpoint = endpointField.text.trim()
         settings.model = modelField.text.trim()
         // 将密钥写入 IDE 安全存储，避免明文持久化 - 异步操作避免阻塞EDT
@@ -412,7 +366,6 @@ class NekoamaConfigurable : Configurable {
         depthSlider.value = settings.contextDepth
         depthValueLabel.text = "${settings.contextDepth} (1-3)" // 更新深度值标签
 
-        providerCombo.selectedItem = settings.aiProvider
         endpointField.text = settings.apiEndpoint
         modelField.text = settings.model
         // 优先从缓存加载密钥到输入框（仅供编辑，不代表持久化），避免 EDT 违规

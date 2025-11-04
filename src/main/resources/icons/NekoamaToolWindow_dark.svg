@@ -1,0 +1,17 @@
+<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+    <rect width="20" height="20" fill="none"/>
+
+    <!-- Left ear -->
+    <path d="M 4 8.4 L 2.8 4.4 L 5.5 5.5 Z" fill="none" stroke="#FFFFFF" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round"/>
+    <!-- Right ear -->
+    <path d="M 16 8.4 L 17.2 4.4 L 14.5 5.5 Z" fill="none" stroke="#FFFFFF" stroke-width="1.08" stroke-linejoin="round" stroke-linecap="round"/>
+
+    <!-- Head (outline style) -->
+    <rect x="4" y="5.2" width="12" height="10.8" rx="3.6" fill="none" stroke="#FFFFFF" stroke-width="1.5"/>
+
+
+
+    <!-- Tail -->
+    <path d="M 15.5 14.8 Q 18.4 15.6 18.4 10.4"
+          stroke="#FFFFFF" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+</svg>
