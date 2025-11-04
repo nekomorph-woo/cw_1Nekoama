@@ -30,7 +30,10 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <!-- ToolWindow 注册 -->
-        <toolWindow id="Nekoama" anchor="right" factoryClass="com.cw2.nekoama.presentation.toolwindow.NekoamaToolWindowFactory" icon="/icons/NekoamaToolWindow.svg"/>
+        <toolWindow id="Nekoama"
+                    anchor="right"
+                    factoryClass="com.cw2.nekoama.presentation.toolwindow.NekoamaToolWindowFactory"
+                    icon="/icons/NekoamaToolWindow.svg"/>
 
         <!-- 设置页面注册 -->
         <applicationConfigurable id="Nekoama.settings" displayName="Nekoama" instance="com.cw2.nekoama.presentation.settings.NekoamaConfigurable"/>

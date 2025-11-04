@@ -43,10 +43,9 @@ class NekoamaConfigurable : Configurable {
     private val autoTrigger = JCheckBox(NekoamaBundle.message("settings.auto.trigger"))
     private val depthLabel = JLabel(NekoamaBundle.message("settings.context.depth"))
     private val depthSlider = JSlider(1, 3, 2)
+    private val depthValueLabel = JLabel("2 (1-3)") // 显示当前值和范围
 
     // AI 服务配置区域（第三阶段新增）
-    private val providerLabel = JLabel(NekoamaBundle.message("settings.ai.provider"))
-    private val providerCombo = JComboBox(arrayOf("OpenAI", "Custom"))
     private val endpointLabel = JLabel(NekoamaBundle.message("settings.ai.endpoint"))
     private val endpointField = JTextField(24)
     private val endpointHelpLabel = JLabel(NekoamaBundle.message("settings.ai.endpoint.hint"))
@@ -60,6 +59,7 @@ class NekoamaConfigurable : Configurable {
     private val clearSecretButton = JButton(NekoamaBundle.message("settings.ai.apikey.clear"))
     private val tempLabel = JLabel(NekoamaBundle.message("settings.ai.temperature"))
     private val tempSlider = JSlider(0, 100, 70)
+    private val tempValueLabel = JLabel("0.70 (0.00-1.00)") // 显示当前值和范围
     private val testButton = JButton(NekoamaBundle.message("settings.ai.test"))
     private val testResultLabel = JLabel("")
 
@@ -69,13 +69,7 @@ class NekoamaConfigurable : Configurable {
     // - 仅做基本 UI 绑定，不在此处引入实际的限流/超时联动，避免超出本次改动范围
     private val perfSectionLabel = JLabel(NekoamaBundle.message("settings.perf.section"))
     private val timeoutLabel = JLabel(NekoamaBundle.message("settings.perf.timeout"))
-    private val timeoutSpinner = JSpinner(SpinnerNumberModel(30000, 1000, 120000, 1000))
-    private val concurrentLabel = JLabel(NekoamaBundle.message("settings.perf.maxConcurrent"))
-    private val concurrentSpinner = JSpinner(SpinnerNumberModel(6, 1, 32, 1))
-    private val cacheMaxLabel = JLabel(NekoamaBundle.message("settings.perf.cacheMaxEntries"))
-    private val cacheMaxSpinner = JSpinner(SpinnerNumberModel(500, 0, 100000, 50))
-    private val memoryThresholdLabel = JLabel(NekoamaBundle.message("settings.perf.memoryThreshold"))
-    private val memoryThresholdSpinner = JSpinner(SpinnerNumberModel(200, 100, 1024, 50))
+    private val timeoutSpinner = JSpinner(SpinnerNumberModel(30000, 1000, 1200000, 1000))
 
     // 偏好设置区域（第三阶段：2.2-13）
     // 说明（中文）：
@@ -83,8 +77,6 @@ class NekoamaConfigurable : Configurable {
     private val prefSectionLabel = JLabel(NekoamaBundle.message("settings.pref.section"))
     private val langPrefLabel = JLabel(NekoamaBundle.message("settings.pref.language"))
     private val langPrefCombo = JComboBox(arrayOf("AUTO", "EN", "ZH"))
-    private val uiLangLabel = JLabel(NekoamaBundle.message("settings.pref.uiLanguage"))
-    private val uiLangCombo = JComboBox(arrayOf("AUTO", "EN", "ZH"))
     private val namingStyleLabel = JLabel(NekoamaBundle.message("settings.pref.namingStyle"))
     private val namingStyleCombo = JComboBox(arrayOf("CAMEL_CASE", "SNAKE_CASE"))
     private val commentFormatLabel = JLabel(NekoamaBundle.message("settings.pref.commentFormat"))
@@ -100,11 +92,17 @@ class NekoamaConfigurable : Configurable {
     private var cachedApiKey: String = ""
 
     init {
-        // 表单布局（左标签右控件），保持最小可用
+        // 设置区域标题的字体为粗体，使其更加醒目
+        val boldFont = perfSectionLabel.font.deriveFont(java.awt.Font.BOLD)
+        perfSectionLabel.font = boldFont
+        prefSectionLabel.font = boldFont
+
+        // 表单布局（左标签右控件），添加合理的间距使界面更美观
         val c = GridBagConstraints().apply {
             gridx = 0
             gridy = 0
             anchor = GridBagConstraints.WEST
+            insets = java.awt.Insets(5, 5, 5, 5) // 默认间距：上、左、下、右各5像素
         }
         // 功能开关
         form.add(enableNaming, c)
@@ -118,17 +116,15 @@ class NekoamaConfigurable : Configurable {
         form.add(depthLabel, c)
         c.gridx = 1
         form.add(depthSlider, c)
+        c.gridx = 2
+        form.add(depthValueLabel, c)
 
-        // 分隔：回到首列，添加 AI 配置
+        // ===== AI 服务配置区域 =====
         c.gridx = 0
         c.gridy++
-        form.add(providerLabel, c)
-        c.gridx = 1
-        form.add(providerCombo, c)
-
-        c.gridx = 0
-        c.gridy++
+        c.insets = java.awt.Insets(20, 5, 5, 5) // 区域顶部增加间距
         form.add(endpointLabel, c)
+        c.insets = java.awt.Insets(5, 5, 5, 5) // 恢复默认间距
         c.gridx = 1
         form.add(endpointField, c)
         c.gridx = 2
@@ -146,76 +142,57 @@ class NekoamaConfigurable : Configurable {
         form.add(apiKeyLabel, c)
         c.gridx = 1
         form.add(apiKeyField, c)
-        // 在同一行右侧附加显示/隐藏与清除按钮，尽量不破坏现有布局
-        c.gridx = 2
-        form.add(toggleSecretButton, c)
-        c.gridx = 3
-        form.add(clearSecretButton, c)
 
         c.gridx = 0
         c.gridy++
         form.add(tempLabel, c)
         c.gridx = 1
         form.add(tempSlider, c)
+        c.gridx = 2
+        form.add(tempValueLabel, c)
 
-        // 测试按钮占满一行
+        // 测试按钮行：从左开始排列三个按钮
         c.gridx = 0
         c.gridy++
+        c.insets = java.awt.Insets(10, 5, 5, 5) // 测试按钮上方增加间距
         form.add(testButton, c)
-        
+        c.insets = java.awt.Insets(10, 5, 5, 5) // 保持相同间距
+        c.gridx = 1
+        form.add(toggleSecretButton, c)
+        c.gridx = 2
+        form.add(clearSecretButton, c)
+
         // 测试结果标签
+        c.gridx = 0
         c.gridy++
+        c.insets = java.awt.Insets(5, 5, 5, 5) // 恢复默认间距
         form.add(testResultLabel, c)
 
-        // ===== 分隔线：性能优化设置区域 =====
+        // ===== 性能优化设置区域 =====
         c.gridx = 0
         c.gridy++
+        c.insets = java.awt.Insets(20, 5, 10, 5) // 区域标题：上间距20，下间距10
         form.add(perfSectionLabel, c)
 
         // 请求超时（毫秒）
         c.gridy++
+        c.insets = java.awt.Insets(5, 5, 5, 5) // 恢复默认间距
         form.add(timeoutLabel, c)
         c.gridx = 1
         form.add(timeoutSpinner, c)
 
-        // 最大并发请求数
+        // ===== 偏好设置区域 =====
         c.gridx = 0
         c.gridy++
-        form.add(concurrentLabel, c)
-        c.gridx = 1
-        form.add(concurrentSpinner, c)
-
-        // 缓存最大条目数
-        c.gridx = 0
-        c.gridy++
-        form.add(cacheMaxLabel, c)
-        c.gridx = 1
-        form.add(cacheMaxSpinner, c)
-
-        // 内存使用阈值（MB）
-        c.gridx = 0
-        c.gridy++
-        form.add(memoryThresholdLabel, c)
-        c.gridx = 1
-        form.add(memoryThresholdSpinner, c)
-
-        // ===== 分隔线：偏好设置区域 =====
-        c.gridx = 0
-        c.gridy++
+        c.insets = java.awt.Insets(20, 5, 10, 5) // 区域标题：上间距20，下间距10
         form.add(prefSectionLabel, c)
 
         // 语言偏好（生成内容）
         c.gridy++
+        c.insets = java.awt.Insets(5, 5, 5, 5) // 恢复默认间距
         form.add(langPrefLabel, c)
         c.gridx = 1
         form.add(langPrefCombo, c)
-
-        // 界面语言
-        c.gridx = 0
-        c.gridy++
-        form.add(uiLangLabel, c)
-        c.gridx = 1
-        form.add(uiLangCombo, c)
 
         // 命名风格
         c.gridx = 0
@@ -234,6 +211,17 @@ class NekoamaConfigurable : Configurable {
         // 记录默认的回显字符，用于显示/隐藏切换
         defaultEchoChar = apiKeyField.echoChar
 
+        // 上下文分析深度滑块监听器：更新数值标签
+        depthSlider.addChangeListener {
+            depthValueLabel.text = "${depthSlider.value} (1-3)"
+        }
+
+        // 模型温度滑块监听器：更新数值标签（显示为0.00-1.00范围）
+        tempSlider.addChangeListener {
+            val tempValue = tempSlider.value / 100.0
+            tempValueLabel.text = String.format("%.2f (0.00-1.00)", tempValue)
+        }
+
         // 显示/隐藏 API Key 回显（中文说明：仅改变 JPasswordField 回显，不改变存储安全性）
         toggleSecretButton.addActionListener {
             secretVisible = !secretVisible
@@ -250,20 +238,11 @@ class NekoamaConfigurable : Configurable {
             NekoamaNotifier.info(NekoamaBundle.message("notification.success"))
         }
 
-        // Provider 切换时更新可编辑状态
-        providerCombo.addActionListener {
-            val isCustom = providerCombo.selectedItem?.toString() == "Custom"
-            modelLabel.isEnabled = isCustom
-            modelField.isEnabled = isCustom
-            endpointHelpLabel.isVisible = isCustom
-        }
-
         // 测试连接：在后台线程执行实际网络请求，避免阻塞 EDT
         testButton.addActionListener {
             testButton.isEnabled = false
             testResultLabel.text = NekoamaBundle.message("settings.ai.test.connecting")
             testResultLabel.foreground = JBColor.CYAN
-            val provider = providerCombo.selectedItem?.toString()?.trim().orEmpty()
             val endpoint = endpointField.text.trim()
             val inlineKey = String(apiKeyField.password).trim()
             val model = modelField.text.trim().ifEmpty { settings.model }
@@ -276,46 +255,25 @@ class NekoamaConfigurable : Configurable {
                 val anyKey = inlineKey.ifBlank { storedKey }
                 var errorMessage: String? = null
                 val success = try {
-                    if (provider == "OpenAI") {
-                        val cfg = com.cw2.nekoama.ai.provider.openai.OpenAIConfig(
-                            apiUrl = endpoint.ifBlank { "https://api.openai.com/v1" },
-                            apiKey = anyKey,
-                            model = model.ifBlank { "gpt-4o-mini" },
-                            temperature = temperature,
-                            timeoutMs = settings.requestTimeoutMs.toLong()
-                        )
-                        val client = com.cw2.nekoama.ai.provider.openai.OpenAIHttpClient(cfg)
-                        val req = com.cw2.nekoama.ai.provider.openai.OpenAIRequest(
-                            model = cfg.model,
-                            messages = listOf(com.cw2.nekoama.ai.provider.openai.OpenAIMessage("user", "ping")),
-                            maxTokens = 1
-                        )
-                        val result = client.sendRequestSync(req)
-                        if (!result.isSuccess) {
-                            errorMessage = result.errorOrNull()?.message ?: "未知错误"
-                        }
-                        result.isSuccess
-                    } else {
-                        val cfg = com.cw2.nekoama.ai.provider.custom.CustomAPIConfig(
-                            providerName = "Custom",
-                            apiUrl = endpoint,
-                            apiKey = anyKey,
-                            model = model.ifBlank { "gpt-4o-mini" },
-                            temperature = temperature,
-                            timeoutMs = settings.requestTimeoutMs.toLong()
-                        )
-                        val client = com.cw2.nekoama.ai.provider.custom.CustomAPIHttpClient(cfg)
-                        val req = com.cw2.nekoama.ai.provider.openai.OpenAIRequest(
-                            model = cfg.model,
-                            messages = listOf(com.cw2.nekoama.ai.provider.openai.OpenAIMessage("user", "ping")),
-                            maxTokens = 10
-                        )
-                        val result = client.sendRequestSync(req)
-                        if (!result.isSuccess) {
-                            errorMessage = result.errorOrNull()?.message ?: "未知错误"
-                        }
-                        result.isSuccess
+                    val cfg = com.cw2.nekoama.ai.provider.custom.CustomAPIConfig(
+                        providerName = "Custom",
+                        apiUrl = endpoint,
+                        apiKey = anyKey,
+                        model = model.ifBlank { "gpt-4o-mini" },
+                        temperature = temperature,
+                        timeoutMs = settings.requestTimeoutMs.toLong()
+                    )
+                    val client = com.cw2.nekoama.ai.provider.custom.CustomAPIHttpClient(cfg)
+                    val req = com.cw2.nekoama.ai.provider.openai.OpenAIRequest(
+                        model = cfg.model,
+                        messages = listOf(com.cw2.nekoama.ai.provider.openai.OpenAIMessage("user", "ping")),
+                        maxTokens = 10
+                    )
+                    val result = client.sendRequestSync(req)
+                    if (!result.isSuccess) {
+                        errorMessage = result.errorOrNull()?.message ?: "未知错误"
                     }
+                    result.isSuccess
                 } catch (t: Throwable) {
                     errorMessage = t.message ?: "网络连接异常"
                     false
@@ -339,14 +297,6 @@ class NekoamaConfigurable : Configurable {
             }
         }
 
-        // 初始化可见性状态
-        run {
-            val isCustom = providerCombo.selectedItem?.toString() == "Custom"
-            modelLabel.isEnabled = isCustom
-            modelField.isEnabled = isCustom
-            endpointHelpLabel.isVisible = isCustom
-        }
-
         panel.add(form, BorderLayout.NORTH)
         
         // 在后台线程初始化缓存的 API Key，避免 EDT 违规
@@ -365,18 +315,13 @@ class NekoamaConfigurable : Configurable {
             cacheEnabled.isSelected != settings.cacheEnabled ||
             autoTrigger.isSelected != settings.autoTrigger ||
             depthSlider.value != settings.contextDepth ||
-            providerCombo.selectedItem?.toString() != settings.aiProvider ||
             endpointField.text != settings.apiEndpoint ||
             modelField.text != settings.model ||
             // 比对输入框与缓存的安全存储值，避免泄露明文到配置和 EDT 违规
             String(apiKeyField.password) != cachedApiKey ||
             tempSlider.value != settings.modelTemperature ||
             (timeoutSpinner.value as Number).toInt() != settings.requestTimeoutMs ||
-            (concurrentSpinner.value as Number).toInt() != settings.maxConcurrentRequests ||
-            (cacheMaxSpinner.value as Number).toInt() != settings.cacheMaxEntries ||
-            (memoryThresholdSpinner.value as Number).toInt() != settings.memoryUsageThresholdMb ||
             langPrefCombo.selectedItem?.toString() != settings.languagePreference ||
-            uiLangCombo.selectedItem?.toString() != settings.uiLanguagePreference ||
             namingStyleCombo.selectedItem?.toString() != settings.namingStyle ||
             commentFormatCombo.selectedItem?.toString() != settings.commentFormat
     }
@@ -389,7 +334,7 @@ class NekoamaConfigurable : Configurable {
         settings.autoTrigger = autoTrigger.isSelected
         settings.contextDepth = depthSlider.value
 
-        settings.aiProvider = providerCombo.selectedItem?.toString() ?: settings.aiProvider
+        settings.aiProvider = "Custom"  // 固定为 Custom
         settings.apiEndpoint = endpointField.text.trim()
         settings.model = modelField.text.trim()
         // 将密钥写入 IDE 安全存储，避免明文持久化 - 异步操作避免阻塞EDT
@@ -405,13 +350,9 @@ class NekoamaConfigurable : Configurable {
 
         // 高级性能设置（仅保存数值，实际联动由相关组件读取使用）
         settings.requestTimeoutMs = (timeoutSpinner.value as Number).toInt()
-        settings.maxConcurrentRequests = (concurrentSpinner.value as Number).toInt()
-        settings.cacheMaxEntries = (cacheMaxSpinner.value as Number).toInt()
-        settings.memoryUsageThresholdMb = (memoryThresholdSpinner.value as Number).toInt()
 
         // 偏好设置
         settings.languagePreference = langPrefCombo.selectedItem?.toString() ?: settings.languagePreference
-        settings.uiLanguagePreference = uiLangCombo.selectedItem?.toString() ?: settings.uiLanguagePreference
         settings.namingStyle = namingStyleCombo.selectedItem?.toString() ?: settings.namingStyle
         settings.commentFormat = commentFormatCombo.selectedItem?.toString() ?: settings.commentFormat
     }
@@ -423,8 +364,8 @@ class NekoamaConfigurable : Configurable {
         cacheEnabled.isSelected = settings.cacheEnabled
         autoTrigger.isSelected = settings.autoTrigger
         depthSlider.value = settings.contextDepth
+        depthValueLabel.text = "${settings.contextDepth} (1-3)" // 更新深度值标签
 
-        providerCombo.selectedItem = settings.aiProvider
         endpointField.text = settings.apiEndpoint
         modelField.text = settings.model
         // 优先从缓存加载密钥到输入框（仅供编辑，不代表持久化），避免 EDT 违规
@@ -434,16 +375,13 @@ class NekoamaConfigurable : Configurable {
         toggleSecretButton.text = NekoamaBundle.message("settings.ai.apikey.show")
         apiKeyField.echoChar = defaultEchoChar
         tempSlider.value = settings.modelTemperature
+        tempValueLabel.text = String.format("%.2f (0.00-1.00)", settings.modelTemperature / 100.0) // 更新温度值标签
 
         // 高级性能设置
         timeoutSpinner.value = settings.requestTimeoutMs
-        concurrentSpinner.value = settings.maxConcurrentRequests
-        cacheMaxSpinner.value = settings.cacheMaxEntries
-        memoryThresholdSpinner.value = settings.memoryUsageThresholdMb
 
         // 偏好设置
         langPrefCombo.selectedItem = settings.languagePreference
-        uiLangCombo.selectedItem = settings.uiLanguagePreference
         namingStyleCombo.selectedItem = settings.namingStyle
         commentFormatCombo.selectedItem = settings.commentFormat
     }

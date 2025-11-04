@@ -49,36 +49,7 @@ internal object NekoamaBundle : DynamicBundle(BUNDLE) {
 
     @Nls
     fun message(@PropertyKey(resourceBundle = BUNDLE) key: String, vararg params: Any): String {
-        // 根据设置决定 UI 文案语言；AUTO 使用 IDE 当前语言
-        return try {
-            val settings = com.cw2.nekoama.data.settings.NekoamaSettings.getInstance()
-            when (settings.uiLanguagePreference.uppercase()) {
-                "EN" -> messageForLocale(key, java.util.Locale.ENGLISH, *params)
-                "ZH", "ZH_CN", "ZH-CN" -> messageForLocale(key, java.util.Locale.SIMPLIFIED_CHINESE, *params)
-                else -> getMessage(key, *params) // AUTO -> 交给 IDE 当前 Locale
-            }
-        } catch (_: Throwable) {
-            // 在早期启动阶段可能获取不到设置或发生异常，使用默认
-            getMessage(key, *params)
-        }
-    }
-
-    private fun messageForLocale(
-        @PropertyKey(resourceBundle = BUNDLE) key: String,
-        locale: java.util.Locale,
-        vararg params: Any
-    ): String {
-        return try {
-            val bundle = java.util.ResourceBundle.getBundle(BUNDLE, locale, UTF8_CONTROL)
-            val pattern = bundle.getString(key)
-            val formatter = java.text.MessageFormat(pattern, locale)
-            formatter.format(params)
-        } catch (_: Throwable) {
-            // 如果指定语言缺少资源，则退回 EN
-            val fallbackBundle = java.util.ResourceBundle.getBundle(BUNDLE, java.util.Locale.ENGLISH, UTF8_CONTROL)
-            val pattern = fallbackBundle.getString(key)
-            val formatter = java.text.MessageFormat(pattern, java.util.Locale.ENGLISH)
-            formatter.format(params)
-        }
+        // 使用 IDE 当前语言设置
+        return getMessage(key, *params)
     }
 }

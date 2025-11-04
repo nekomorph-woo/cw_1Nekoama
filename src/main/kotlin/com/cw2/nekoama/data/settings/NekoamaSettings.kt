@@ -33,8 +33,8 @@ class NekoamaSettings : PersistentStateComponent<NekoamaSettings> {
     // ===== AI 服务配置（第三阶段新增） =====
     // 说明：
     // - 为了最小变更，先使用明文字段存储；后续阶段将迁移到 IDE 安全存储（见安全与隐私章节）。
-    // - provider 取值建议：OpenAI / Custom（与现有 provider 实现对应）。
-    var aiProvider: String = "OpenAI"
+    // - provider 固定为 Custom，支持 OpenAI 兼容的自定义 API。
+    var aiProvider: String = "Custom"
     var apiEndpoint: String = ""
     var apiKey: String = ""
     // 自定义/兼容 OpenAI 的模型名称（Custom 模式下可编辑），例如：gpt-4o-mini、gpt-4、qwen2.5
@@ -48,18 +48,13 @@ class NekoamaSettings : PersistentStateComponent<NekoamaSettings> {
     // - 采用保守的默认值，避免给 IDE 带来额外压力
     // - 数值单位采用毫秒/条目数/MB，UI 中进行约束与提示
     var requestTimeoutMs: Int = 60000 // 单请求超时，默认 60s（AI服务响应可能较慢）
-    var maxConcurrentRequests: Int = 6 // 全局最大并发请求数，默认 6（兼顾响应与稳定）
-    var cacheMaxEntries: Int = 500 // 缓存最大条目数（具体策略由缓存层决定）
-    var memoryUsageThresholdMb: Int = 200 // 内存使用阈值，用于后续自适应降级
 
     // ===== 偏好设置（第三阶段：2.2-13） =====
     // 说明（中文）：
     // - languagePreference: 生成内容语言偏好（AUTO/EN/ZH），用于控制 AI 生成注释/说明等文本的语言。
-    // - uiLanguagePreference: 界面文案语言（AUTO/EN/ZH），用于控制 Nekoama 的 UI 文案语言；AUTO 根据 IDE 环境，否则回退 EN。
     // - namingStyle: 命名风格（CAMEL_CASE/SNAKE_CASE），作为生成与校验的偏好输入。
     // - commentFormat: 注释格式（LINE/JAVADOC/JSDOC），用于控制模板输出样式。
     var languagePreference: String = "AUTO"
-    var uiLanguagePreference: String = "AUTO"
     var namingStyle: String = "CAMEL_CASE"
     var commentFormat: String = "JAVADOC"
 
