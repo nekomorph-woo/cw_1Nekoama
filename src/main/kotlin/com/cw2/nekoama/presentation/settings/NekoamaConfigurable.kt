@@ -91,6 +91,9 @@ class NekoamaConfigurable : Configurable {
     // 缓存的 API Key 值，避免在 isModified() 和 reset() 中重复调用安全存储（EDT 违规）
     private var cachedApiKey: String = ""
 
+    // API KEY 加载状态标记，确保数据已准备就绪
+    private var isApiKeyLoaded: Boolean = false
+
     init {
         // 设置区域标题的字体为粗体，使其更加醒目
         val boldFont = perfSectionLabel.font.deriveFont(java.awt.Font.BOLD)
@@ -232,7 +235,12 @@ class NekoamaConfigurable : Configurable {
         // 清除已保存的 API Key（安全存储与内存字段同时清理）
         clearSecretButton.addActionListener {
             apiKeyField.text = ""
-            NekoamaSecureStorage.clearApiKey()
+            // 清空缓存和重置加载状态
+            cachedApiKey = ""
+            isApiKeyLoaded = true
+            ApplicationManager.getApplication().executeOnPooledThread {
+                NekoamaSecureStorage.clearApiKey()
+            }
             // 同时清空旧的明文字段，便于迁移
             settings.apiKey = ""
             NekoamaNotifier.info(NekoamaBundle.message("notification.success"))
@@ -298,10 +306,56 @@ class NekoamaConfigurable : Configurable {
         }
 
         panel.add(form, BorderLayout.NORTH)
-        
-        // 在后台线程初始化缓存的 API Key，避免 EDT 违规
+
+        // 同步初始化API KEY，确保首次打开时数据已准备就绪
+        initializeApiKey()
+    }
+
+    /**
+     * 初始化API KEY，确保首次打开时数据已准备就绪
+     */
+    private fun initializeApiKey() {
+        // 先在后台线程加载，避免EDT违规
         ApplicationManager.getApplication().executeOnPooledThread {
             cachedApiKey = NekoamaSecureStorage.getApiKey()
+            isApiKeyLoaded = true
+            // 在EDT中更新UI状态，确保密码框正确显示已保存状态
+            ApplicationManager.getApplication().invokeLater {
+                updateApiKeyFieldState()
+            }
+        }
+    }
+
+    /**
+     * 更新API KEY输入框状态
+     * 确保密码框正确显示已保存状态
+     */
+    private fun updateApiKeyFieldState() {
+        if (isApiKeyLoaded) {
+            // 如果有缓存的API KEY，但输入框为空，则填入缓存的值
+            if (apiKeyField.password.isEmpty() && cachedApiKey.isNotEmpty()) {
+                apiKeyField.text = cachedApiKey
+            }
+            // 确保密码框状态正确
+            if (!secretVisible) {
+                apiKeyField.echoChar = defaultEchoChar
+                toggleSecretButton.text = NekoamaBundle.message("settings.ai.apikey.show")
+            }
+        }
+    }
+
+    /**
+     * 获取API KEY值，如果缓存未加载则同步读取
+     */
+    private fun getApiKey(): String {
+        return if (isApiKeyLoaded) {
+            cachedApiKey
+        } else {
+            // 如果缓存未加载，同步读取以确保数据正确性
+            NekoamaSecureStorage.getApiKey().also {
+                cachedApiKey = it
+                isApiKeyLoaded = true
+            }
         }
     }
 
@@ -317,8 +371,8 @@ class NekoamaConfigurable : Configurable {
             depthSlider.value != settings.contextDepth ||
             endpointField.text != settings.apiEndpoint ||
             modelField.text != settings.model ||
-            // 比对输入框与缓存的安全存储值，避免泄露明文到配置和 EDT 违规
-            String(apiKeyField.password) != cachedApiKey ||
+            // 使用getApiKey()确保获取到正确的API KEY值，避免缓存未加载的问题
+            String(apiKeyField.password) != getApiKey() ||
             tempSlider.value != settings.modelTemperature ||
             (timeoutSpinner.value as Number).toInt() != settings.requestTimeoutMs ||
             langPrefCombo.selectedItem?.toString() != settings.languagePreference ||
@@ -339,11 +393,12 @@ class NekoamaConfigurable : Configurable {
         settings.model = modelField.text.trim()
         // 将密钥写入 IDE 安全存储，避免明文持久化 - 异步操作避免阻塞EDT
         val newKey = String(apiKeyField.password).trim()
+        // 同时更新缓存值，保持一致性
+        cachedApiKey = newKey
+        isApiKeyLoaded = true
         ApplicationManager.getApplication().executeOnPooledThread {
             NekoamaSecureStorage.setApiKey(newKey)
         }
-        // 同时更新缓存值，保持一致性
-        cachedApiKey = newKey
         // 清空旧的明文字段，保留向后兼容字段但不再写入
         settings.apiKey = ""
         settings.modelTemperature = tempSlider.value
@@ -368,12 +423,16 @@ class NekoamaConfigurable : Configurable {
 
         endpointField.text = settings.apiEndpoint
         modelField.text = settings.model
-        // 优先从缓存加载密钥到输入框（仅供编辑，不代表持久化），避免 EDT 违规
-        apiKeyField.text = cachedApiKey
+
+        // 使用getApiKey()确保获取到正确的API KEY值，处理异步加载时序问题
+        val currentApiKey = getApiKey()
+        apiKeyField.text = currentApiKey
+
         // 重置显示状态为隐藏
         secretVisible = false
         toggleSecretButton.text = NekoamaBundle.message("settings.ai.apikey.show")
         apiKeyField.echoChar = defaultEchoChar
+
         tempSlider.value = settings.modelTemperature
         tempValueLabel.text = String.format("%.2f (0.00-1.00)", settings.modelTemperature / 100.0) // 更新温度值标签
 

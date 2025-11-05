@@ -92,4 +92,34 @@ src/main/kotlin/com/cw2/nekoama/
 - `src/main/kotlin/com/cw2/nekoama/ai/provider/openai/OpenAIProvider.kt` - OpenAI service implementation
 - `src/main/kotlin/com/cw2/nekoama/presentation/actions/GenerateNamingAction.kt` - Core action implementation
 - `build.gradle.kts` - Build configuration with all dependencies and repositories
+- `gradle/libs.versions.toml` - Version catalog for dependency management
+- `gradle.properties` - Gradle configuration and dependency versions
 - `README.md` - Project documentation and usage guide
+
+## Development Guidelines
+
+### Dependency Management
+- Uses Gradle Version Catalogs (`gradle/libs.versions.toml`) for centralized dependency versioning
+- Versions are also declared in `gradle.properties` for build script reference
+- Dependencies are organized into bundles for logical grouping
+
+### Chinese Mirror Configuration
+- Build system is configured with Chinese Maven mirrors for faster dependency resolution
+- Primary mirrors: maven.aliyun.com for central, jcenter, spring, and apache-snapshots repositories
+
+### Testing Setup
+- Test framework: JUnit Jupiter 5.10.1 with MockK for mocking
+- Integration testing support with TestContainers
+- MockWebServer for HTTP client testing
+- Currently no test sources exist in the project
+
+### Code Quality
+- Detekt static analysis configured (version 1.23.4)
+- KtLint integration available (version 0.50.0)
+- No existing detekt configuration file - can be generated with `./gradlew detektGenerateConfig`
+
+### Plugin Development Specifics
+- Supports Kotlin K2 compiler mode
+- Uses IntelliJ Platform Gradle Plugin 2.7.1
+- Bundled plugins required: com.intellij.java, org.jetbrains.kotlin
+- All network operations run in background tasks with proper cancellation support
