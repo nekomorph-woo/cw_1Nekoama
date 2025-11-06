@@ -1,5 +1,6 @@
 package com.cw2.nekoama.presentation.toolwindow
 
+import com.cw2.nekoama.core.logging.NekoamaLogger
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
@@ -7,18 +8,36 @@ import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.content.ContentFactory
 
 /**
- * 工具窗口工厂（最小实现）
+ * Nekoama工具窗口工厂
  *
- * 说明：
- * - 提供一个欢迎面板，后续再扩展统计/状态/日志等子面板
+ * 使用新的模块化架构，支持Tab管理和状态保持。
  */
 class NekoamaToolWindowFactory : ToolWindowFactory, DumbAware {
+
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
-        // 使用功能完整的工具窗口，包含统计、分析、历史数据等所有功能
-        val fullFeaturedToolWindow = FullFeaturedToolWindow()
-        val component = fullFeaturedToolWindow.getComponent()
-        val content = ContentFactory.getInstance().createContent(component, null, false)
-        toolWindow.contentManager.addContent(content)
+        try {
+            // 使用新的模块化工具窗口
+            val modularToolWindow = ModularToolWindow()
+            val component = modularToolWindow.getComponent()
+            val content = ContentFactory.getInstance().createContent(component, null, false)
+            toolWindow.contentManager.addContent(content)
+
+            NekoamaLogger.info("NekoamaToolWindowFactory", "Nekoama tool window created successfully")
+        } catch (e: Exception) {
+            NekoamaLogger.error("NekoamaToolWindowFactory", "Failed to create Nekoama tool window", error = e)
+
+            // 备用方案：使用旧的工具窗口
+            try {
+                val fallbackWindow = FullFeaturedToolWindow()
+                val component = fallbackWindow.getComponent()
+                val content = ContentFactory.getInstance().createContent(component, null, false)
+                toolWindow.contentManager.addContent(content)
+
+                NekoamaLogger.warn("NekoamaToolWindowFactory", "Fallback to FullFeaturedToolWindow due to ModularToolWindow failure")
+            } catch (fallbackError: Exception) {
+                NekoamaLogger.error("NekoamaToolWindowFactory", "Failed to create fallback tool window", error = fallbackError)
+            }
+        }
     }
 
     override fun shouldBeAvailable(project: Project): Boolean = true
