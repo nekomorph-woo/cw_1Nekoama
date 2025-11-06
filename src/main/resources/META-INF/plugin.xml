@@ -45,6 +45,9 @@
         <!-- 启动时安装键入处理器（避免使用将移除的扩展点） -->
         <postStartupActivity implementation="com.cw2.nekoama.platform.lifecycle.NekoamaProjectActivity"/>
 
+        <!-- 初始化指标系统 -->
+        <postStartupActivity implementation="com.cw2.nekoama.platform.lifecycle.MetricsInitializer"/>
+
         <!-- Live Template 自定义宏注册：用于 AI 注释生成占位与替换 -->
         <liveTemplateMacro implementation="com.cw2.nekoama.presentation.templates.NekoamaAiCommentMacro"/>
     </extensions>

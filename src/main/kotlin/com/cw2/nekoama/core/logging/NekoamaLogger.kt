@@ -178,10 +178,12 @@ object NekoamaLogger {
         if (success) {
             info("AI_CALL", "AI 服务调用成功", context)
             logPerformance("AI_CALL", durationMs, context)
-            // 记录 Token 使用量到指标采集器（中文说明：便于工具窗口统计展示）
+            // 记录 Token 使用量到增强版指标采集器（中文说明：便于工具窗口统计展示）
             tokenCount?.let {
                 try {
-                    com.cw2.nekoama.core.metrics.MetricsCollector.recordTokens(it)
+                    kotlinx.coroutines.runBlocking {
+                        com.cw2.nekoama.core.metrics.EnhancedMetricsCollector.recordTokens(it)
+                    }
                 } catch (_: Throwable) {
                     // 指标统计失败不影响主流程
                 }

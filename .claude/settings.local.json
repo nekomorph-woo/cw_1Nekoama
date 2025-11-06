@@ -4,7 +4,11 @@
       "Bash(dir:*)",
       "Bash(git log:*)",
       "Bash(nul)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(./gradlew compileKotlin:*)",
+      "Bash(./gradlew buildPlugin:*)",
+      "Bash(./gradlew test:*)",
+      "Bash(./gradlew:*)"
     ],
     "deny": [],
     "ask": []

@@ -14,8 +14,9 @@ import com.intellij.ui.content.ContentFactory
  */
 class NekoamaToolWindowFactory : ToolWindowFactory, DumbAware {
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
-        // 使用独立的 NekoamaToolWindow 组装面板，便于后续扩展多个子面板
-        val component = NekoamaToolWindow().getComponent()
+        // 使用功能完整的工具窗口，包含统计、分析、历史数据等所有功能
+        val fullFeaturedToolWindow = FullFeaturedToolWindow()
+        val component = fullFeaturedToolWindow.getComponent()
         val content = ContentFactory.getInstance().createContent(component, null, false)
         toolWindow.contentManager.addContent(content)
     }
