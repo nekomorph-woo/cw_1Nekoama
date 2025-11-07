@@ -5,11 +5,19 @@ import com.cw2.nekoama.core.metrics.ActionType
 import com.cw2.nekoama.core.logging.NekoamaLogger
 import com.cw2.nekoama.data.settings.NekoamaSettings
 import com.cw2.nekoama.presentation.messages.NekoamaBundle
+import com.intellij.icons.AllIcons
 import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.ui.components.JBLabel
-import com.intellij.ui.Gray
+import com.intellij.ui.components.JBPanel
+import com.intellij.ui.components.JBScrollPane
+import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.JBEmptyBorder
 import com.intellij.util.ui.JBFont
+import com.intellij.util.ui.UIUtil
+import com.intellij.ui.Gray
+import javax.swing.border.EmptyBorder
+import java.awt.event.ActionListener
+import javax.swing.Timer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,7 +32,6 @@ import java.awt.GridBagLayout
 import java.awt.FlowLayout
 import java.awt.Insets
 import javax.swing.*
-import javax.swing.border.EmptyBorder
 
 /**
  * 概览Tab
@@ -38,12 +45,20 @@ class OverviewTab : BaseNekoamaTab() {
     override val tooltip = "快速访问常用功能和查看状态摘要"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private val mainPanel = JPanel(BorderLayout())
+    private val mainPanel = JBPanel<JBPanel<*>>(BorderLayout())
 
     // 状态组件
     private val connectionStatusLabel = JBLabel("检查中...")
     private val configStatusLabel = JBLabel("检查中...")
     private val todayUsageLabel = JBLabel("加载中...")
+
+    // 动画组件（性能优化：使用对象缓存）
+    private val loadingIcon = AllIcons.Process.Step_1
+    private var loadingTimer: Timer? = null
+
+    // 性能优化：防抖机制避免频繁刷新
+    private var lastRefreshTime = 0L
+    private val refreshDebounceMs = 2000L // 2秒防抖
 
     init {
         setupUI()
@@ -56,9 +71,9 @@ class OverviewTab : BaseNekoamaTab() {
      */
     private fun setupUI() {
         // 滚动面板支持内容较多时的滚动
-        val scrollPane = JScrollPane(createContentPanel())
-        scrollPane.verticalScrollBarPolicy = JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED
-        scrollPane.horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+        val scrollPane = JBScrollPane(createContentPanel())
+        scrollPane.verticalScrollBarPolicy = JBScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED
+        scrollPane.horizontalScrollBarPolicy = JBScrollPane.HORIZONTAL_SCROLLBAR_NEVER
         scrollPane.border = null
 
         mainPanel.add(scrollPane, BorderLayout.CENTER)
@@ -67,25 +82,25 @@ class OverviewTab : BaseNekoamaTab() {
     /**
      * 创建主内容面板
      */
-    private fun createContentPanel(): JPanel {
-        val contentPanel = JPanel()
+    private fun createContentPanel(): JBPanel<JBPanel<*>> {
+        val contentPanel = JBPanel<JBPanel<*>>()
         contentPanel.layout = BoxLayout(contentPanel, BoxLayout.Y_AXIS)
-        contentPanel.border = EmptyBorder(10, 10, 10, 10)
+        contentPanel.border = JBEmptyBorder(JBUI.insets(10))
 
         // 状态信息卡片
         contentPanel.add(createStatusCard())
 
-        contentPanel.add(Box.createVerticalStrut(10))
+        contentPanel.add(Box.createVerticalStrut(JBUI.scale(10)))
 
         // 快速操作卡片
         contentPanel.add(createQuickActionsCard())
 
-        contentPanel.add(Box.createVerticalStrut(10))
+        contentPanel.add(Box.createVerticalStrut(JBUI.scale(10)))
 
         // 使用摘要卡片
         contentPanel.add(createUsageSummaryCard())
 
-        contentPanel.add(Box.createVerticalStrut(10))
+        contentPanel.add(Box.createVerticalStrut(JBUI.scale(10)))
 
         // 最近活动卡片
         contentPanel.add(createRecentActivityCard())
@@ -96,33 +111,36 @@ class OverviewTab : BaseNekoamaTab() {
     /**
      * 创建状态信息卡片
      */
-    private fun createStatusCard(): JPanel {
-        val card = JPanel(BorderLayout())
-        card.border = EmptyBorder(15, 15, 15, 15)
-        card.background = if (card.background != null) Gray._245 else null
+    private fun createStatusCard(): JBPanel<JBPanel<*>> {
+        val card = JBPanel<JBPanel<*>>(BorderLayout())
+        card.border = JBEmptyBorder(JBUI.insets(15))
+        card.background = UIUtil.getPanelBackground()
 
         // 标题
         val titleLabel = JBLabel(NekoamaBundle.message("overview.connection.status"))
-        titleLabel.font = titleLabel.font.deriveFont(16f).deriveFont(JBFont.BOLD)
+        titleLabel.font = JBFont.label().asBold()
+        titleLabel.icon = AllIcons.General.InspectionsEye
 
         // 状态信息
-        val statusPanel = JPanel()
+        val statusPanel = JBPanel<JBPanel<*>>()
         statusPanel.layout = BoxLayout(statusPanel, BoxLayout.Y_AXIS)
 
-        val connectionRow = createStatusRow("AI服务", connectionStatusLabel)
-        val configRow = createStatusRow(NekoamaBundle.message("overview.config.status"), configStatusLabel)
+        val connectionRow = createStatusRow("AI服务", connectionStatusLabel, AllIcons.General.Information)
+        val configRow = createStatusRow(NekoamaBundle.message("overview.config.status"), configStatusLabel, AllIcons.General.Settings)
 
         statusPanel.add(connectionRow)
-        statusPanel.add(Box.createVerticalStrut(5))
+        statusPanel.add(Box.createVerticalStrut(JBUI.scale(5)))
         statusPanel.add(configRow)
 
         // 刷新状态按钮
-        val refreshButton = JButton(NekoamaBundle.message("overview.refresh.status"))
+        val refreshButton = JButton(AllIcons.Actions.Refresh)
+        refreshButton.text = NekoamaBundle.message("overview.refresh.status")
+        refreshButton.isFocusable = false
         refreshButton.addActionListener {
             refreshStatus()
         }
 
-        val buttonPanel = JPanel(FlowLayout(FlowLayout.LEFT))
+        val buttonPanel = JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.LEFT))
         buttonPanel.add(refreshButton)
 
         card.add(titleLabel, BorderLayout.NORTH)
@@ -350,12 +368,15 @@ class OverviewTab : BaseNekoamaTab() {
     /**
      * 创建状态行
      */
-    private fun createStatusRow(label: String, valueLabel: JLabel): JPanel {
-        val row = JPanel(BorderLayout())
-        row.border = EmptyBorder(2, 0, 2, 0)
+    private fun createStatusRow(label: String, valueLabel: JLabel, icon: Icon? = null): JBPanel<JBPanel<*>> {
+        val row = JBPanel<JBPanel<*>>(BorderLayout())
+        row.border = JBEmptyBorder(JBUI.insets(2, 0, 2, 0))
 
         val labelComponent = JBLabel("$label:")
-        labelComponent.preferredSize = Dimension(80, 20)
+        labelComponent.preferredSize = Dimension(JBUI.scale(80), JBUI.scale(20))
+        if (icon != null) {
+            labelComponent.icon = icon
+        }
 
         row.add(labelComponent, BorderLayout.WEST)
         row.add(valueLabel, BorderLayout.CENTER)
@@ -382,9 +403,20 @@ class OverviewTab : BaseNekoamaTab() {
     }
 
     /**
-     * 刷新状态信息
+     * 刷新状态信息（带防抖优化）
      */
     private fun refreshStatus() {
+        // 性能优化：防抖机制避免频繁刷新
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastRefreshTime < refreshDebounceMs) {
+            NekoamaLogger.debug("OverviewTab", "refreshStatus call debounced")
+            return
+        }
+        lastRefreshTime = currentTime
+
+        // 开始加载动画
+        startLoadingAnimation()
+
         scope.launch {
             try {
                 // 检查AI服务连接状态
@@ -396,13 +428,52 @@ class OverviewTab : BaseNekoamaTab() {
                 // 更新使用摘要
                 updateUsageSummary()
 
-                NekoamaLogger.debug("OverviewTab", "status refreshed")
+                // 停止加载动画
+                stopLoadingAnimation()
+
+                NekoamaLogger.debug("OverviewTab", "status refreshed successfully")
             } catch (e: Exception) {
                 NekoamaLogger.error("OverviewTab", "Failed to refresh status", error = e)
                 connectionStatusLabel.text = "检查失败"
                 connectionStatusLabel.foreground = UIManager.getColor("Label.errorForeground")
+                stopLoadingAnimation()
             }
         }
+    }
+
+    /**
+     * 开始加载动画
+     */
+    private fun startLoadingAnimation() {
+        // 设置加载状态
+        connectionStatusLabel.text = "检查中..."
+        connectionStatusLabel.foreground = UIManager.getColor("Label.foreground")
+        connectionStatusLabel.icon = loadingIcon
+
+        configStatusLabel.text = "检查中..."
+        configStatusLabel.foreground = UIManager.getColor("Label.foreground")
+        configStatusLabel.icon = loadingIcon
+
+        // 简单的闪烁动画
+        var toggle = true
+        loadingTimer = Timer(500, ActionListener {
+            toggle = !toggle
+            connectionStatusLabel.icon = if (toggle) loadingIcon else null
+            configStatusLabel.icon = if (toggle) loadingIcon else null
+        })
+        loadingTimer?.start()
+    }
+
+    /**
+     * 停止加载动画
+     */
+    private fun stopLoadingAnimation() {
+        loadingTimer?.stop()
+        loadingTimer = null
+
+        // 清除加载图标
+        connectionStatusLabel.icon = null
+        configStatusLabel.icon = null
     }
 
     /**
@@ -621,12 +692,96 @@ class OverviewTab : BaseNekoamaTab() {
 
     override fun dispose() {
         try {
+            // 性能优化：确保所有定时器被停止
+            loadingTimer?.stop()
+            loadingTimer = null
+
+            // 取消所有协程任务
             scope.cancel()
-            NekoamaLogger.debug("OverviewTab", "disposed")
+
+            // 清理缓存状态
+            lastRefreshTime = 0L
+
+            NekoamaLogger.debug("OverviewTab", "disposed with performance optimizations")
         } catch (e: Exception) {
             NekoamaLogger.error("OverviewTab", "Error disposing OverviewTab", error = e)
         }
     }
 
     override fun getComponent(): JComponent = mainPanel
+
+    /**
+     * 创建响应式状态卡片
+     */
+    private fun createResponsiveStatusCard(): JBPanel<JBPanel<*>> {
+        val card = JBPanel<JBPanel<*>>(BorderLayout())
+        card.border = JBEmptyBorder(JBUI.insets(12))
+        card.background = UIUtil.getPanelBackground()
+
+        // 标题栏
+        val titleLabel = JBLabel("系统状态")
+        titleLabel.font = JBFont.label().asBold()
+        titleLabel.icon = AllIcons.General.Information
+
+        // 状态网格
+        val statusGrid = JBPanel<JBPanel<*>>()
+        statusGrid.layout = GridBagLayout()
+        val gbc = GridBagConstraints()
+        gbc.insets = JBUI.insets(4)
+        gbc.fill = GridBagConstraints.HORIZONTAL
+        gbc.weightx = 1.0
+
+        // 添加状态项
+        addStatusItem(statusGrid, gbc, 0, 0, "AI服务", connectionStatusLabel, AllIcons.General.Information)
+        addStatusItem(statusGrid, gbc, 0, 1, "配置状态", configStatusLabel, AllIcons.General.Settings)
+        addStatusItem(statusGrid, gbc, 1, 0, "今日使用", todayUsageLabel, AllIcons.Nodes.Console)
+
+        // 刷新按钮
+        val refreshButton = JButton(AllIcons.Actions.Refresh)
+        refreshButton.toolTipText = "刷新状态"
+        refreshButton.isFocusable = false
+        refreshButton.addActionListener { refreshStatus() }
+
+        val buttonPanel = JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.RIGHT))
+        buttonPanel.add(refreshButton)
+
+        card.add(titleLabel, BorderLayout.NORTH)
+        card.add(statusGrid, BorderLayout.CENTER)
+        card.add(buttonPanel, BorderLayout.SOUTH)
+
+        return card
+    }
+
+    /**
+     * 添加状态项到网格
+     */
+    private fun addStatusItem(
+        grid: JBPanel<*>,
+        gbc: GridBagConstraints,
+        row: Int,
+        col: Int,
+        label: String,
+        valueLabel: JBLabel,
+        icon: Icon? = null
+    ) {
+        gbc.gridx = col
+        gbc.gridy = row
+        gbc.weightx = if (col == 0) 0.3 else 0.7
+
+        val itemPanel = JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.LEFT, JBUI.scale(4), 0))
+
+        val iconLabel = JBLabel()
+        if (icon != null) {
+            iconLabel.icon = icon
+        }
+        itemPanel.add(iconLabel)
+
+        val textLabel = JBLabel("$label:")
+        textLabel.font = JBFont.label().asBold()
+        itemPanel.add(textLabel)
+
+        itemPanel.add(valueLabel)
+
+        grid.add(itemPanel, gbc)
+    }
 }

@@ -4,6 +4,7 @@ import com.cw2.nekoama.core.metrics.EnhancedMetricsCollector
 import com.cw2.nekoama.core.metrics.ActionType
 import com.cw2.nekoama.core.metrics.ErrorType
 import com.cw2.nekoama.core.logging.NekoamaLogger
+import com.cw2.nekoama.presentation.messages.NekoamaBundle
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.Gray
 import com.intellij.util.ui.JBEmptyBorder
@@ -47,10 +48,26 @@ class TokenStatsTab : BaseNekoamaTab() {
     // Tab状态
     private var currentView = "basic" // basic | detailed
     private var lastRefreshTime = 0L
+    private var autoRefreshEnabled = true
 
     init {
         setupUI()
+        setupAutoRefresh()
         NekoamaLogger.debug("TokenStatsTab", "initialized")
+    }
+
+    /**
+     * 设置自动刷新机制
+     */
+    private fun setupAutoRefresh() {
+        scope.launch {
+            while (autoRefreshEnabled) {
+                delay(30000) // 每30秒自动刷新一次
+                if (isActive) {
+                    refreshTabContent()
+                }
+            }
+        }
     }
 
     /**
@@ -70,8 +87,23 @@ class TokenStatsTab : BaseNekoamaTab() {
 
         // 创建刷新按钮
         val refreshButton = JButton("刷新")
+        refreshButton.toolTipText = "刷新所有统计数据"
         refreshButton.addActionListener {
             refreshTabContent()
+        }
+
+        // 创建导出按钮
+        val exportButton = JButton("导出")
+        exportButton.toolTipText = "导出Token使用数据"
+        exportButton.addActionListener {
+            exportTokenData()
+        }
+
+        // 创建重置按钮
+        val resetButton = JButton("重置")
+        resetButton.toolTipText = "重置Token统计"
+        resetButton.addActionListener {
+            resetTokenStats()
         }
 
         // 按钮面板
@@ -80,6 +112,10 @@ class TokenStatsTab : BaseNekoamaTab() {
         buttonPanel.add(toggleButton)
         buttonPanel.add(Box.createHorizontalStrut(5))
         buttonPanel.add(refreshButton)
+        buttonPanel.add(Box.createHorizontalStrut(5))
+        buttonPanel.add(exportButton)
+        buttonPanel.add(Box.createHorizontalStrut(5))
+        buttonPanel.add(resetButton)
 
         // 主布局
         mainPanel.add(buttonPanel, BorderLayout.NORTH)
@@ -137,10 +173,22 @@ class TokenStatsTab : BaseNekoamaTab() {
         val panel = JPanel()
         panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
 
-        panel.add(createInfoRow("今日Token", "${snapshot.tokensToday}"))
-        panel.add(createInfoRow("本周Token", "${snapshot.tokensWeek}"))
-        panel.add(createInfoRow("本月Token", "${snapshot.tokensMonth}"))
-        panel.add(createInfoRow("累计Token", "${snapshot.tokensTotal}"))
+        // Token使用统计
+        panel.add(createInfoRow("今日Token", formatNumber(snapshot.tokensToday)))
+        panel.add(createInfoRow("本周Token", formatNumber(snapshot.tokensWeek)))
+        panel.add(createInfoRow("本月Token", formatNumber(snapshot.tokensMonth)))
+        panel.add(createInfoRow("累计Token", formatNumber(snapshot.tokensTotal)))
+
+        // 添加分隔线
+        panel.add(Box.createVerticalStrut(10))
+        val separator1 = JSeparator()
+        separator1.foreground = Gray._240
+        panel.add(separator1)
+        panel.add(Box.createVerticalStrut(10))
+
+        // 请求统计
+        panel.add(createInfoRow("今日请求", "${snapshot.today} 次"))
+        panel.add(createInfoRow("成功率", String.format("%.1f%%", snapshot.successRate * 100)))
 
         return panel
     }
@@ -165,10 +213,25 @@ class TokenStatsTab : BaseNekoamaTab() {
         val panel = JPanel()
         panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
 
+        // 基础性能指标
         panel.add(createInfoRow("平均延迟", "${snapshot.averageLatencyMs}ms"))
         panel.add(createInfoRow("成功率", String.format("%.1f%%", snapshot.successRate * 100)))
-        panel.add(createInfoRow("日均使用", String.format("%.1f", snapshot.avgRequestsPerDay)))
+        panel.add(createInfoRow("日均使用", String.format("%.1f 次", snapshot.avgRequestsPerDay)))
         panel.add(createInfoRow("高峰时段", "${snapshot.peakUsageHour}:00"))
+
+        // 添加分隔线
+        panel.add(Box.createVerticalStrut(10))
+        val separator = JSeparator()
+        separator.foreground = Gray._240
+        panel.add(separator)
+        panel.add(Box.createVerticalStrut(10))
+
+        // 效率指标
+        val tokensPerRequest = if (snapshot.today > 0) snapshot.tokensToday.toDouble() / snapshot.today else 0.0
+        panel.add(createInfoRow("平均Token/请求", String.format("%.1f", tokensPerRequest)))
+
+        val avgCostPerRequest = tokensPerRequest * 0.002 // 假设每个Token成本为$0.002
+        panel.add(createInfoRow("平均成本/请求", String.format("$%.4f", avgCostPerRequest)))
 
         return panel
     }
@@ -342,7 +405,9 @@ class TokenStatsTab : BaseNekoamaTab() {
     override fun getTabState(): Map<String, Any> {
         return mapOf(
             "currentView" to currentView,
-            "lastRefreshTime" to lastRefreshTime
+            "lastRefreshTime" to lastRefreshTime,
+            "autoRefreshEnabled" to autoRefreshEnabled,
+            "timestamp" to System.currentTimeMillis()
         )
     }
 
@@ -350,11 +415,18 @@ class TokenStatsTab : BaseNekoamaTab() {
         try {
             currentView = state["currentView"] as? String ?: "basic"
             lastRefreshTime = (state["lastRefreshTime"] as? Long) ?: 0L
+            autoRefreshEnabled = (state["autoRefreshEnabled"] as? Boolean) ?: true
 
             // 恢复视图显示
             cardLayout.show(contentPanel, currentView)
 
-            NekoamaLogger.debug("TokenStatsTab", "state restored: view=$currentView")
+            // 如果距离上次刷新超过30秒，立即刷新
+            val timeSinceLastRefresh = System.currentTimeMillis() - lastRefreshTime
+            if (timeSinceLastRefresh > 30000) {
+                refreshTabContent()
+            }
+
+            NekoamaLogger.debug("TokenStatsTab", "state restored: view=$currentView, autoRefresh=$autoRefreshEnabled")
         } catch (e: Exception) {
             NekoamaLogger.error("TokenStatsTab", "Failed to restore TokenStatsTab state", error = e)
         }
@@ -387,6 +459,111 @@ class TokenStatsTab : BaseNekoamaTab() {
             ErrorType.TIMEOUT_ERROR -> "超时错误"
             ErrorType.PARSING_ERROR -> "解析错误"
             ErrorType.UNKNOWN_ERROR -> "未知错误"
+        }
+    }
+
+    /**
+     * 格式化数字显示
+     */
+    private fun formatNumber(number: Int): String {
+        return when {
+            number >= 1000000 -> String.format("%.1fM", number / 1000000.0)
+            number >= 1000 -> String.format("%.1fK", number / 1000.0)
+            else -> number.toString()
+        }
+    }
+
+    /**
+     * 导出Token数据
+     */
+    private fun exportTokenData() {
+        scope.launch {
+            try {
+                val snapshot = runBlocking { EnhancedMetricsCollector.getEnhancedSnapshot() }
+
+                val exportData = buildString {
+                    appendLine("=== Nekoama Token 使用统计 ===")
+                    appendLine("导出时间: ${java.time.LocalDateTime.now()}")
+                    appendLine()
+                    appendLine("=== Token 使用情况 ===")
+                    appendLine("今日Token: ${snapshot.tokensToday}")
+                    appendLine("本周Token: ${snapshot.tokensWeek}")
+                    appendLine("本月Token: ${snapshot.tokensMonth}")
+                    appendLine("累计Token: ${snapshot.tokensTotal}")
+                    appendLine()
+                    appendLine("=== 请求统计 ===")
+                    appendLine("今日请求: ${snapshot.today}")
+                    appendLine("成功率: ${String.format("%.2f%%", snapshot.successRate * 100)}")
+                    appendLine("平均延迟: ${snapshot.averageLatencyMs}ms")
+                    appendLine()
+                    appendLine("=== 使用模式分析 ===")
+                    appendLine("最常用功能: ${formatActionType(snapshot.mostUsedAction)}")
+                    appendLine("日均使用: ${String.format("%.1f", snapshot.avgRequestsPerDay)}")
+                    appendLine("高峰时段: ${snapshot.peakUsageHour}:00")
+                }
+
+                // 复制到剪贴板
+                val clipboard = java.awt.Toolkit.getDefaultToolkit().systemClipboard
+                val stringSelection = java.awt.datatransfer.StringSelection(exportData)
+                clipboard.setContents(stringSelection, null)
+
+                JOptionPane.showMessageDialog(
+                    mainPanel,
+                    "Token统计数据已导出到剪贴板",
+                    "导出成功",
+                    JOptionPane.INFORMATION_MESSAGE
+                )
+
+                NekoamaLogger.debug("TokenStatsTab", "Token data exported successfully")
+
+            } catch (e: Exception) {
+                NekoamaLogger.error("TokenStatsTab", "Failed to export token data", error = e)
+                JOptionPane.showMessageDialog(
+                    mainPanel,
+                    "导出失败: ${e.message}",
+                    "错误",
+                    JOptionPane.ERROR_MESSAGE
+                )
+            }
+        }
+    }
+
+    /**
+     * 重置Token统计
+     */
+    private fun resetTokenStats() {
+        scope.launch {
+            val result = JOptionPane.showConfirmDialog(
+                mainPanel,
+                "确定要重置Token统计数据吗？\n此操作将清除所有历史记录，无法撤销。",
+                "确认重置",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+            )
+
+            if (result == JOptionPane.YES_OPTION) {
+                try {
+                    // 这里可以调用重置统计的方法
+                    // 目前先显示提示信息
+                    JOptionPane.showMessageDialog(
+                        mainPanel,
+                        "重置功能正在开发中...\n如需重置数据，请联系开发者",
+                        "提示",
+                        JOptionPane.INFORMATION_MESSAGE
+                    )
+
+                    NekoamaLogger.debug("TokenStatsTab", "User requested to reset token stats")
+
+                } catch (e: Exception) {
+                    NekoamaLogger.error("TokenStatsTab", "Failed to reset token stats", error = e)
+                    JOptionPane.showMessageDialog(
+                        mainPanel,
+                        "重置失败: ${e.message}",
+                        "错误",
+                        JOptionPane.ERROR_MESSAGE
+                    )
+                }
+            }
         }
     }
 }
