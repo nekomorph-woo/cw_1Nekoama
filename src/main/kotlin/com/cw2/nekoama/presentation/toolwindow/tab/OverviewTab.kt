@@ -154,9 +154,7 @@ class OverviewTab : BaseNekoamaTab() {
      * 创建快速操作卡片
      */
     private fun createQuickActionsCard(): JPanel {
-        val card = JPanel(BorderLayout())
-        card.border = EmptyBorder(15, 15, 15, 15)
-        card.background = if (card.background != null) Gray._245 else null
+        val card = createThemedCard(15, 15, 15, 15)
 
         // 标题
         val titleLabel = JBLabel(NekoamaBundle.message("overview.quick.actions"))
@@ -205,9 +203,7 @@ class OverviewTab : BaseNekoamaTab() {
      * 创建使用摘要卡片
      */
     private fun createUsageSummaryCard(): JPanel {
-        val card = JPanel(BorderLayout())
-        card.border = EmptyBorder(15, 15, 15, 15)
-        card.background = if (card.background != null) Gray._245 else null
+        val card = createThemedCard(15, 15, 15, 15)
 
         // 标题
         val titleLabel = JBLabel(NekoamaBundle.message("overview.usage.summary"))
@@ -259,9 +255,7 @@ class OverviewTab : BaseNekoamaTab() {
      * 创建最近活动卡片
      */
     private fun createRecentActivityCard(): JPanel {
-        val card = JPanel(BorderLayout())
-        card.border = EmptyBorder(15, 15, 15, 15)
-        card.background = if (card.background != null) Gray._245 else null
+        val card = createThemedCard(15, 15, 15, 15)
 
         // 标题
         val titleLabel = JBLabel(NekoamaBundle.message("overview.recent.activity"))
@@ -335,8 +329,8 @@ class OverviewTab : BaseNekoamaTab() {
      */
     private fun createActivityItem(trend: com.cw2.nekoama.core.metrics.DailyTrendPoint): JComponent {
         val itemPanel = JPanel(BorderLayout())
-        itemPanel.border = EmptyBorder(8, 8, 8, 8)
-        itemPanel.background = if (itemPanel.background != null) Gray._248 else null
+        itemPanel.border = JBEmptyBorder(JBUI.insets(8, 8, 8, 8))
+        itemPanel.background = UIUtil.getPanelBackground().brighter()
 
         // 日期标签
         val dateLabel = JBLabel(trend.date.substring(5)) // 显示MM-DD格式

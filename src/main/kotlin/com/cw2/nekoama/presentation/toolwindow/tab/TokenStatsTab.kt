@@ -318,9 +318,7 @@ class TokenStatsTab : BaseNekoamaTab() {
      * 创建指标卡片
      */
     private fun createMetricCard(title: String, content: JComponent): JComponent {
-        val card = JPanel(BorderLayout())
-        card.border = EmptyBorder(10, 10, 10, 10)
-        card.background = if (card.background != null) Gray._245 else null
+        val card = createThemedCard(10, 10, 10, 10)
 
         val titleLabel = JBLabel(title)
         titleLabel.font = titleLabel.font.deriveFont(14f).deriveFont(JBFont.BOLD)

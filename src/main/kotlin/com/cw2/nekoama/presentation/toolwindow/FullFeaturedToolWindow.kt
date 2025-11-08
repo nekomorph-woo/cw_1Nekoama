@@ -6,8 +6,8 @@ import com.cw2.nekoama.presentation.messages.NekoamaBundle
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBTabbedPane
 import com.intellij.util.ui.JBUI
-import com.intellij.ui.Gray
 import com.intellij.util.ui.JBEmptyBorder
+import com.intellij.util.ui.UIUtil
 import java.awt.BorderLayout
 import java.awt.CardLayout
 import java.awt.Dimension
@@ -141,8 +141,8 @@ class FullFeaturedToolWindow : MetricsUpdateListener {
 
     private fun createMetricCard(title: String, content: JComponent): JComponent {
         val card = JPanel(BorderLayout())
-        card.border = EmptyBorder(10, 10, 10, 10)
-        card.background = if (card.background != null) Gray._245 else null
+        card.border = JBEmptyBorder(JBUI.insets(10, 10, 10, 10))
+        card.background = UIUtil.getPanelBackground()
 
         val titleLabel = JBLabel(title)
         titleLabel.font = titleLabel.font.deriveFont(14f).deriveFont(JBFont.BOLD)

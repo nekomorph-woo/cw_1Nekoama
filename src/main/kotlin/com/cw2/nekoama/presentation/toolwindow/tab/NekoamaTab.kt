@@ -2,8 +2,13 @@ package com.cw2.nekoama.presentation.toolwindow.tab
 
 import com.cw2.nekoama.core.metrics.MetricsUpdateListener
 import com.cw2.nekoama.presentation.messages.NekoamaBundle
+import com.intellij.util.ui.JBUI
+import com.intellij.util.ui.JBEmptyBorder
+import com.intellij.util.ui.UIUtil
+import java.awt.BorderLayout
 import java.awt.Component
 import javax.swing.Icon
+import javax.swing.JPanel
 
 /**
  * Nekoama工具窗口Tab接口
@@ -116,6 +121,44 @@ abstract class BaseNekoamaTab : NekoamaTab, MetricsUpdateListener {
         if (isActive) {
             refresh()
         }
+    }
+
+    /**
+     * 创建主题感知的卡片容器
+     * 自动适配当前IDE主题的背景色
+     */
+    protected fun createThemedCard(): JPanel {
+        val card = JPanel(BorderLayout())
+        card.border = JBEmptyBorder(JBUI.insets(12))
+        card.background = UIUtil.getPanelBackground()
+        return card
+    }
+
+    /**
+     * 创建带边距的主题感知卡片容器
+     * @param top 上边距
+     * @param left 左边距
+     * @param bottom 下边距
+     * @param right 右边距
+     */
+    protected fun createThemedCard(top: Int, left: Int, bottom: Int, right: Int): JPanel {
+        val card = JPanel(BorderLayout())
+        card.border = JBEmptyBorder(JBUI.insets(top, left, bottom, right))
+        card.background = UIUtil.getPanelBackground()
+        return card
+    }
+
+    /**
+     * 为现有组件应用主题感知样式
+     * @param panel 要应用样式的面板
+     * @param top 上边距
+     * @param left 左边距
+     * @param bottom 下边距
+     * @param right 右边距
+     */
+    protected fun applyThemedStyle(panel: JPanel, top: Int = 12, left: Int = 12, bottom: Int = 12, right: Int = 12) {
+        panel.border = JBEmptyBorder(JBUI.insets(top, left, bottom, right))
+        panel.background = UIUtil.getPanelBackground()
     }
 }
 
