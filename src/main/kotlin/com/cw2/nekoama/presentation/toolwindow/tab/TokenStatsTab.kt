@@ -10,6 +10,7 @@ import com.intellij.ui.Gray
 import com.intellij.util.ui.JBEmptyBorder
 import com.intellij.util.ui.JBFont
 import com.intellij.util.ui.JBUI
+import com.intellij.util.ui.UIUtil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -20,8 +21,11 @@ import kotlinx.coroutines.cancel
 import java.awt.BorderLayout
 import java.awt.CardLayout
 import java.awt.Dimension
+import java.awt.FlowLayout
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import javax.swing.*
 import javax.swing.border.EmptyBorder
 
@@ -230,9 +234,7 @@ class TokenStatsTab : BaseNekoamaTab() {
         val tokensPerRequest = if (snapshot.today > 0) snapshot.tokensToday.toDouble() / snapshot.today else 0.0
         panel.add(createInfoRow("平均Token/请求", String.format("%.1f", tokensPerRequest)))
 
-        val avgCostPerRequest = tokensPerRequest * 0.002 // 假设每个Token成本为$0.002
-        panel.add(createInfoRow("平均成本/请求", String.format("$%.4f", avgCostPerRequest)))
-
+        
         return panel
     }
 
@@ -294,21 +296,56 @@ class TokenStatsTab : BaseNekoamaTab() {
      * 创建趋势分析组件
      */
     private fun createTrendAnalysis(snapshot: com.cw2.nekoama.core.metrics.EnhancedMetricsSnapshot): JComponent {
-        val panel = JPanel()
+        val panel = createThemedCard()
         panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
 
         // 显示最近7天的趋势
-        panel.add(JBLabel("最近7天使用趋势:"))
+        val titleLabel = JBLabel("最近7天使用趋势:")
+        titleLabel.font = titleLabel.font.deriveFont(JBFont.BOLD)
+        panel.add(titleLabel)
 
+        // 使用流式布局避免挤压
         val trendPanel = JPanel()
-        trendPanel.layout = BoxLayout(trendPanel, BoxLayout.X_AXIS)
+        trendPanel.layout = FlowLayout(FlowLayout.LEFT, 8, 4)
+        trendPanel.background = UIUtil.getPanelBackground()
+
+        val dateFormatter = DateTimeFormatter.ofPattern("MM-dd")
 
         snapshot.dailyTrend.forEach { trend ->
-            val label = JBLabel("${trend.date.substring(5)}: ${trend.requests}", SwingConstants.CENTER)
-            label.border = EmptyBorder(0, 2, 0, 2)
-            trendPanel.add(label)
+            try {
+                // 解析日期并格式化为更好的显示格式
+                val localDate = LocalDate.parse(trend.date)
+                val displayDate = localDate.format(dateFormatter)
+
+                // 创建趋势项卡片
+                val trendItem = JPanel()
+                trendItem.layout = BorderLayout()
+                trendItem.border = JBEmptyBorder(JBUI.insets(6, 10, 6, 10))
+                trendItem.background = UIUtil.getPanelBackground().brighter()
+
+                // 日期标签
+                val dateLabel = JBLabel(displayDate, SwingConstants.CENTER)
+                dateLabel.font = dateLabel.font.deriveFont(11f).deriveFont(JBFont.BOLD)
+
+                // 请求数量标签
+                val requestsLabel = JBLabel("${trend.requests}次", SwingConstants.CENTER)
+                requestsLabel.font = requestsLabel.font.deriveFont(10f)
+                requestsLabel.foreground = Gray._100
+
+                trendItem.add(dateLabel, BorderLayout.NORTH)
+                trendItem.add(requestsLabel, BorderLayout.SOUTH)
+
+                trendPanel.add(trendItem)
+            } catch (e: Exception) {
+                // 如果日期解析失败，使用原格式
+                NekoamaLogger.warn("TokenStatsTab", "Failed to parse date: ${trend.date}", error = e)
+                val fallbackLabel = JBLabel("${trend.date.substring(5)}: ${trend.requests}", SwingConstants.CENTER)
+                fallbackLabel.border = JBEmptyBorder(JBUI.insets(6, 10, 6, 10))
+                trendPanel.add(fallbackLabel)
+            }
         }
 
+        panel.add(Box.createVerticalStrut(8))
         panel.add(trendPanel)
 
         return panel

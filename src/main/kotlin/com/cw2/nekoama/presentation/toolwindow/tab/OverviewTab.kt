@@ -31,6 +31,8 @@ import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.FlowLayout
 import java.awt.Insets
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import javax.swing.*
 
 /**
@@ -333,7 +335,15 @@ class OverviewTab : BaseNekoamaTab() {
         itemPanel.background = UIUtil.getPanelBackground().brighter()
 
         // 日期标签
-        val dateLabel = JBLabel(trend.date.substring(5)) // 显示MM-DD格式
+        val displayDate = try {
+            val localDate = LocalDate.parse(trend.date)
+            val formatter = DateTimeFormatter.ofPattern("MM-dd")
+            localDate.format(formatter)
+        } catch (e: Exception) {
+            // 如果日期解析失败，使用原格式
+            trend.date.substring(5)
+        }
+        val dateLabel = JBLabel(displayDate)
         dateLabel.font = dateLabel.font.deriveFont(12f).deriveFont(JBFont.BOLD)
         dateLabel.preferredSize = Dimension(60, 20)
 
