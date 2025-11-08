@@ -6,12 +6,9 @@ import com.intellij.credentialStore.generateServiceName
 import com.intellij.ide.passwordSafe.PasswordSafe
 
 /**
- * Nekoama 安全存储封装（用于保存敏感信息，如 API Key）
+ * Nekoama 安全存储封装
  *
- * 设计说明（中文）：
- * - 使用 IntelliJ 平台提供的 PasswordSafe 持久化敏感数据，避免明文写入插件配置。
- * - 仅封装最小 API：读/写/清除。后续如需多账户可扩展 serviceKey。
- * - 读失败或不存在时返回空字符串，调用方自行处理默认值与回退。
+ * 使用 IntelliJ PasswordSafe 保存敏感信息，提供读/写/清除 API。
  */
 object NekoamaSecureStorage {
     private const val SERVICE_NAME: String = "Nekoama"

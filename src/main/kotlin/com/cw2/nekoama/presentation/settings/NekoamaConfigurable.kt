@@ -45,7 +45,7 @@ class NekoamaConfigurable : Configurable {
     private val depthSlider = JSlider(1, 3, 2)
     private val depthValueLabel = JLabel("2 (1-3)") // 显示当前值和范围
 
-    // AI 服务配置区域（第三阶段新增）
+    // AI 服务配置区域
     private val endpointLabel = JLabel(NekoamaBundle.message("settings.ai.endpoint"))
     private val endpointField = JTextField(24)
     private val endpointHelpLabel = JLabel(NekoamaBundle.message("settings.ai.endpoint.hint"))
@@ -63,17 +63,12 @@ class NekoamaConfigurable : Configurable {
     private val testButton = JButton(NekoamaBundle.message("settings.ai.test"))
     private val testResultLabel = JLabel("")
 
-    // 性能优化区域（第三阶段：2.2-12）
-    // 说明（中文）：
-    // - 使用 JSpinner + SpinnerNumberModel 提供有界数值输入，避免非法值；步进值体现使用建议
-    // - 仅做基本 UI 绑定，不在此处引入实际的限流/超时联动，避免超出本次改动范围
+    // 性能优化区域
     private val perfSectionLabel = JLabel(NekoamaBundle.message("settings.perf.section"))
     private val timeoutLabel = JLabel(NekoamaBundle.message("settings.perf.timeout"))
     private val timeoutSpinner = JSpinner(SpinnerNumberModel(30000, 1000, 1200000, 1000))
 
-    // 偏好设置区域（第三阶段：2.2-13）
-    // 说明（中文）：
-    // - 简单的下拉选择，便于与生成策略解耦；后续可以在 Provider 端读取使用。
+    // 偏好设置区域
     private val prefSectionLabel = JLabel(NekoamaBundle.message("settings.pref.section"))
     private val langPrefLabel = JLabel(NekoamaBundle.message("settings.pref.language"))
     private val langPrefCombo = JComboBox(arrayOf("AUTO", "EN", "ZH"))
@@ -88,7 +83,7 @@ class NekoamaConfigurable : Configurable {
     private var secretVisible: Boolean = false
     private var defaultEchoChar: Char = '\u2022'
     
-    // 缓存的 API Key 值，避免在 isModified() 和 reset() 中重复调用安全存储（EDT 违规）
+    // 缓存的 API Key 值，避免重复调用安全存储
     private var cachedApiKey: String = ""
 
     // API KEY 加载状态标记，确保数据已准备就绪
@@ -246,7 +241,7 @@ class NekoamaConfigurable : Configurable {
             NekoamaNotifier.info(NekoamaBundle.message("notification.success"))
         }
 
-        // 测试连接：在后台线程执行实际网络请求，避免阻塞 EDT
+        // 测试连接：后台线程执行网络请求
         testButton.addActionListener {
             testButton.isEnabled = false
             testResultLabel.text = NekoamaBundle.message("settings.ai.test.connecting")
@@ -258,7 +253,7 @@ class NekoamaConfigurable : Configurable {
             val temperature = tempSlider.value / 100.0
 
             ApplicationManager.getApplication().executeOnPooledThread {
-                // 在后台线程中获取存储的 API Key，避免 EDT 违规
+                // 在后台线程中获取存储的 API Key
                 val storedKey = NekoamaSecureStorage.getApiKey()
                 val anyKey = inlineKey.ifBlank { storedKey }
                 var errorMessage: String? = null
@@ -315,7 +310,7 @@ class NekoamaConfigurable : Configurable {
      * 初始化API KEY，确保首次打开时数据已准备就绪
      */
     private fun initializeApiKey() {
-        // 先在后台线程加载，避免EDT违规
+        // 在后台线程加载 API Key
         ApplicationManager.getApplication().executeOnPooledThread {
             cachedApiKey = NekoamaSecureStorage.getApiKey()
             isApiKeyLoaded = true
@@ -391,7 +386,7 @@ class NekoamaConfigurable : Configurable {
         settings.aiProvider = "Custom"  // 固定为 Custom
         settings.apiEndpoint = endpointField.text.trim()
         settings.model = modelField.text.trim()
-        // 将密钥写入 IDE 安全存储，避免明文持久化 - 异步操作避免阻塞EDT
+        // 将密钥写入 IDE 安全存储
         val newKey = String(apiKeyField.password).trim()
         // 同时更新缓存值，保持一致性
         cachedApiKey = newKey

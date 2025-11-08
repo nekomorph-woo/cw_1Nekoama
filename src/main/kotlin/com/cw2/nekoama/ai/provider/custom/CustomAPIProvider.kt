@@ -13,8 +13,6 @@ import kotlinx.serialization.Serializable
 /**
  * 自定义 API 服务提供商实现
  * 
- * 支持任何与 OpenAI API 兼容的服务端点，包括 Azure OpenAI、本地部署的模型、
- * 或其他兼容 OpenAI API 格式的第三方服务。提供灵活的配置选项和认证方式。
  */
 class CustomAPIProvider(
     override val config: CustomAPIConfig
@@ -165,7 +163,6 @@ class CustomAPIProvider(
 /**
  * 自定义 API 配置实现
  * 
- * 提供比标准 OpenAI 配置更灵活的选项，支持自定义认证方式和请求头
  */
 @Serializable
 data class CustomAPIConfig(

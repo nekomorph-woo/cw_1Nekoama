@@ -5,10 +5,7 @@ import com.intellij.codeInsight.template.impl.DefaultLiveTemplatesProvider
 /*
  * Live Template 提供器
  *
- * 设计说明（中文）：
- * - 通过 DefaultLiveTemplatesProvider 注册资源路径下的模板文件（templates/nekoama.xml）。
- * - 采用资源方式而不是代码动态拼装，便于后续在不改动代码的情况下调整模板内容与预览。
- * - 模板命名归入 "Nekoama" 组，避免与用户自定义模板冲突。
+ * 注册 Nekoama 组的 Live Template 模板文件。
  */
 class NekoamaLiveTemplatesProvider : DefaultLiveTemplatesProvider {
     override fun getDefaultLiveTemplateFiles(): Array<String> = arrayOf("templates/nym")

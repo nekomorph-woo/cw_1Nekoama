@@ -10,12 +10,9 @@ import javax.swing.JComponent
 import javax.swing.JPanel
 
 /**
- * Nekoama 工具窗口主面板（小幅扩展：加入使用统计）
+ * Nekoama 工具窗口主面板
  *
- * 设计说明（中文）：
- * - 在原有欢迎文本基础上，增加一个“使用统计”区块，用简单文本展示核心数据。
- * - 保持实现轻量，不引入图表与复杂刷新机制；提供手动“刷新”按钮满足最小可用。
- * - 统计数据来源于 MetricsCollector，后续可在各 Action/Provider 调用处补充 record 调用。
+ * 显示使用统计和核心功能入口。
  */
 class NekoamaToolWindow {
     fun getComponent(): JComponent {

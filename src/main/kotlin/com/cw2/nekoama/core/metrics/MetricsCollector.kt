@@ -7,18 +7,12 @@ import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.max
 
 /**
- * 简易指标采集器（第三阶段：工具窗口使用统计的最小实现）
+ * 简易指标采集器
  *
- * 设计说明（中文）：
- * - 仅收集最核心的四项：总请求数、成功数、累计耗时、当日请求数。
- * - 提供线程安全的自增与快照读取，避免引入复杂依赖。
- * - 复杂图表/时间窗口统计留待后续阶段，这里只做“可见即可用”。
+ * 收集核心使用统计：总请求数、成功数、累计耗时、Token使用量。
  */
 object MetricsCollector {
-    // ===== Token 统计（第三阶段：3.1-17） =====
-    // 中文说明：
-    // - 为满足“Token 使用量统计”展示需求，实现今日/本周/本月/累计四个维度的轻量计数。
-    // - 使用原子变量确保线程安全；按自然日/周/月进行边界滚动重置。
+    // ===== Token 统计 =====
     private val tokensTotal = AtomicLong(0)
     private val tokensToday = AtomicLong(0)
     private val tokensWeek = AtomicLong(0)
