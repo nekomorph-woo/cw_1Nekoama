@@ -43,7 +43,7 @@ class NekoamaConfigurable : Configurable {
     private val autoTrigger = JCheckBox(NekoamaBundle.message("settings.auto.trigger"))
     private val depthLabel = JLabel(NekoamaBundle.message("settings.context.depth"))
     private val depthSlider = JSlider(1, 3, 2)
-    private val depthValueLabel = JLabel("2 (1-3)") // 显示当前值和范围
+    private val depthValueLabel = JLabel(NekoamaBundle.message("settings.depth.value", "2", "1", "3")) // 显示当前值和范围
 
     // AI 服务配置区域
     private val endpointLabel = JLabel(NekoamaBundle.message("settings.ai.endpoint"))
@@ -59,7 +59,7 @@ class NekoamaConfigurable : Configurable {
     private val clearSecretButton = JButton(NekoamaBundle.message("settings.ai.apikey.clear"))
     private val tempLabel = JLabel(NekoamaBundle.message("settings.ai.temperature"))
     private val tempSlider = JSlider(0, 100, 70)
-    private val tempValueLabel = JLabel("0.70 (0.00-1.00)") // 显示当前值和范围
+    private val tempValueLabel = JLabel(NekoamaBundle.message("settings.temperature.value", "0.70", "0.00", "1.00")) // 显示当前值和范围
     private val testButton = JButton(NekoamaBundle.message("settings.ai.test"))
     private val testResultLabel = JLabel("")
 
@@ -211,13 +211,13 @@ class NekoamaConfigurable : Configurable {
 
         // 上下文分析深度滑块监听器：更新数值标签
         depthSlider.addChangeListener {
-            depthValueLabel.text = "${depthSlider.value} (1-3)"
+            depthValueLabel.text = NekoamaBundle.message("settings.depth.value", depthSlider.value.toString(), "1", "3")
         }
 
         // 模型温度滑块监听器：更新数值标签（显示为0.00-1.00范围）
         tempSlider.addChangeListener {
             val tempValue = tempSlider.value / 100.0
-            tempValueLabel.text = String.format("%.2f (0.00-1.00)", tempValue)
+            tempValueLabel.text = String.format(NekoamaBundle.message("settings.temperature.value.format"), tempValue)
         }
 
         // 显示/隐藏 API Key 回显（中文说明：仅改变 JPasswordField 回显，不改变存储安全性）
@@ -274,11 +274,11 @@ class NekoamaConfigurable : Configurable {
                     )
                     val result = client.sendRequestSync(req)
                     if (!result.isSuccess) {
-                        errorMessage = result.errorOrNull()?.message ?: "未知错误"
+                        errorMessage = result.errorOrNull()?.message ?: NekoamaBundle.message("settings.test.unknown.error")
                     }
                     result.isSuccess
                 } catch (t: Throwable) {
-                    errorMessage = t.message ?: "网络连接异常"
+                    errorMessage = t.message ?: NekoamaBundle.message("settings.test.network.error")
                     false
                 }
 
@@ -414,7 +414,7 @@ class NekoamaConfigurable : Configurable {
         cacheEnabled.isSelected = settings.cacheEnabled
         autoTrigger.isSelected = settings.autoTrigger
         depthSlider.value = settings.contextDepth
-        depthValueLabel.text = "${settings.contextDepth} (1-3)" // 更新深度值标签
+        depthValueLabel.text = NekoamaBundle.message("settings.depth.value", settings.contextDepth.toString(), "1", "3") // 更新深度值标签
 
         endpointField.text = settings.apiEndpoint
         modelField.text = settings.model
@@ -429,7 +429,7 @@ class NekoamaConfigurable : Configurable {
         apiKeyField.echoChar = defaultEchoChar
 
         tempSlider.value = settings.modelTemperature
-        tempValueLabel.text = String.format("%.2f (0.00-1.00)", settings.modelTemperature / 100.0) // 更新温度值标签
+        tempValueLabel.text = String.format(NekoamaBundle.message("settings.temperature.value.format"), settings.modelTemperature / 100.0) // 更新温度值标签
 
         // 高级性能设置
         timeoutSpinner.value = settings.requestTimeoutMs

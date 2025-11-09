@@ -58,16 +58,16 @@ class FullFeaturedToolWindow : MetricsUpdateListener {
         historyPanel = createHistoryPanel()
 
         // 添加Tab
-        tabbedPane.addTab("概览统计", overviewPanel)
-        tabbedPane.addTab("详细分析", detailsPanel)
-        tabbedPane.addTab("历史数据", historyPanel)
+        tabbedPane.addTab(NekoamaBundle.message("fullfeatured.tab.overview"), overviewPanel)
+        tabbedPane.addTab(NekoamaBundle.message("fullfeatured.tab.details"), detailsPanel)
+        tabbedPane.addTab(NekoamaBundle.message("fullfeatured.tab.history"), historyPanel)
 
         // 布局
         val headerPanel = JPanel(BorderLayout())
         headerPanel.border = EmptyBorder(0, 0, 10, 0)
         headerPanel.add(titleLabel, BorderLayout.WEST)
 
-        val refreshButton = JButton("刷新所有数据")
+        val refreshButton = JButton(NekoamaBundle.message("fullfeatured.button.refresh.all"))
         refreshButton.addActionListener { refreshAllData() }
         headerPanel.add(refreshButton, BorderLayout.EAST)
 
@@ -87,8 +87,8 @@ class FullFeaturedToolWindow : MetricsUpdateListener {
 
         // 控制按钮
         val controlPanel = JPanel()
-        val refreshButton = JButton("刷新详细统计")
-        val exportButton = JButton("导出分析报告")
+        val refreshButton = JButton(NekoamaBundle.message("fullfeatured.button.refresh.details"))
+        val exportButton = JButton(NekoamaBundle.message("fullfeatured.button.export.report"))
 
         refreshButton.addActionListener { refreshDetailedStats() }
         exportButton.addActionListener { exportAnalysisReport() }
@@ -109,7 +109,7 @@ class FullFeaturedToolWindow : MetricsUpdateListener {
         // 添加说明文字
         val infoPanel = JPanel()
         infoPanel.border = EmptyBorder(5, 5, 5, 5)
-        infoPanel.add(JBLabel("查看历史使用数据，支持按日期范围、操作类型等条件筛选"))
+        infoPanel.add(JBLabel(NekoamaBundle.message("fullfeatured.info.history.description")))
 
         panel.add(infoPanel, BorderLayout.NORTH)
         panel.add(historyViewer.getComponent(), BorderLayout.CENTER)
@@ -125,16 +125,16 @@ class FullFeaturedToolWindow : MetricsUpdateListener {
         val snapshot = runBlocking { EnhancedMetricsCollector.getEnhancedSnapshot() }
 
         // 性能指标卡片
-        panel.add(createMetricCard("性能指标", createPerformanceMetrics(snapshot)))
+        panel.add(createMetricCard(NekoamaBundle.message("fullfeatured.card.performance"), createPerformanceMetrics(snapshot)))
 
         // 使用模式分析
-        panel.add(createMetricCard("使用模式分析", createUsagePatternAnalysis(snapshot)))
+        panel.add(createMetricCard(NekoamaBundle.message("fullfeatured.card.usage.pattern"), createUsagePatternAnalysis(snapshot)))
 
         // 错误分析
-        panel.add(createMetricCard("错误分析", createErrorAnalysis(snapshot)))
+        panel.add(createMetricCard(NekoamaBundle.message("fullfeatured.card.error.analysis"), createErrorAnalysis(snapshot)))
 
         // 趋势数据
-        panel.add(createMetricCard("使用趋势", createTrendAnalysis(snapshot)))
+        panel.add(createMetricCard(NekoamaBundle.message("fullfeatured.card.usage.trend"), createTrendAnalysis(snapshot)))
 
         return panel
     }
@@ -161,10 +161,10 @@ class FullFeaturedToolWindow : MetricsUpdateListener {
         val panel = JPanel()
         panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
 
-        panel.add(createInfoRow("平均延迟", "${snapshot.averageLatencyMs}ms"))
-        panel.add(createInfoRow("成功率", String.format("%.1f%%", snapshot.successRate * 100)))
-        panel.add(createInfoRow("日均使用", String.format("%.1f", snapshot.avgRequestsPerDay)))
-        panel.add(createInfoRow("高峰时段", "${snapshot.peakUsageHour}:00"))
+        panel.add(createInfoRow(NekoamaBundle.message("fullfeatured.metric.avg.latency"), "${snapshot.averageLatencyMs}ms"))
+        panel.add(createInfoRow(NekoamaBundle.message("fullfeatured.metric.success.rate"), String.format("%.1f%%", snapshot.successRate * 100)))
+        panel.add(createInfoRow(NekoamaBundle.message("fullfeatured.metric.avg.usage"), String.format("%.1f", snapshot.avgRequestsPerDay)))
+        panel.add(createInfoRow(NekoamaBundle.message("fullfeatured.metric.peak.hour"), "${snapshot.peakUsageHour}:00"))
 
         return panel
     }
@@ -173,19 +173,19 @@ class FullFeaturedToolWindow : MetricsUpdateListener {
         val panel = JPanel()
         panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
 
-        panel.add(createInfoRow("最常用功能", formatActionType(snapshot.mostUsedAction)))
+        panel.add(createInfoRow(NekoamaBundle.message("fullfeatured.metric.most.used"), formatActionType(snapshot.mostUsedAction)))
 
         // 今日分类统计
         val todayStats = snapshot.todayByType.entries.joinToString(", ") {
             "${formatActionType(it.key)}: ${it.value}"
         }
-        panel.add(createInfoRow("今日分类", if (todayStats.isEmpty()) "无数据" else todayStats))
+        panel.add(createInfoRow(NekoamaBundle.message("fullfeatured.metric.today.classification"), if (todayStats.isEmpty()) NekoamaBundle.message("fullfeatured.metric.no.data") else todayStats))
 
         // 本周分类统计
         val weekStats = snapshot.weeklyByType.entries.joinToString(", ") {
             "${formatActionType(it.key)}: ${it.value}"
         }
-        panel.add(createInfoRow("本周分类", if (weekStats.isEmpty()) "无数据" else weekStats))
+        panel.add(createInfoRow(NekoamaBundle.message("fullfeatured.metric.week.classification"), if (weekStats.isEmpty()) NekoamaBundle.message("fullfeatured.metric.no.data") else weekStats))
 
         return panel
     }
@@ -199,9 +199,9 @@ class FullFeaturedToolWindow : MetricsUpdateListener {
         }
 
         if (errorStats.isEmpty()) {
-            panel.add(createInfoRow("今日错误", "无错误"))
+            panel.add(createInfoRow(NekoamaBundle.message("fullfeatured.metric.today.errors"), NekoamaBundle.message("fullfeatured.metric.no.errors")))
         } else {
-            panel.add(createInfoRow("今日错误", errorStats))
+            panel.add(createInfoRow(NekoamaBundle.message("fullfeatured.metric.today.errors"), errorStats))
         }
 
         val weekErrorStats = snapshot.errorsWeek.entries.joinToString(", ") {
@@ -209,9 +209,9 @@ class FullFeaturedToolWindow : MetricsUpdateListener {
         }
 
         if (weekErrorStats.isEmpty()) {
-            panel.add(createInfoRow("本周错误", "无错误"))
+            panel.add(createInfoRow(NekoamaBundle.message("fullfeatured.metric.week.errors"), NekoamaBundle.message("fullfeatured.metric.no.errors")))
         } else {
-            panel.add(createInfoRow("本周错误", weekErrorStats))
+            panel.add(createInfoRow(NekoamaBundle.message("fullfeatured.metric.week.errors"), weekErrorStats))
         }
 
         return panel
@@ -222,7 +222,7 @@ class FullFeaturedToolWindow : MetricsUpdateListener {
         panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
 
         // 显示最近7天的趋势
-        panel.add(JBLabel("最近7天使用趋势:"))
+        panel.add(JBLabel(NekoamaBundle.message("fullfeatured.trend.title")))
 
         val trendPanel = JPanel()
         trendPanel.layout = BoxLayout(trendPanel, BoxLayout.X_AXIS)
@@ -273,8 +273,8 @@ class FullFeaturedToolWindow : MetricsUpdateListener {
                 if (data != null) {
                     JOptionPane.showMessageDialog(
                         mainPanel,
-                        "分析报告已导出到剪贴板",
-                        "导出成功",
+                        NekoamaBundle.message("fullfeatured.export.success.clipboard"),
+                        NekoamaBundle.message("fullfeatured.export.success.clipboard.title"),
                         JOptionPane.INFORMATION_MESSAGE
                     )
 
@@ -285,16 +285,16 @@ class FullFeaturedToolWindow : MetricsUpdateListener {
                 } else {
                     JOptionPane.showMessageDialog(
                         mainPanel,
-                        "无数据可导出",
-                        "导出失败",
+                        NekoamaBundle.message("fullfeatured.export.no.data.clipboard"),
+                        NekoamaBundle.message("fullfeatured.export.failed.clipboard.title"),
                         JOptionPane.WARNING_MESSAGE
                     )
                 }
             } catch (e: Exception) {
                 JOptionPane.showMessageDialog(
                     mainPanel,
-                    "导出失败: ${e.message}",
-                    "错误",
+                    NekoamaBundle.message("fullfeatured.export.failed.clipboard", e.message ?: ""),
+                    NekoamaBundle.message("fullfeatured.export.failed.clipboard.title"),
                     JOptionPane.ERROR_MESSAGE
                 )
             }

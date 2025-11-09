@@ -9,7 +9,9 @@
       "Bash(./gradlew buildPlugin:*)",
       "Bash(./gradlew test:*)",
       "Bash(./gradlew:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(gradlew.bat compileKotlin:*)",
+      "Bash(.gradlew.bat compileKotlin)"
     ],
     "deny": [],
     "ask": []

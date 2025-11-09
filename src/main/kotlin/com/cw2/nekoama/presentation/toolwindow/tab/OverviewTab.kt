@@ -43,16 +43,16 @@ import javax.swing.*
 class OverviewTab : BaseNekoamaTab() {
 
     override val tabId = "overview"
-    override val displayName = "概览"
-    override val tooltip = "快速访问常用功能和查看状态摘要"
+    override val displayName = NekoamaBundle.message("tab.overview.title")
+    override val tooltip = NekoamaBundle.message("overview.tab.tooltip")
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val mainPanel = JBPanel<JBPanel<*>>(BorderLayout())
 
     // 状态组件
-    private val connectionStatusLabel = JBLabel("检查中...")
-    private val configStatusLabel = JBLabel("检查中...")
-    private val todayUsageLabel = JBLabel("加载中...")
+    private val connectionStatusLabel = JBLabel(NekoamaBundle.message("overview.status.checking"))
+    private val configStatusLabel = JBLabel(NekoamaBundle.message("overview.status.checking"))
+    private val todayUsageLabel = JBLabel(NekoamaBundle.message("overview.status.loading"))
 
     // 动画组件（性能优化：使用对象缓存）
     private val loadingIcon = AllIcons.Process.Step_1
@@ -127,7 +127,7 @@ class OverviewTab : BaseNekoamaTab() {
         val statusPanel = JBPanel<JBPanel<*>>()
         statusPanel.layout = BoxLayout(statusPanel, BoxLayout.Y_AXIS)
 
-        val connectionRow = createStatusRow("AI服务", connectionStatusLabel, AllIcons.General.Information)
+        val connectionRow = createStatusRow(NekoamaBundle.message("overview.status.ai.service"), connectionStatusLabel, AllIcons.General.Information)
         val configRow = createStatusRow(NekoamaBundle.message("overview.config.status"), configStatusLabel, AllIcons.General.Settings)
 
         statusPanel.add(connectionRow)
@@ -215,7 +215,7 @@ class OverviewTab : BaseNekoamaTab() {
         val statsPanel = JPanel()
         statsPanel.layout = BoxLayout(statsPanel, BoxLayout.Y_AXIS)
 
-        val todayUsageRow = createInfoRow("今日请求", todayUsageLabel.text)
+        val todayUsageRow = createInfoRow(NekoamaBundle.message("overview.usage.today.requests"), todayUsageLabel.text)
         statsPanel.add(todayUsageRow)
 
         // 添加分隔线
@@ -228,23 +228,23 @@ class OverviewTab : BaseNekoamaTab() {
         // 添加Token使用统计
         try {
             val snapshot = runBlocking { EnhancedMetricsCollector.getEnhancedSnapshot() }
-            val tokenRow = createInfoRow("今日Token", "${snapshot.tokensToday}")
+            val tokenRow = createInfoRow(NekoamaBundle.message("overview.usage.today.tokens"), "${snapshot.tokensToday}")
             statsPanel.add(tokenRow)
         } catch (e: Exception) {
-            statsPanel.add(createInfoRow("今日Token", "加载失败"))
+            statsPanel.add(createInfoRow(NekoamaBundle.message("overview.usage.today.tokens"), NekoamaBundle.message("overview.status.load.failed")))
         }
 
         // 添加成功率和延迟统计
         statsPanel.add(Box.createVerticalStrut(5))
         try {
             val snapshot = runBlocking { EnhancedMetricsCollector.getEnhancedSnapshot() }
-            val successRateRow = createInfoRow("成功率", String.format("%.1f%%", snapshot.successRate * 100))
+            val successRateRow = createInfoRow(NekoamaBundle.message("overview.usage.success.rate"), String.format("%.1f%%", snapshot.successRate * 100))
             statsPanel.add(successRateRow)
 
-            val latencyRow = createInfoRow("平均延迟", "${snapshot.averageLatencyMs}ms")
+            val latencyRow = createInfoRow(NekoamaBundle.message("overview.usage.avg.latency"), "${snapshot.averageLatencyMs}ms")
             statsPanel.add(latencyRow)
         } catch (e: Exception) {
-            statsPanel.add(createInfoRow("性能数据", "加载失败"))
+            statsPanel.add(createInfoRow(NekoamaBundle.message("overview.usage.performance.data"), NekoamaBundle.message("overview.status.load.failed")))
         }
 
         card.add(titleLabel, BorderLayout.NORTH)
@@ -271,7 +271,7 @@ class OverviewTab : BaseNekoamaTab() {
         loadRecentActivities(activityPanel)
 
         // 添加刷新按钮
-        val refreshButton = JButton("刷新")
+        val refreshButton = JButton(NekoamaBundle.message("overview.button.refresh"))
         refreshButton.addActionListener {
             scope.launch {
                 activityPanel.removeAll()
@@ -303,7 +303,7 @@ class OverviewTab : BaseNekoamaTab() {
             val snapshot = runBlocking { EnhancedMetricsCollector.getEnhancedSnapshot() }
 
             if (snapshot.dailyTrend.isEmpty()) {
-                val placeholderLabel = JBLabel("暂无最近活动记录")
+                val placeholderLabel = JBLabel(NekoamaBundle.message("overview.activity.no.records"))
                 placeholderLabel.foreground = Gray._128
                 panel.add(placeholderLabel)
                 return
@@ -320,7 +320,7 @@ class OverviewTab : BaseNekoamaTab() {
 
         } catch (e: Exception) {
             NekoamaLogger.error("OverviewTab", "Failed to load recent activities", error = e)
-            val errorLabel = JBLabel("加载活动记录失败")
+            val errorLabel = JBLabel(NekoamaBundle.message("overview.activity.load.failed"))
             errorLabel.foreground = UIManager.getColor("Label.errorForeground")
             panel.add(errorLabel)
         }
@@ -348,12 +348,12 @@ class OverviewTab : BaseNekoamaTab() {
         dateLabel.preferredSize = Dimension(60, 20)
 
         // 请求数量标签
-        val requestsLabel = JBLabel("${trend.requests} 次请求")
+        val requestsLabel = JBLabel("${trend.requests} " + NekoamaBundle.message("overview.activity.requests"))
         requestsLabel.foreground = Gray._100
         requestsLabel.font = requestsLabel.font.deriveFont(11f)
 
         // 成功率标签
-        val successRateLabel = JBLabel("成功率 ${String.format("%.1f%%", trend.successRate * 100)}")
+        val successRateLabel = JBLabel(NekoamaBundle.message("overview.activity.success.rate", String.format("%.1f%%", trend.successRate * 100)))
         successRateLabel.foreground = Gray._100
         successRateLabel.font = successRateLabel.font.deriveFont(11f)
 
@@ -396,12 +396,13 @@ class OverviewTab : BaseNekoamaTab() {
         row.border = EmptyBorder(2, 0, 2, 0)
 
         val labelComponent = JBLabel("$label:")
-        labelComponent.preferredSize = Dimension(100, 20)
+        labelComponent.horizontalAlignment = SwingConstants.LEFT
 
         val valueComponent = JBLabel(value)
+        valueComponent.horizontalAlignment = SwingConstants.RIGHT
 
         row.add(labelComponent, BorderLayout.WEST)
-        row.add(valueComponent, BorderLayout.CENTER)
+        row.add(valueComponent, BorderLayout.EAST)
 
         return row
     }
@@ -438,7 +439,7 @@ class OverviewTab : BaseNekoamaTab() {
                 NekoamaLogger.debug("OverviewTab", "status refreshed successfully")
             } catch (e: Exception) {
                 NekoamaLogger.error("OverviewTab", "Failed to refresh status", error = e)
-                connectionStatusLabel.text = "检查失败"
+                connectionStatusLabel.text = NekoamaBundle.message("overview.status.check.failed")
                 connectionStatusLabel.foreground = UIManager.getColor("Label.errorForeground")
                 stopLoadingAnimation()
             }
@@ -450,11 +451,11 @@ class OverviewTab : BaseNekoamaTab() {
      */
     private fun startLoadingAnimation() {
         // 设置加载状态
-        connectionStatusLabel.text = "检查中..."
+        connectionStatusLabel.text = NekoamaBundle.message("overview.status.checking")
         connectionStatusLabel.foreground = UIManager.getColor("Label.foreground")
         connectionStatusLabel.icon = loadingIcon
 
-        configStatusLabel.text = "检查中..."
+        configStatusLabel.text = NekoamaBundle.message("overview.status.checking")
         configStatusLabel.foreground = UIManager.getColor("Label.foreground")
         configStatusLabel.icon = loadingIcon
 
@@ -485,19 +486,19 @@ class OverviewTab : BaseNekoamaTab() {
      */
     private suspend fun checkConnectionStatus() {
         try {
-            connectionStatusLabel.text = "检查中..."
+            connectionStatusLabel.text = NekoamaBundle.message("overview.status.checking")
             connectionStatusLabel.foreground = UIManager.getColor("Label.foreground")
 
             // 检查API配置是否完整
             val settings = NekoamaSettings.getInstance()
             if (settings.apiKey.isEmpty()) {
-                connectionStatusLabel.text = "未配置API密钥"
+                connectionStatusLabel.text = NekoamaBundle.message("overview.api.key.not.configured")
                 connectionStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
                 return
             }
 
             if (settings.apiEndpoint.isEmpty()) {
-                connectionStatusLabel.text = "未配置端点"
+                connectionStatusLabel.text = NekoamaBundle.message("overview.endpoint.not.configured")
                 connectionStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
                 return
             }
@@ -510,12 +511,12 @@ class OverviewTab : BaseNekoamaTab() {
                 connectionStatusLabel.text = NekoamaBundle.message("overview.connected")
                 connectionStatusLabel.foreground = UIManager.getColor("Label.successForeground")
             } else {
-                connectionStatusLabel.text = "配置异常"
+                connectionStatusLabel.text = NekoamaBundle.message("overview.config.abnormal")
                 connectionStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
             }
 
         } catch (e: Exception) {
-            connectionStatusLabel.text = "检查失败"
+            connectionStatusLabel.text = NekoamaBundle.message("overview.status.check.failed")
             connectionStatusLabel.foreground = UIManager.getColor("Label.errorForeground")
         }
     }
@@ -531,15 +532,15 @@ class OverviewTab : BaseNekoamaTab() {
             val configItems = mutableListOf<String>()
 
             if (settings.apiKey.isNotEmpty()) {
-                configItems.add("API密钥")
+                configItems.add(NekoamaBundle.message("overview.config.item.api.key"))
             }
 
             if (settings.apiEndpoint.isNotEmpty()) {
-                configItems.add("端点")
+                configItems.add(NekoamaBundle.message("overview.config.item.endpoint"))
             }
 
             if (settings.model.isNotEmpty()) {
-                configItems.add("模型")
+                configItems.add(NekoamaBundle.message("overview.config.item.model"))
             }
 
             when (configItems.size) {
@@ -548,11 +549,11 @@ class OverviewTab : BaseNekoamaTab() {
                     configStatusLabel.foreground = UIManager.getColor("Label.successForeground")
                 }
                 2 -> {
-                    configStatusLabel.text = "部分配置 (${configItems.joinToString("/")})"
+                    configStatusLabel.text = NekoamaBundle.message("overview.config.partial", configItems.joinToString("/"))
                     configStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
                 }
                 1 -> {
-                    configStatusLabel.text = "仅配置了${configItems.first()}"
+                    configStatusLabel.text = NekoamaBundle.message("overview.config.single", configItems.first())
                     configStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
                 }
                 else -> {
@@ -562,7 +563,7 @@ class OverviewTab : BaseNekoamaTab() {
             }
 
         } catch (e: Exception) {
-            configStatusLabel.text = "配置检查失败"
+            configStatusLabel.text = NekoamaBundle.message("overview.config.check.failed")
             configStatusLabel.foreground = UIManager.getColor("Label.errorForeground")
         }
     }
@@ -573,9 +574,9 @@ class OverviewTab : BaseNekoamaTab() {
     private suspend fun updateUsageSummary() {
         try {
             val snapshot = runBlocking { EnhancedMetricsCollector.getEnhancedSnapshot() }
-            todayUsageLabel.text = "${snapshot.today} 次"
+            todayUsageLabel.text = "${snapshot.today} " + NekoamaBundle.message("overview.usage.times")
         } catch (e: Exception) {
-            todayUsageLabel.text = "加载失败"
+            todayUsageLabel.text = NekoamaBundle.message("overview.status.load.failed")
         }
     }
 
@@ -585,29 +586,29 @@ class OverviewTab : BaseNekoamaTab() {
     private fun testConnection() {
         scope.launch {
             try {
-                connectionStatusLabel.text = "测试中..."
+                connectionStatusLabel.text = NekoamaBundle.message("overview.connection.testing")
                 connectionStatusLabel.foreground = UIManager.getColor("Label.foreground")
 
                 // 这里可以添加实际的连接测试逻辑
                 delay(1000) // 模拟测试延迟
 
-                connectionStatusLabel.text = "连接正常"
+                connectionStatusLabel.text = NekoamaBundle.message("overview.connection.normal")
                 connectionStatusLabel.foreground = UIManager.getColor("Label.successForeground")
 
                 JOptionPane.showMessageDialog(
                     mainPanel,
-                    "连接测试成功！",
-                    "连接测试",
+                    NekoamaBundle.message("overview.connection.test.success"),
+                    NekoamaBundle.message("overview.connection.test.title"),
                     JOptionPane.INFORMATION_MESSAGE
                 )
             } catch (e: Exception) {
-                connectionStatusLabel.text = "连接失败"
+                connectionStatusLabel.text = NekoamaBundle.message("overview.connection.failed")
                 connectionStatusLabel.foreground = UIManager.getColor("Label.errorForeground")
 
                 JOptionPane.showMessageDialog(
                     mainPanel,
-                    "连接测试失败: ${e.message}",
-                    "连接测试",
+                    NekoamaBundle.message("overview.connection.test.failed", e.message ?: ""),
+                    NekoamaBundle.message("overview.connection.test.title"),
                     JOptionPane.ERROR_MESSAGE
                 )
             }
@@ -624,8 +625,8 @@ class OverviewTab : BaseNekoamaTab() {
             NekoamaLogger.error("OverviewTab", "Failed to open settings", error = e)
             JOptionPane.showMessageDialog(
                 mainPanel,
-                "无法打开设置页面: ${e.message}",
-                "错误",
+                NekoamaBundle.message("overview.settings.open.failed", e.message ?: ""),
+                NekoamaBundle.message("overview.dialog.error"),
                 JOptionPane.ERROR_MESSAGE
             )
         }
@@ -649,15 +650,15 @@ class OverviewTab : BaseNekoamaTab() {
 
                     JOptionPane.showMessageDialog(
                         mainPanel,
-                        "数据已导出到剪贴板",
-                        "导出成功",
+                        NekoamaBundle.message("overview.export.success.clipboard"),
+                        NekoamaBundle.message("overview.export.success.title"),
                         JOptionPane.INFORMATION_MESSAGE
                     )
                 } else {
                     JOptionPane.showMessageDialog(
                         mainPanel,
-                        "无数据可导出",
-                        "导出失败",
+                        NekoamaBundle.message("overview.export.no.data"),
+                        NekoamaBundle.message("overview.export.failed.title"),
                         JOptionPane.WARNING_MESSAGE
                     )
                 }
@@ -665,8 +666,8 @@ class OverviewTab : BaseNekoamaTab() {
                 NekoamaLogger.error("OverviewTab", "Failed to export data", error = e)
                 JOptionPane.showMessageDialog(
                     mainPanel,
-                    "导出失败: ${e.message}",
-                    "错误",
+                    NekoamaBundle.message("overview.export.failed", e.message ?: ""),
+                    NekoamaBundle.message("overview.dialog.error"),
                     JOptionPane.ERROR_MESSAGE
                 )
             }
@@ -681,8 +682,8 @@ class OverviewTab : BaseNekoamaTab() {
             // 这里可以打开日志查看器或日志文件
             JOptionPane.showMessageDialog(
                 mainPanel,
-                "日志查看功能正在开发中...",
-                "提示",
+                NekoamaBundle.message("overview.logs.development"),
+                NekoamaBundle.message("overview.dialog.info"),
                 JOptionPane.INFORMATION_MESSAGE
             )
         } catch (e: Exception) {
@@ -723,7 +724,7 @@ class OverviewTab : BaseNekoamaTab() {
         card.background = UIUtil.getPanelBackground()
 
         // 标题栏
-        val titleLabel = JBLabel("系统状态")
+        val titleLabel = JBLabel(NekoamaBundle.message("overview.system.status.title"))
         titleLabel.font = JBFont.label().asBold()
         titleLabel.icon = AllIcons.General.Information
 
@@ -736,13 +737,13 @@ class OverviewTab : BaseNekoamaTab() {
         gbc.weightx = 1.0
 
         // 添加状态项
-        addStatusItem(statusGrid, gbc, 0, 0, "AI服务", connectionStatusLabel, AllIcons.General.Information)
-        addStatusItem(statusGrid, gbc, 0, 1, "配置状态", configStatusLabel, AllIcons.General.Settings)
-        addStatusItem(statusGrid, gbc, 1, 0, "今日使用", todayUsageLabel, AllIcons.Nodes.Console)
+        addStatusItem(statusGrid, gbc, 0, 0, NekoamaBundle.message("overview.status.ai.service"), connectionStatusLabel, AllIcons.General.Information)
+        addStatusItem(statusGrid, gbc, 0, 1, NekoamaBundle.message("overview.config.status"), configStatusLabel, AllIcons.General.Settings)
+        addStatusItem(statusGrid, gbc, 1, 0, NekoamaBundle.message("overview.usage.today"), todayUsageLabel, AllIcons.Nodes.Console)
 
         // 刷新按钮
         val refreshButton = JButton(AllIcons.Actions.Refresh)
-        refreshButton.toolTipText = "刷新状态"
+        refreshButton.toolTipText = NekoamaBundle.message("overview.refresh.status.tooltip")
         refreshButton.isFocusable = false
         refreshButton.addActionListener { refreshStatus() }
 

@@ -109,17 +109,17 @@ class ModularToolWindow {
         return listOf(
             createToolbarButton(
                 icon = AllIcons.Actions.Refresh,
-                tooltip = "刷新所有Tab的内容",
+                tooltip = NekoamaBundle.message("toolbar.button.refresh.tooltip"),
                 action = { refreshAllTabs() }
             ),
             createToolbarButton(
                 icon = AllIcons.General.Information,
-                tooltip = "查看扩展系统信息",
+                tooltip = NekoamaBundle.message("toolbar.button.extension.info.tooltip"),
                 action = { showExtensionInfo() }
             ),
             createToolbarButton(
                 icon = AllIcons.General.Settings,
-                tooltip = "打开Nekoama设置",
+                tooltip = NekoamaBundle.message("toolbar.button.settings.tooltip"),
                 action = { openSettings() }
             )
         )
@@ -207,18 +207,18 @@ class ModularToolWindow {
         scope.launch {
             try {
                 // 显示加载状态
-                showLoadingState("正在刷新所有Tab...")
+                showLoadingState(NekoamaBundle.message("toolbar.refreshing.status"))
 
                 tabManager.refreshAllTabs()
 
                 // 延迟显示完成状态
                 kotlinx.coroutines.delay(500)
-                showSuccessState("所有Tab刷新完成")
+                showSuccessState(NekoamaBundle.message("toolbar.refresh.success"))
 
                 NekoamaLogger.debug("ModularToolWindow", "All tabs refreshed")
             } catch (e: Exception) {
                 NekoamaLogger.error("ModularToolWindow", "Failed to refresh all tabs", error = e)
-                showErrorState("刷新失败: ${e.message}")
+                showErrorState(NekoamaBundle.message("toolbar.refresh.failed", e.message ?: ""))
             }
         }
     }
@@ -232,7 +232,7 @@ class ModularToolWindow {
         JOptionPane.showMessageDialog(
             mainPanel,
             loadingLabel,
-            "加载中",
+            NekoamaBundle.message("toolbar.dialog.loading.title"),
             JOptionPane.INFORMATION_MESSAGE,
             AllIcons.General.Information
         )
@@ -245,7 +245,7 @@ class ModularToolWindow {
         JOptionPane.showMessageDialog(
             mainPanel,
             message,
-            "成功",
+            NekoamaBundle.message("toolbar.dialog.success.title"),
             JOptionPane.INFORMATION_MESSAGE,
             AllIcons.General.InspectionsOK
         )
@@ -258,7 +258,7 @@ class ModularToolWindow {
         JOptionPane.showMessageDialog(
             mainPanel,
             message,
-            "错误",
+            NekoamaBundle.message("toolbar.dialog.error.title"),
             JOptionPane.ERROR_MESSAGE,
             AllIcons.General.Error
         )
@@ -271,20 +271,13 @@ class ModularToolWindow {
         scope.launch {
             try {
                 // 备用方案：显示设置信息
-                val message = """
-                    请在 File -> Settings -> Tools -> Nekoama 中配置插件设置
-
-                    可配置项：
-                    • API 密钥配置
-                    • AI 服务提供商选择
-                    • Token 使用限制
-                    • 自动保存设置
-                """.trimIndent()
+                val message = NekoamaBundle.message("settings.info.content") +
+                    "\n\n" + NekoamaBundle.message("settings.info.configurable.items")
 
                 JOptionPane.showMessageDialog(
                     mainPanel,
                     message,
-                    "Nekoama 设置",
+                    NekoamaBundle.message("settings.info.title"),
                     JOptionPane.INFORMATION_MESSAGE,
                     AllIcons.General.Settings
                 )
@@ -292,8 +285,8 @@ class ModularToolWindow {
                 NekoamaLogger.error("ModularToolWindow", "Failed to open settings", error = e)
                 JOptionPane.showMessageDialog(
                     mainPanel,
-                    "无法打开设置页面: ${e.message}",
-                    "错误",
+                    NekoamaBundle.message("settings.info.error.failed", e.message ?: ""),
+                    NekoamaBundle.message("toolbar.dialog.error.title"),
                     JOptionPane.ERROR_MESSAGE,
                     AllIcons.General.Error
                 )
@@ -314,34 +307,34 @@ class ModularToolWindow {
             try {
                 val stats = tabManager.getExtensionStats()
                 val message = buildString {
-                    appendLine("扩展系统状态信息")
+                    appendLine(NekoamaBundle.message("extension.info.header"))
                     appendLine("=" .repeat(30))
                     appendLine()
-                    appendLine("📊 统计信息:")
-                    appendLine("  已注册扩展总数: ${stats["totalExtensions"]}")
-                    appendLine("  已启用扩展数量: ${stats["enabledExtensions"]}")
-                    appendLine("  扩展点注册数量: ${stats["registeredExtensions"]}")
+                    appendLine(NekoamaBundle.message("extension.info.statistics.title"))
+                    appendLine("  ${NekoamaBundle.message("extension.info.total.extensions", stats["totalExtensions"] ?: "0")}")
+                    appendLine("  ${NekoamaBundle.message("extension.info.enabled.extensions", stats["enabledExtensions"] ?: "0")}")
+                    appendLine("  ${NekoamaBundle.message("extension.info.registered.extensions", stats["registeredExtensions"] ?: "0")}")
                     appendLine()
-                    appendLine("📦 扩展列表:")
+                    appendLine(NekoamaBundle.message("extension.info.list.title"))
                     @Suppress("UNCHECKED_CAST")
                     val extensionIds = stats["extensionIds"] as? List<String> ?: emptyList()
                     if (extensionIds.isEmpty()) {
-                        appendLine("  (暂无扩展)")
+                        appendLine("  ${NekoamaBundle.message("extension.info.no.extensions")}")
                     } else {
                         extensionIds.forEach { id ->
                             appendLine("  • $id")
                         }
                     }
                     appendLine()
-                    appendLine("🔧 系统信息:")
-                    appendLine("  扩展系统版本: 1.0.0")
-                    appendLine("  支持功能: 动态加载、配置管理、事件通信")
+                    appendLine(NekoamaBundle.message("extension.info.system.title"))
+                    appendLine("  ${NekoamaBundle.message("extension.info.system.version", "1.0.0")}")
+                    appendLine("  ${NekoamaBundle.message("extension.info.system.features")}")
                 }
 
                 JOptionPane.showMessageDialog(
                     mainPanel,
                     message,
-                    "扩展系统信息",
+                    NekoamaBundle.message("extension.info.dialog.title"),
                     JOptionPane.INFORMATION_MESSAGE,
                     AllIcons.General.Information
                 )
@@ -351,8 +344,8 @@ class ModularToolWindow {
                 NekoamaLogger.error("ModularToolWindow", "Failed to show extension info", error = e)
                 JOptionPane.showMessageDialog(
                     mainPanel,
-                    "无法获取扩展信息: ${e.message}",
-                    "错误",
+                    NekoamaBundle.message("extension.info.error.failed", e.message ?: ""),
+                    NekoamaBundle.message("toolbar.dialog.error.title"),
                     JOptionPane.ERROR_MESSAGE,
                     AllIcons.General.Error
                 )

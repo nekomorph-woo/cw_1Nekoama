@@ -37,8 +37,8 @@ import javax.swing.border.EmptyBorder
 class TokenStatsTab : BaseNekoamaTab() {
 
     override val tabId = "token_stats"
-    override val displayName = "Token统计"
-    override val tooltip = "查看Token使用情况和详细统计"
+    override val displayName = NekoamaBundle.message("tab.token_stats.title")
+    override val tooltip = NekoamaBundle.message("tab.token_stats.tooltip")
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val mainPanel = JPanel(BorderLayout())
@@ -83,29 +83,29 @@ class TokenStatsTab : BaseNekoamaTab() {
         contentPanel.add(detailedStatsPanel, "detailed")
 
         // 创建切换按钮
-        val toggleButton = JButton("详细统计")
+        val toggleButton = JButton(NekoamaBundle.message("tokenstats.button.detailed"))
         toggleButton.addActionListener {
             toggleView()
             updateToggleButton(toggleButton)
         }
 
         // 创建刷新按钮
-        val refreshButton = JButton("刷新")
-        refreshButton.toolTipText = "刷新所有统计数据"
+        val refreshButton = JButton(NekoamaBundle.message("tokenstats.button.refresh"))
+        refreshButton.toolTipText = NekoamaBundle.message("tokenstats.button.refresh.tooltip")
         refreshButton.addActionListener {
             refreshTabContent()
         }
 
         // 创建导出按钮
-        val exportButton = JButton("导出")
-        exportButton.toolTipText = "导出Token使用数据"
+        val exportButton = JButton(NekoamaBundle.message("tokenstats.button.export"))
+        exportButton.toolTipText = NekoamaBundle.message("tokenstats.button.export.tooltip")
         exportButton.addActionListener {
             exportTokenData()
         }
 
         // 创建重置按钮
-        val resetButton = JButton("重置")
-        resetButton.toolTipText = "重置Token统计"
+        val resetButton = JButton(NekoamaBundle.message("tokenstats.button.reset"))
+        resetButton.toolTipText = NekoamaBundle.message("tokenstats.button.reset.tooltip")
         resetButton.addActionListener {
             resetTokenStats()
         }
@@ -137,10 +137,10 @@ class TokenStatsTab : BaseNekoamaTab() {
         val snapshot = runBlocking { EnhancedMetricsCollector.getEnhancedSnapshot() }
 
         // Token使用统计
-        panel.add(createMetricCard("Token使用统计", createTokenUsageStats(snapshot)))
+        panel.add(createMetricCard(NekoamaBundle.message("tokenstats.card.token.usage"), createTokenUsageStats(snapshot)))
 
         // 基础性能指标
-        panel.add(createMetricCard("性能指标", createBasicPerformanceStats(snapshot)))
+        panel.add(createMetricCard(NekoamaBundle.message("tokenstats.card.performance"), createBasicPerformanceStats(snapshot)))
 
         return panel
     }
@@ -156,16 +156,16 @@ class TokenStatsTab : BaseNekoamaTab() {
         val snapshot = runBlocking { EnhancedMetricsCollector.getEnhancedSnapshot() }
 
         // 详细性能指标
-        panel.add(createMetricCard("性能指标", createDetailedPerformanceStats(snapshot)))
+        panel.add(createMetricCard(NekoamaBundle.message("tokenstats.card.performance"), createDetailedPerformanceStats(snapshot)))
 
         // 使用模式分析
-        panel.add(createMetricCard("使用模式分析", createUsagePatternAnalysis(snapshot)))
+        panel.add(createMetricCard(NekoamaBundle.message("tokenstats.card.usage.pattern"), createUsagePatternAnalysis(snapshot)))
 
         // 错误分析
-        panel.add(createMetricCard("错误分析", createErrorAnalysis(snapshot)))
+        panel.add(createMetricCard(NekoamaBundle.message("tokenstats.card.error.analysis"), createErrorAnalysis(snapshot)))
 
         // 使用趋势
-        panel.add(createMetricCard("使用趋势", createTrendAnalysis(snapshot)))
+        panel.add(createMetricCard(NekoamaBundle.message("tokenstats.card.usage.trend"), createTrendAnalysis(snapshot)))
 
         return panel
     }
@@ -178,10 +178,10 @@ class TokenStatsTab : BaseNekoamaTab() {
         panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
 
         // Token使用统计
-        panel.add(createInfoRow("今日Token", formatNumber(snapshot.tokensToday)))
-        panel.add(createInfoRow("本周Token", formatNumber(snapshot.tokensWeek)))
-        panel.add(createInfoRow("本月Token", formatNumber(snapshot.tokensMonth)))
-        panel.add(createInfoRow("累计Token", formatNumber(snapshot.tokensTotal)))
+        panel.add(createInfoRow(NekoamaBundle.message("tokenstats.today.tokens"), formatNumber(snapshot.tokensToday)))
+        panel.add(createInfoRow(NekoamaBundle.message("tokenstats.week.tokens"), formatNumber(snapshot.tokensWeek)))
+        panel.add(createInfoRow(NekoamaBundle.message("tokenstats.month.tokens"), formatNumber(snapshot.tokensMonth)))
+        panel.add(createInfoRow(NekoamaBundle.message("tokenstats.total.tokens"), formatNumber(snapshot.tokensTotal)))
 
         // 添加分隔线
         panel.add(Box.createVerticalStrut(10))
@@ -191,8 +191,8 @@ class TokenStatsTab : BaseNekoamaTab() {
         panel.add(Box.createVerticalStrut(10))
 
         // 请求统计
-        panel.add(createInfoRow("今日请求", "${snapshot.today} 次"))
-        panel.add(createInfoRow("成功率", String.format("%.1f%%", snapshot.successRate * 100)))
+        panel.add(createInfoRow(NekoamaBundle.message("tokenstats.today.requests"), "${snapshot.today} " + NekoamaBundle.message("tokenstats.times")))
+        panel.add(createInfoRow(NekoamaBundle.message("tokenstats.success.rate"), String.format("%.1f%%", snapshot.successRate * 100)))
 
         return panel
     }
@@ -204,8 +204,8 @@ class TokenStatsTab : BaseNekoamaTab() {
         val panel = JPanel()
         panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
 
-        panel.add(createInfoRow("平均延迟", "${snapshot.averageLatencyMs}ms"))
-        panel.add(createInfoRow("成功率", String.format("%.1f%%", snapshot.successRate * 100)))
+        panel.add(createInfoRow(NekoamaBundle.message("tokenstats.avg.latency"), "${snapshot.averageLatencyMs}ms"))
+        panel.add(createInfoRow(NekoamaBundle.message("tokenstats.success.rate"), String.format("%.1f%%", snapshot.successRate * 100)))
 
         return panel
     }
@@ -218,10 +218,10 @@ class TokenStatsTab : BaseNekoamaTab() {
         panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
 
         // 基础性能指标
-        panel.add(createInfoRow("平均延迟", "${snapshot.averageLatencyMs}ms"))
-        panel.add(createInfoRow("成功率", String.format("%.1f%%", snapshot.successRate * 100)))
-        panel.add(createInfoRow("日均使用", String.format("%.1f 次", snapshot.avgRequestsPerDay)))
-        panel.add(createInfoRow("高峰时段", "${snapshot.peakUsageHour}:00"))
+        panel.add(createInfoRow(NekoamaBundle.message("tokenstats.avg.latency"), "${snapshot.averageLatencyMs}ms"))
+        panel.add(createInfoRow(NekoamaBundle.message("tokenstats.success.rate"), String.format("%.1f%%", snapshot.successRate * 100)))
+        panel.add(createInfoRow(NekoamaBundle.message("tokenstats.avg.usage"), String.format("%.1f " + NekoamaBundle.message("tokenstats.times"), snapshot.avgRequestsPerDay)))
+        panel.add(createInfoRow(NekoamaBundle.message("tokenstats.peak.hour"), "${snapshot.peakUsageHour}:00"))
 
         // 添加分隔线
         panel.add(Box.createVerticalStrut(10))
@@ -232,7 +232,7 @@ class TokenStatsTab : BaseNekoamaTab() {
 
         // 效率指标
         val tokensPerRequest = if (snapshot.today > 0) snapshot.tokensToday.toDouble() / snapshot.today else 0.0
-        panel.add(createInfoRow("平均Token/请求", String.format("%.1f", tokensPerRequest)))
+        panel.add(createInfoRow(NekoamaBundle.message("tokenstats.avg.tokens.per.request"), String.format("%.1f", tokensPerRequest)))
 
         
         return panel
@@ -245,19 +245,19 @@ class TokenStatsTab : BaseNekoamaTab() {
         val panel = JPanel()
         panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
 
-        panel.add(createInfoRow("最常用功能", formatActionType(snapshot.mostUsedAction)))
+        panel.add(createInfoRow(NekoamaBundle.message("tokenstats.most.used"), formatActionType(snapshot.mostUsedAction)))
 
         // 今日分类统计
         val todayStats = snapshot.todayByType.entries.joinToString(", ") {
             "${formatActionType(it.key)}: ${it.value}"
         }
-        panel.add(createInfoRow("今日分类", if (todayStats.isEmpty()) "无数据" else todayStats))
+        panel.add(createInfoRow(NekoamaBundle.message("tokenstats.today.classification"), if (todayStats.isEmpty()) NekoamaBundle.message("tokenstats.no.data") else todayStats))
 
         // 本周分类统计
         val weekStats = snapshot.weeklyByType.entries.joinToString(", ") {
             "${formatActionType(it.key)}: ${it.value}"
         }
-        panel.add(createInfoRow("本周分类", if (weekStats.isEmpty()) "无数据" else weekStats))
+        panel.add(createInfoRow(NekoamaBundle.message("tokenstats.weekly.classification"), if (weekStats.isEmpty()) NekoamaBundle.message("tokenstats.no.data") else weekStats))
 
         return panel
     }
@@ -274,9 +274,9 @@ class TokenStatsTab : BaseNekoamaTab() {
         }
 
         if (errorStats.isEmpty()) {
-            panel.add(createInfoRow("今日错误", "无错误"))
+            panel.add(createInfoRow(NekoamaBundle.message("tokenstats.today.errors"), NekoamaBundle.message("tokenstats.no.errors")))
         } else {
-            panel.add(createInfoRow("今日错误", errorStats))
+            panel.add(createInfoRow(NekoamaBundle.message("tokenstats.today.errors"), errorStats))
         }
 
         val weekErrorStats = snapshot.errorsWeek.entries.joinToString(", ") {
@@ -284,9 +284,9 @@ class TokenStatsTab : BaseNekoamaTab() {
         }
 
         if (weekErrorStats.isEmpty()) {
-            panel.add(createInfoRow("本周错误", "无错误"))
+            panel.add(createInfoRow(NekoamaBundle.message("tokenstats.weekly.errors"), NekoamaBundle.message("tokenstats.no.errors")))
         } else {
-            panel.add(createInfoRow("本周错误", weekErrorStats))
+            panel.add(createInfoRow(NekoamaBundle.message("tokenstats.weekly.errors"), weekErrorStats))
         }
 
         return panel
@@ -300,8 +300,9 @@ class TokenStatsTab : BaseNekoamaTab() {
         panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
 
         // 显示最近7天的趋势
-        val titleLabel = JBLabel("最近7天使用趋势:")
+        val titleLabel = JBLabel(NekoamaBundle.message("tokenstats.recent.days.trend"))
         titleLabel.font = titleLabel.font.deriveFont(JBFont.BOLD)
+        titleLabel.horizontalAlignment = SwingConstants.LEFT
         panel.add(titleLabel)
 
         // 使用流式布局避免挤压
@@ -328,7 +329,7 @@ class TokenStatsTab : BaseNekoamaTab() {
                 dateLabel.font = dateLabel.font.deriveFont(11f).deriveFont(JBFont.BOLD)
 
                 // 请求数量标签
-                val requestsLabel = JBLabel("${trend.requests}次", SwingConstants.CENTER)
+                val requestsLabel = JBLabel("${trend.requests} " + NekoamaBundle.message("tokenstats.trend.requests.short"), SwingConstants.CENTER)
                 requestsLabel.font = requestsLabel.font.deriveFont(10f)
                 requestsLabel.foreground = Gray._100
 
@@ -378,12 +379,13 @@ class TokenStatsTab : BaseNekoamaTab() {
         row.border = EmptyBorder(2, 0, 2, 0)
 
         val labelComponent = JBLabel("$label:")
-        labelComponent.preferredSize = Dimension(100, 20)
+        labelComponent.horizontalAlignment = SwingConstants.LEFT
 
         val valueComponent = JBLabel(value)
+        valueComponent.horizontalAlignment = SwingConstants.RIGHT
 
         row.add(labelComponent, BorderLayout.WEST)
-        row.add(valueComponent, BorderLayout.CENTER)
+        row.add(valueComponent, BorderLayout.EAST)
 
         return row
     }
@@ -401,7 +403,7 @@ class TokenStatsTab : BaseNekoamaTab() {
      * 更新切换按钮文本
      */
     private fun updateToggleButton(button: JButton) {
-        button.text = if (currentView == "basic") "详细统计" else "基础统计"
+        button.text = if (currentView == "basic") NekoamaBundle.message("tokenstats.button.detailed") else NekoamaBundle.message("tokenstats.button.basic")
     }
 
     /**
@@ -480,20 +482,20 @@ class TokenStatsTab : BaseNekoamaTab() {
 
     private fun formatActionType(actionType: ActionType): String {
         return when (actionType) {
-            ActionType.GENERATE_NAMING -> "命名生成"
-            ActionType.GENERATE_COMMENT -> "注释生成"
-            ActionType.CUSTOM_GENERATE -> "自定义生成"
-            ActionType.ANALYZE_UNUSED_CODE -> "代码分析"
+            ActionType.GENERATE_NAMING -> NekoamaBundle.message("tokenstats.action.type.naming")
+            ActionType.GENERATE_COMMENT -> NekoamaBundle.message("tokenstats.action.type.comment")
+            ActionType.CUSTOM_GENERATE -> NekoamaBundle.message("tokenstats.action.type.custom")
+            ActionType.ANALYZE_UNUSED_CODE -> NekoamaBundle.message("tokenstats.action.type.analyze")
         }
     }
 
     private fun formatErrorType(errorType: ErrorType): String {
         return when (errorType) {
-            ErrorType.NETWORK_ERROR -> "网络错误"
-            ErrorType.API_ERROR -> "API错误"
-            ErrorType.TIMEOUT_ERROR -> "超时错误"
-            ErrorType.PARSING_ERROR -> "解析错误"
-            ErrorType.UNKNOWN_ERROR -> "未知错误"
+            ErrorType.NETWORK_ERROR -> NekoamaBundle.message("tokenstats.error.type.network")
+            ErrorType.API_ERROR -> NekoamaBundle.message("tokenstats.error.type.api")
+            ErrorType.TIMEOUT_ERROR -> NekoamaBundle.message("tokenstats.error.type.timeout")
+            ErrorType.PARSING_ERROR -> NekoamaBundle.message("tokenstats.error.type.parsing")
+            ErrorType.UNKNOWN_ERROR -> NekoamaBundle.message("tokenstats.error.type.unknown")
         }
     }
 
@@ -517,24 +519,24 @@ class TokenStatsTab : BaseNekoamaTab() {
                 val snapshot = runBlocking { EnhancedMetricsCollector.getEnhancedSnapshot() }
 
                 val exportData = buildString {
-                    appendLine("=== Nekoama Token 使用统计 ===")
-                    appendLine("导出时间: ${java.time.LocalDateTime.now()}")
+                    appendLine("=== Nekoama Token Usage Statistics ===")
+                    appendLine("Export Time: ${java.time.LocalDateTime.now()}")
                     appendLine()
-                    appendLine("=== Token 使用情况 ===")
-                    appendLine("今日Token: ${snapshot.tokensToday}")
-                    appendLine("本周Token: ${snapshot.tokensWeek}")
-                    appendLine("本月Token: ${snapshot.tokensMonth}")
-                    appendLine("累计Token: ${snapshot.tokensTotal}")
+                    appendLine("=== Token Usage ===")
+                    appendLine("Today's Tokens: ${snapshot.tokensToday}")
+                    appendLine("This Week's Tokens: ${snapshot.tokensWeek}")
+                    appendLine("This Month's Tokens: ${snapshot.tokensMonth}")
+                    appendLine("Total Tokens: ${snapshot.tokensTotal}")
                     appendLine()
-                    appendLine("=== 请求统计 ===")
-                    appendLine("今日请求: ${snapshot.today}")
-                    appendLine("成功率: ${String.format("%.2f%%", snapshot.successRate * 100)}")
-                    appendLine("平均延迟: ${snapshot.averageLatencyMs}ms")
+                    appendLine("=== Request Statistics ===")
+                    appendLine("Today's Requests: ${snapshot.today}")
+                    appendLine("Success Rate: ${String.format("%.2f%%", snapshot.successRate * 100)}")
+                    appendLine("Average Latency: ${snapshot.averageLatencyMs}ms")
                     appendLine()
-                    appendLine("=== 使用模式分析 ===")
-                    appendLine("最常用功能: ${formatActionType(snapshot.mostUsedAction)}")
-                    appendLine("日均使用: ${String.format("%.1f", snapshot.avgRequestsPerDay)}")
-                    appendLine("高峰时段: ${snapshot.peakUsageHour}:00")
+                    appendLine("=== Usage Pattern Analysis ===")
+                    appendLine("Most Used Feature: ${formatActionType(snapshot.mostUsedAction)}")
+                    appendLine("Daily Average Usage: ${String.format("%.1f", snapshot.avgRequestsPerDay)}")
+                    appendLine("Peak Hour: ${snapshot.peakUsageHour}:00")
                 }
 
                 // 复制到剪贴板
@@ -544,8 +546,8 @@ class TokenStatsTab : BaseNekoamaTab() {
 
                 JOptionPane.showMessageDialog(
                     mainPanel,
-                    "Token统计数据已导出到剪贴板",
-                    "导出成功",
+                    NekoamaBundle.message("tokenstats.export.success.clipboard"),
+                    NekoamaBundle.message("tokenstats.export.success.title"),
                     JOptionPane.INFORMATION_MESSAGE
                 )
 
@@ -555,8 +557,8 @@ class TokenStatsTab : BaseNekoamaTab() {
                 NekoamaLogger.error("TokenStatsTab", "Failed to export token data", error = e)
                 JOptionPane.showMessageDialog(
                     mainPanel,
-                    "导出失败: ${e.message}",
-                    "错误",
+                    NekoamaBundle.message("tokenstats.export.failed", e.message ?: ""),
+                    NekoamaBundle.message("tokenstats.dialog.error"),
                     JOptionPane.ERROR_MESSAGE
                 )
             }
@@ -570,8 +572,8 @@ class TokenStatsTab : BaseNekoamaTab() {
         scope.launch {
             val result = JOptionPane.showConfirmDialog(
                 mainPanel,
-                "确定要重置Token统计数据吗？\n此操作将清除所有历史记录，无法撤销。",
-                "确认重置",
+                NekoamaBundle.message("tokenstats.reset.confirm"),
+                NekoamaBundle.message("tokenstats.reset.title"),
                 JOptionPane.YES_NO_OPTION,
                 JOptionPane.WARNING_MESSAGE
             )
@@ -582,8 +584,8 @@ class TokenStatsTab : BaseNekoamaTab() {
                     // 目前先显示提示信息
                     JOptionPane.showMessageDialog(
                         mainPanel,
-                        "重置功能正在开发中...\n如需重置数据，请联系开发者",
-                        "提示",
+                        NekoamaBundle.message("tokenstats.reset.development"),
+                        NekoamaBundle.message("tokenstats.dialog.info"),
                         JOptionPane.INFORMATION_MESSAGE
                     )
 
@@ -593,8 +595,8 @@ class TokenStatsTab : BaseNekoamaTab() {
                     NekoamaLogger.error("TokenStatsTab", "Failed to reset token stats", error = e)
                     JOptionPane.showMessageDialog(
                         mainPanel,
-                        "重置失败: ${e.message}",
-                        "错误",
+                        NekoamaBundle.message("tokenstats.reset.failed", e.message ?: ""),
+                        NekoamaBundle.message("tokenstats.dialog.error"),
                         JOptionPane.ERROR_MESSAGE
                     )
                 }

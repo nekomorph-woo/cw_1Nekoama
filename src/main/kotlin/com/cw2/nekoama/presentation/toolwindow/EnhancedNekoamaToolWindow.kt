@@ -106,22 +106,22 @@ class EnhancedNekoamaToolWindow : MetricsUpdateListener {
 
         // 基础统计
         gbc.gridy = 1; gbc.gridx = 0
-        statsPanel.add(JBLabel("今日使用:"), gbc)
+        statsPanel.add(JBLabel(NekoamaBundle.message("enhanced.stats.today.label")), gbc)
         gbc.gridx = 1; gbc.weightx = 1.0
         statsPanel.add(todayLabel, gbc)
 
         gbc.gridy = 2; gbc.gridx = 0; gbc.weightx = 0.0
-        statsPanel.add(JBLabel("总计使用:"), gbc)
+        statsPanel.add(JBLabel(NekoamaBundle.message("enhanced.stats.total.label")), gbc)
         gbc.gridx = 1; gbc.weightx = 1.0
         statsPanel.add(totalLabel, gbc)
 
         gbc.gridy = 3; gbc.gridx = 0; gbc.weightx = 0.0
-        statsPanel.add(JBLabel("成功率:"), gbc)
+        statsPanel.add(JBLabel(NekoamaBundle.message("enhanced.stats.success.label")), gbc)
         gbc.gridx = 1; gbc.weightx = 1.0
         statsPanel.add(successLabel, gbc)
 
         gbc.gridy = 4; gbc.gridx = 0; gbc.weightx = 0.0
-        statsPanel.add(JBLabel("平均延迟:"), gbc)
+        statsPanel.add(JBLabel(NekoamaBundle.message("enhanced.stats.latency.label")), gbc)
         gbc.gridx = 1; gbc.weightx = 1.0
         statsPanel.add(latencyLabel, gbc)
 
@@ -138,22 +138,22 @@ class EnhancedNekoamaToolWindow : MetricsUpdateListener {
         gbc.gridwidth = 1
 
         gbc.gridy = 7; gbc.gridx = 0; gbc.weightx = 0.0
-        statsPanel.add(JBLabel("今日Token:"), gbc)
+        statsPanel.add(JBLabel(NekoamaBundle.message("enhanced.stats.tokens.today.label")), gbc)
         gbc.gridx = 1; gbc.weightx = 1.0
         statsPanel.add(tokensTodayLabel, gbc)
 
         gbc.gridy = 8; gbc.gridx = 0; gbc.weightx = 0.0
-        statsPanel.add(JBLabel("本周Token:"), gbc)
+        statsPanel.add(JBLabel(NekoamaBundle.message("enhanced.stats.tokens.week.label")), gbc)
         gbc.gridx = 1; gbc.weightx = 1.0
         statsPanel.add(tokensWeekLabel, gbc)
 
         gbc.gridy = 9; gbc.gridx = 0; gbc.weightx = 0.0
-        statsPanel.add(JBLabel("本月Token:"), gbc)
+        statsPanel.add(JBLabel(NekoamaBundle.message("enhanced.stats.tokens.month.label")), gbc)
         gbc.gridx = 1; gbc.weightx = 1.0
         statsPanel.add(tokensMonthLabel, gbc)
 
         gbc.gridy = 10; gbc.gridx = 0; gbc.weightx = 0.0
-        statsPanel.add(JBLabel("累计Token:"), gbc)
+        statsPanel.add(JBLabel(NekoamaBundle.message("enhanced.stats.tokens.total.label")), gbc)
         gbc.gridx = 1; gbc.weightx = 1.0
         statsPanel.add(tokensTotalLabel, gbc)
     }
@@ -161,7 +161,7 @@ class EnhancedNekoamaToolWindow : MetricsUpdateListener {
     private fun createDetailsPanel() {
         val basicPanel = JPanel()
         basicPanel.layout = BorderLayout()
-        basicPanel.add(JBLabel("点击'显示详情'查看详细统计"), BorderLayout.CENTER)
+        basicPanel.add(JBLabel(NekoamaBundle.message("enhanced.stats.click.show.details")), BorderLayout.CENTER)
 
         val detailPanel = JPanel(GridBagLayout())
         val detailGbc = GridBagConstraints()
@@ -170,7 +170,7 @@ class EnhancedNekoamaToolWindow : MetricsUpdateListener {
         detailGbc.fill = GridBagConstraints.HORIZONTAL
 
         // 详细统计标题
-        val detailTitle = JBLabel("详细统计")
+        val detailTitle = JBLabel(NekoamaBundle.message("enhanced.stats.detailed.title"))
         detailTitle.font = detailTitle.font.deriveFont(JBFont.BOLD)
         detailGbc.gridx = 0; detailGbc.gridy = 0; detailGbc.gridwidth = 2
         detailPanel.add(detailTitle, detailGbc)
@@ -178,17 +178,17 @@ class EnhancedNekoamaToolWindow : MetricsUpdateListener {
 
         // 详细统计内容
         detailGbc.gridy = 1; detailGbc.gridx = 0; detailGbc.weightx = 0.0
-        detailPanel.add(JBLabel("最常用功能:"), detailGbc)
+        detailPanel.add(JBLabel(NekoamaBundle.message("enhanced.stats.most.used.label")), detailGbc)
         detailGbc.gridx = 1; detailGbc.weightx = 1.0
         detailPanel.add(mostUsedActionLabel, detailGbc)
 
         detailGbc.gridy = 2; detailGbc.gridx = 0; detailGbc.weightx = 0.0
-        detailPanel.add(JBLabel("高峰时段:"), detailGbc)
+        detailPanel.add(JBLabel(NekoamaBundle.message("enhanced.stats.peak.hour.label")), detailGbc)
         detailGbc.gridx = 1; detailGbc.weightx = 1.0
         detailPanel.add(peakHourLabel, detailGbc)
 
         detailGbc.gridy = 3; detailGbc.gridx = 0; detailGbc.weightx = 0.0
-        detailPanel.add(JBLabel("日均使用:"), detailGbc)
+        detailPanel.add(JBLabel(NekoamaBundle.message("enhanced.stats.avg.per.day.label")), detailGbc)
         detailGbc.gridx = 1; detailGbc.weightx = 1.0
         detailPanel.add(avgPerDayLabel, detailGbc)
 
@@ -198,12 +198,12 @@ class EnhancedNekoamaToolWindow : MetricsUpdateListener {
         detailGbc.gridwidth = 1
 
         detailGbc.gridy = 5; detailGbc.gridx = 0; detailGbc.weightx = 0.0
-        detailPanel.add(JBLabel("今日分类:"), detailGbc)
+        detailPanel.add(JBLabel(NekoamaBundle.message("enhanced.stats.today.classification.label")), detailGbc)
         detailGbc.gridx = 1; detailGbc.weightx = 1.0
         detailPanel.add(todayByTypeLabel, detailGbc)
 
         detailGbc.gridy = 6; detailGbc.gridx = 0; detailGbc.weightx = 0.0
-        detailPanel.add(JBLabel("今日错误:"), detailGbc)
+        detailPanel.add(JBLabel(NekoamaBundle.message("enhanced.stats.today.errors.label")), detailGbc)
         detailGbc.gridx = 1; detailGbc.weightx = 1.0
         detailPanel.add(errorsTodayLabel, detailGbc)
 
@@ -250,7 +250,7 @@ class EnhancedNekoamaToolWindow : MetricsUpdateListener {
                 updateDetailedStats(snapshot)
             } catch (e: Exception) {
                 // 更新失败时显示错误信息
-                showError("更新统计信息失败: ${e.message}")
+                showError(NekoamaBundle.message("enhanced.stats.update.failed", e.message ?: ""))
             }
         }
     }
@@ -276,13 +276,13 @@ class EnhancedNekoamaToolWindow : MetricsUpdateListener {
         val typeStats = snapshot.todayByType.entries.joinToString(", ") {
             "${formatActionType(it.key)}: ${it.value}"
         }
-        todayByTypeLabel.text = if (typeStats.isEmpty()) "无数据" else typeStats
+        todayByTypeLabel.text = if (typeStats.isEmpty()) NekoamaBundle.message("enhanced.stats.no.data") else typeStats
 
         // 错误统计
         val errorStats = snapshot.errorsToday.entries.joinToString(", ") {
             "${formatErrorType(it.key)}: ${it.value}"
         }
-        errorsTodayLabel.text = if (errorStats.isEmpty()) "无错误" else errorStats
+        errorsTodayLabel.text = if (errorStats.isEmpty()) NekoamaBundle.message("enhanced.stats.no.errors") else errorStats
     }
 
     private fun toggleDetails() {
@@ -304,16 +304,16 @@ class EnhancedNekoamaToolWindow : MetricsUpdateListener {
 
                 val data = EnhancedMetricsCollector.exportData(startDate, endDate)
                 if (data != null) {
-                    showInfo("数据已导出到剪贴板")
+                    showInfo(NekoamaBundle.message("enhanced.stats.export.success"))
                     // 复制到剪贴板
                     val clipboard = java.awt.Toolkit.getDefaultToolkit().systemClipboard
                     val stringSelection = java.awt.datatransfer.StringSelection(data)
                     clipboard.setContents(stringSelection, null)
                 } else {
-                    showError("导出失败：无数据")
+                    showError(NekoamaBundle.message("enhanced.stats.export.no.data"))
                 }
             } catch (e: Exception) {
-                showError("导出失败: ${e.message}")
+                showError(NekoamaBundle.message("enhanced.stats.export.failed", e.message ?: ""))
             }
         }
     }
@@ -321,8 +321,8 @@ class EnhancedNekoamaToolWindow : MetricsUpdateListener {
     private fun resetStats() {
         val option = JOptionPane.showConfirmDialog(
             mainPanel,
-            "确定要重置所有统计数据吗？此操作不可恢复。",
-            "确认重置",
+            NekoamaBundle.message("enhanced.stats.reset.confirm"),
+            NekoamaBundle.message("enhanced.stats.reset.title"),
             JOptionPane.YES_NO_OPTION,
             JOptionPane.WARNING_MESSAGE
         )
@@ -332,9 +332,9 @@ class EnhancedNekoamaToolWindow : MetricsUpdateListener {
                 try {
                     EnhancedMetricsCollector.resetAll()
                     updateStats()
-                    showInfo("统计数据已重置")
+                    showInfo(NekoamaBundle.message("enhanced.stats.reset.success"))
                 } catch (e: Exception) {
-                    showError("重置失败: ${e.message}")
+                    showError(NekoamaBundle.message("enhanced.stats.reset.failed", e.message ?: ""))
                 }
             }
         }
@@ -342,29 +342,29 @@ class EnhancedNekoamaToolWindow : MetricsUpdateListener {
 
     private fun formatActionType(actionType: com.cw2.nekoama.core.metrics.ActionType): String {
         return when (actionType) {
-            com.cw2.nekoama.core.metrics.ActionType.GENERATE_NAMING -> "命名生成"
-            com.cw2.nekoama.core.metrics.ActionType.GENERATE_COMMENT -> "注释生成"
-            com.cw2.nekoama.core.metrics.ActionType.CUSTOM_GENERATE -> "自定义生成"
-            com.cw2.nekoama.core.metrics.ActionType.ANALYZE_UNUSED_CODE -> "代码分析"
+            com.cw2.nekoama.core.metrics.ActionType.GENERATE_NAMING -> NekoamaBundle.message("enhanced.action.type.naming")
+            com.cw2.nekoama.core.metrics.ActionType.GENERATE_COMMENT -> NekoamaBundle.message("enhanced.action.type.comment")
+            com.cw2.nekoama.core.metrics.ActionType.CUSTOM_GENERATE -> NekoamaBundle.message("enhanced.action.type.custom")
+            com.cw2.nekoama.core.metrics.ActionType.ANALYZE_UNUSED_CODE -> NekoamaBundle.message("enhanced.action.type.analyze")
         }
     }
 
     private fun formatErrorType(errorType: com.cw2.nekoama.core.metrics.ErrorType): String {
         return when (errorType) {
-            com.cw2.nekoama.core.metrics.ErrorType.NETWORK_ERROR -> "网络错误"
-            com.cw2.nekoama.core.metrics.ErrorType.API_ERROR -> "API错误"
-            com.cw2.nekoama.core.metrics.ErrorType.TIMEOUT_ERROR -> "超时错误"
-            com.cw2.nekoama.core.metrics.ErrorType.PARSING_ERROR -> "解析错误"
-            com.cw2.nekoama.core.metrics.ErrorType.UNKNOWN_ERROR -> "未知错误"
+            com.cw2.nekoama.core.metrics.ErrorType.NETWORK_ERROR -> NekoamaBundle.message("enhanced.error.type.network")
+            com.cw2.nekoama.core.metrics.ErrorType.API_ERROR -> NekoamaBundle.message("enhanced.error.type.api")
+            com.cw2.nekoama.core.metrics.ErrorType.TIMEOUT_ERROR -> NekoamaBundle.message("enhanced.error.type.timeout")
+            com.cw2.nekoama.core.metrics.ErrorType.PARSING_ERROR -> NekoamaBundle.message("enhanced.error.type.parsing")
+            com.cw2.nekoama.core.metrics.ErrorType.UNKNOWN_ERROR -> NekoamaBundle.message("enhanced.error.type.unknown")
         }
     }
 
     private fun showError(message: String) {
-        JOptionPane.showMessageDialog(mainPanel, message, "错误", JOptionPane.ERROR_MESSAGE)
+        JOptionPane.showMessageDialog(mainPanel, message, NekoamaBundle.message("enhanced.dialog.error"), JOptionPane.ERROR_MESSAGE)
     }
 
     private fun showInfo(message: String) {
-        JOptionPane.showMessageDialog(mainPanel, message, "信息", JOptionPane.INFORMATION_MESSAGE)
+        JOptionPane.showMessageDialog(mainPanel, message, NekoamaBundle.message("enhanced.dialog.info"), JOptionPane.INFORMATION_MESSAGE)
     }
 
     override fun onMetricsUpdated(record: com.cw2.nekoama.core.metrics.ActionRecord) {

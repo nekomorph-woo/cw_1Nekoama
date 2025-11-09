@@ -10,6 +10,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import com.cw2.nekoama.core.exception.NekoamaError
 import com.cw2.nekoama.core.result.Result
+import com.cw2.nekoama.presentation.messages.NekoamaBundle
 
 /**
  * JSON 序列化配置 - JSON serialization configuration
@@ -110,7 +111,7 @@ object InstantSerializer : KSerializer<Instant> {
         return try {
             Instant.from(formatter.parse(string))
         } catch (e: DateTimeParseException) {
-            throw SerializationException("无法解析 Instant: $string", e)
+            throw SerializationException(NekoamaBundle.message("error.json.parse.instant", string), e)
         }
     }
 }
@@ -134,7 +135,7 @@ object LocalDateTimeSerializer : KSerializer<LocalDateTime> {
         return try {
             LocalDateTime.parse(string, formatter)
         } catch (e: DateTimeParseException) {
-            throw SerializationException("无法解析 LocalDateTime: $string", e)
+            throw SerializationException(NekoamaBundle.message("error.json.parse.datetime", string), e)
         }
     }
 }
@@ -184,24 +185,24 @@ class ResultSerializer<T>(private val dataSerializer: KSerializer<T>) : KSeriali
                 2 -> errorMessage = compositeInput.decodeStringElement(descriptor, index)
                 3 -> errorType = compositeInput.decodeStringElement(descriptor, index)
                 CompositeDecoder.DECODE_DONE -> break
-                else -> throw SerializationException("未知字段索引: $index")
+                else -> throw SerializationException(NekoamaBundle.message("error.json.unknown.field.index", index))
             }
         }
         compositeInput.endStructure(descriptor)
         
         return when (success) {
-            true -> data?.let { Result.Success(it) } 
-                ?: throw SerializationException("成功结果缺少数据字段")
+            true -> data?.let { Result.Success(it) }
+                ?: throw SerializationException(NekoamaBundle.message("error.json.missing.data.field"))
             false -> {
                 val error = when (errorType) {
                     "ParseError" -> NekoamaError.ParseError.JsonParse(
-                        errorMessage ?: "JSON解析失败"
+                        errorMessage ?: NekoamaBundle.message("error.json.parse.failed")
                     )
-                    else -> NekoamaError.Unknown(errorMessage ?: "未知错误")
+                    else -> NekoamaError.Unknown(errorMessage ?: NekoamaBundle.message("error.json.unknown.error"))
                 }
                 Result.Error(error)
             }
-            null -> throw SerializationException("缺少 success 字段")
+            null -> throw SerializationException(NekoamaBundle.message("error.json.missing.success.field"))
         }
     }
 }
@@ -219,9 +220,9 @@ object JsonUtils {
     inline fun <reified T> toJson(value: T, config: Json = JsonConfig.json): Result<String> = try {
         Result.Success(config.encodeToString(value))
     } catch (e: SerializationException) {
-        Result.Error(NekoamaError.ParseError.JsonParse("序列化失败: ${e.message}", e))
+        Result.Error(createSerializationError(e))
     } catch (e: Exception) {
-        Result.Error(NekoamaError.Unknown("序列化过程中发生未知错误: ${e.message}", e))
+        Result.Error(createUnknownSerializationError(e))
     }
     
     /**
@@ -230,11 +231,11 @@ object JsonUtils {
     inline fun <reified T> fromJson(json: String, config: Json = JsonConfig.json): Result<T> = try {
         Result.Success(config.decodeFromString<T>(json))
     } catch (e: SerializationException) {
-        Result.Error(NekoamaError.ParseError.JsonParse("反序列化失败: ${e.message}", e))
+        Result.Error(createDeserializationError(e))
     } catch (e: IllegalArgumentException) {
-        Result.Error(NekoamaError.ParseError.InvalidResponse("JSON 格式不正确: ${e.message}", e))
+        Result.Error(createInvalidFormatError(e))
     } catch (e: Exception) {
-        Result.Error(NekoamaError.Unknown("反序列化过程中发生未知错误: ${e.message}", e))
+        Result.Error(createUnknownDeserializationError(e))
     }
     
     /**
@@ -317,30 +318,52 @@ object JsonUtils {
         
         Result.Success(current)
     } catch (e: Exception) {
-        Result.Error(NekoamaError.ParseError.JsonParse("JSON 路径提取失败: ${e.message}", e))
+        Result.Error(NekoamaError.ParseError.JsonParse(NekoamaBundle.message("error.json.path.extraction.failed", e.message ?: ""), e))
     }
+
+    }
+
+// 包级私有辅助函数，用于处理国际化错误消息
+public fun createSerializationError(e: SerializationException): NekoamaError {
+    return NekoamaError.ParseError.JsonParse(NekoamaBundle.message("error.json.serialization.failed", e.message ?: ""), e)
+}
+
+public fun createUnknownSerializationError(e: Exception): NekoamaError {
+    return NekoamaError.Unknown(NekoamaBundle.message("error.json.serialization.unknown.error", e.message ?: ""), e)
+}
+
+public fun createDeserializationError(e: SerializationException): NekoamaError {
+    return NekoamaError.ParseError.JsonParse(NekoamaBundle.message("error.json.deserialization.failed", e.message ?: ""), e)
+}
+
+public fun createInvalidFormatError(e: IllegalArgumentException): NekoamaError {
+    return NekoamaError.ParseError.InvalidResponse(NekoamaBundle.message("error.json.invalid.format", e.message ?: ""), e)
+}
+
+public fun createUnknownDeserializationError(e: Exception): NekoamaError {
+    return NekoamaError.Unknown(NekoamaBundle.message("error.json.deserialization.unknown.error", e.message ?: ""), e)
 }
 
 /**
  * 扩展函数：为任意对象添加 JSON 序列化功能 - Extension function: add JSON serialization to any object
  */
-inline fun <reified T> T.toJson(config: Json = JsonConfig.json): Result<String> = 
+inline fun <reified T> T.toJson(config: Json = JsonConfig.json): Result<String> =
     JsonUtils.toJson(this, config)
 
 /**
  * 扩展函数：为字符串添加 JSON 反序列化功能 - Extension function: add JSON deserialization to String
  */
-inline fun <reified T> String.fromJson(config: Json = JsonConfig.json): Result<T> = 
+inline fun <reified T> String.fromJson(config: Json = JsonConfig.json): Result<T> =
     JsonUtils.fromJson(this, config)
 
 /**
  * 扩展函数：安全的 JSON 序列化 - Extension function: safe JSON serialization
  */
-inline fun <reified T> T.toJsonOrNull(config: Json = JsonConfig.json): String? = 
+inline fun <reified T> T.toJsonOrNull(config: Json = JsonConfig.json): String? =
     JsonUtils.toJsonOrNull(this, config)
 
 /**
  * 扩展函数：安全的 JSON 反序列化 - Extension function: safe JSON deserialization
  */
-inline fun <reified T> String.fromJsonOrNull(config: Json = JsonConfig.json): T? = 
+inline fun <reified T> String.fromJsonOrNull(config: Json = JsonConfig.json): T? =
     JsonUtils.fromJsonOrNull<T>(this, config)
