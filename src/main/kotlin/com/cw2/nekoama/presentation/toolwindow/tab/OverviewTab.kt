@@ -376,14 +376,23 @@ class OverviewTab : BaseNekoamaTab() {
         val row = JBPanel<JBPanel<*>>(BorderLayout())
         row.border = JBEmptyBorder(JBUI.insets(2, 0, 2, 0))
 
+        // 左侧标签面板
+        val leftPanel = JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.LEFT, 0, 0))
+        leftPanel.isOpaque = false
+
         val labelComponent = JBLabel("$label:")
-        labelComponent.preferredSize = Dimension(JBUI.scale(80), JBUI.scale(20))
+        // 移除固定宽度限制，让文本完整显示
         if (icon != null) {
             labelComponent.icon = icon
         }
 
-        row.add(labelComponent, BorderLayout.WEST)
-        row.add(valueLabel, BorderLayout.CENTER)
+        leftPanel.add(labelComponent)
+
+        // 右侧值标签 - 确保右对齐
+        valueLabel.horizontalAlignment = SwingConstants.RIGHT
+
+        row.add(leftPanel, BorderLayout.WEST)
+        row.add(valueLabel, BorderLayout.EAST)
 
         return row
     }

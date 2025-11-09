@@ -18,6 +18,7 @@ import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.awt.BorderLayout
 import java.awt.FlowLayout
+import java.util.Locale
 import javax.swing.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -41,6 +42,9 @@ class ModularToolWindow {
     private var cachedButtons: List<JButton>? = null
 
     init {
+        // 设置Locale为英文，确保弹窗按钮显示为"OK"
+        Locale.setDefault(Locale.ENGLISH)
+
         setupUI()
         registerDefaultTabs()
         NekoamaLogger.info("ModularToolWindow", "initialized")
@@ -271,8 +275,9 @@ class ModularToolWindow {
         scope.launch {
             try {
                 // 备用方案：显示设置信息
-                val message = NekoamaBundle.message("settings.info.content") +
-                    "\n\n" + NekoamaBundle.message("settings.info.configurable.items")
+                val contentMessage = NekoamaBundle.message("settings.info.content")
+                val itemsMessage = NekoamaBundle.message("settings.info.configurable.items").replace("\\n", "\n")
+                val message = contentMessage + "\n\n" + itemsMessage
 
                 JOptionPane.showMessageDialog(
                     mainPanel,
