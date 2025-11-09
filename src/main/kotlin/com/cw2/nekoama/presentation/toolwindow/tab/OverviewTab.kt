@@ -60,6 +60,12 @@ class OverviewTab : BaseNekoamaTab() {
     private val configStatusLabel = JBLabel(NekoamaBundle.message("overview.status.checking"))
     private val todayUsageLabel = JBLabel(NekoamaBundle.message("overview.status.loading"))
 
+    // 使用摘要UI组件引用（修复静态文本问题）
+    private lateinit var todayUsageValueLabel: JBLabel
+    private lateinit var todayTokensValueLabel: JBLabel
+    private lateinit var successRateValueLabel: JBLabel
+    private lateinit var avgLatencyValueLabel: JBLabel
+
     // 动画组件（性能优化：使用对象缓存）
     private val loadingIcon = AllIcons.Process.Step_1
     private var loadingTimer: Timer? = null
@@ -221,7 +227,12 @@ class OverviewTab : BaseNekoamaTab() {
         val statsPanel = JPanel()
         statsPanel.layout = BoxLayout(statsPanel, BoxLayout.Y_AXIS)
 
-        val todayUsageRow = createInfoRow(NekoamaBundle.message("overview.usage.today.requests"), todayUsageLabel.text)
+        // 创建动态使用统计行
+        val (todayUsageRow, todayUsageRef) = createInfoRowWithDynamicLabel(
+            NekoamaBundle.message("overview.usage.today.requests"),
+            NekoamaBundle.message("overview.status.loading")
+        )
+        todayUsageValueLabel = todayUsageRef
         statsPanel.add(todayUsageRow)
 
         // 添加分隔线
@@ -231,27 +242,30 @@ class OverviewTab : BaseNekoamaTab() {
         statsPanel.add(separator)
         statsPanel.add(Box.createVerticalStrut(10))
 
-        // 添加Token使用统计
-        try {
-            val snapshot = runBlocking { EnhancedMetricsCollector.getEnhancedSnapshot() }
-            val tokenRow = createInfoRow(NekoamaBundle.message("overview.usage.today.tokens"), "${snapshot.tokensToday}")
-            statsPanel.add(tokenRow)
-        } catch (e: Exception) {
-            statsPanel.add(createInfoRow(NekoamaBundle.message("overview.usage.today.tokens"), NekoamaBundle.message("overview.status.load.failed")))
-        }
+        // 创建动态Token使用统计行
+        val (tokenRow, tokenRef) = createInfoRowWithDynamicLabel(
+            NekoamaBundle.message("overview.usage.today.tokens"),
+            NekoamaBundle.message("overview.status.loading")
+        )
+        todayTokensValueLabel = tokenRef
+        statsPanel.add(tokenRow)
 
-        // 添加成功率和延迟统计
+        // 创建动态成功率和延迟统计行
         statsPanel.add(Box.createVerticalStrut(5))
-        try {
-            val snapshot = runBlocking { EnhancedMetricsCollector.getEnhancedSnapshot() }
-            val successRateRow = createInfoRow(NekoamaBundle.message("overview.usage.success.rate"), String.format("%.1f%%", snapshot.successRate * 100))
-            statsPanel.add(successRateRow)
 
-            val latencyRow = createInfoRow(NekoamaBundle.message("overview.usage.avg.latency"), "${snapshot.averageLatencyMs}ms")
-            statsPanel.add(latencyRow)
-        } catch (e: Exception) {
-            statsPanel.add(createInfoRow(NekoamaBundle.message("overview.usage.performance.data"), NekoamaBundle.message("overview.status.load.failed")))
-        }
+        val (successRateRow, successRateRef) = createInfoRowWithDynamicLabel(
+            NekoamaBundle.message("overview.usage.success.rate"),
+            NekoamaBundle.message("overview.status.loading")
+        )
+        successRateValueLabel = successRateRef
+        statsPanel.add(successRateRow)
+
+        val (latencyRow, latencyRef) = createInfoRowWithDynamicLabel(
+            NekoamaBundle.message("overview.usage.avg.latency"),
+            NekoamaBundle.message("overview.status.loading")
+        )
+        avgLatencyValueLabel = latencyRef
+        statsPanel.add(latencyRow)
 
         card.add(titleLabel, BorderLayout.NORTH)
         card.add(statsPanel, BorderLayout.CENTER)
@@ -420,6 +434,25 @@ class OverviewTab : BaseNekoamaTab() {
         row.add(valueComponent, BorderLayout.EAST)
 
         return row
+    }
+
+    /**
+     * 创建动态信息行（返回可更新的标签引用）
+     */
+    private fun createInfoRowWithDynamicLabel(label: String, initialValue: String): Pair<JPanel, JBLabel> {
+        val row = JPanel(BorderLayout())
+        row.border = EmptyBorder(2, 0, 2, 0)
+
+        val labelComponent = JBLabel("$label:")
+        labelComponent.horizontalAlignment = SwingConstants.LEFT
+
+        val valueComponent = JBLabel(initialValue)
+        valueComponent.horizontalAlignment = SwingConstants.RIGHT
+
+        row.add(labelComponent, BorderLayout.WEST)
+        row.add(valueComponent, BorderLayout.EAST)
+
+        return Pair(row, valueComponent)
     }
 
     /**
@@ -630,14 +663,76 @@ class OverviewTab : BaseNekoamaTab() {
     }
 
     /**
+     * 验证EnhancedMetricsCollector数据
+     */
+    private suspend fun validateMetricsData(): Boolean {
+        return try {
+            val snapshot = EnhancedMetricsCollector.getEnhancedSnapshot()
+            NekoamaLogger.debug("OverviewTab", "Data validation: today=${snapshot.today}, total=${snapshot.total}, tokensToday=${snapshot.tokensToday}")
+
+            // 检查是否有实际数据
+            val hasData = snapshot.today > 0 || snapshot.total > 0 || snapshot.tokensToday > 0
+
+            if (hasData) {
+                NekoamaLogger.info("OverviewTab", "Found valid metrics data: ${snapshot.today} requests, ${snapshot.tokensToday} tokens")
+            } else {
+                NekoamaLogger.info("OverviewTab", "No metrics data found yet - this is normal if no AI operations have been performed")
+            }
+
+            hasData
+        } catch (e: Exception) {
+            NekoamaLogger.error("OverviewTab", "Failed to validate metrics data", error = e)
+            false
+        }
+    }
+
+    /**
      * 更新使用摘要
      */
     private suspend fun updateUsageSummary() {
         try {
-            val snapshot = runBlocking { EnhancedMetricsCollector.getEnhancedSnapshot() }
+            NekoamaLogger.debug("OverviewTab", "Starting to update usage summary with real UI components")
+
+            // 首先验证数据可用性
+            val hasValidData = validateMetricsData()
+
+            if (!hasValidData) {
+                // 显示"无数据"状态而不是错误
+                val noDataMsg = NekoamaBundle.message("overview.usage.no.data")
+                todayUsageValueLabel.text = noDataMsg
+                todayTokensValueLabel.text = noDataMsg
+                successRateValueLabel.text = "--"
+                avgLatencyValueLabel.text = "--"
+                todayUsageLabel.text = noDataMsg
+
+                NekoamaLogger.debug("OverviewTab", "No data available to display")
+                return
+            }
+
+            // 获取实际数据
+            val snapshot = EnhancedMetricsCollector.getEnhancedSnapshot()
+
+            // 更新所有动态UI组件
+            todayUsageValueLabel.text = "${snapshot.today} " + NekoamaBundle.message("overview.usage.times")
+            todayTokensValueLabel.text = "${snapshot.tokensToday}"
+            successRateValueLabel.text = String.format("%.1f%%", snapshot.successRate * 100)
+            avgLatencyValueLabel.text = "${snapshot.averageLatencyMs}ms"
+
+            // 同时更新旧变量以保持兼容性
             todayUsageLabel.text = "${snapshot.today} " + NekoamaBundle.message("overview.usage.times")
+
+            NekoamaLogger.debug("OverviewTab", "Usage summary updated successfully: requests=${snapshot.today}, tokens=${snapshot.tokensToday}")
+
         } catch (e: Exception) {
-            todayUsageLabel.text = NekoamaBundle.message("overview.status.load.failed")
+            NekoamaLogger.error("OverviewTab", "Failed to update usage summary", error = e)
+
+            // 更新所有UI组件显示错误状态
+            val errorMsg = NekoamaBundle.message("overview.status.load.failed")
+            todayUsageValueLabel.text = errorMsg
+            todayTokensValueLabel.text = errorMsg
+            successRateValueLabel.text = errorMsg
+            avgLatencyValueLabel.text = errorMsg
+            todayUsageLabel.text = errorMsg
         }
     }
 
