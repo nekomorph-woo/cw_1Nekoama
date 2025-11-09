@@ -59,32 +59,32 @@
     <actions>
         <!-- 顶层 Nekoama 组（可用于扩展） -->
         <group id="Nekoama.Actions" text="Nekoama" popup="true">
-            <action id="Nekoama.GenerateNaming" class="com.cw2.nekoama.presentation.actions.GenerateNamingAction" text="Generate Naming" description="Generate naming suggestions" icon="AllIcons.Actions.IntentionBulb"/>
-            <action id="Nekoama.GenerateComment" class="com.cw2.nekoama.presentation.actions.GenerateCommentAction" text="Generate Comment" description="Generate documentation" icon="AllIcons.Actions.IntentionBulb"/>
-            <action id="Nekoama.CustomGenerate" class="com.cw2.nekoama.presentation.actions.CustomGenerateAction" text="Nekoama: Custom Generate" description="Custom generate with context" icon="AllIcons.Actions.IntentionBulb"/>
+            <action id="Nekoama.GenerateNaming" class="com.cw2.nekoama.presentation.actions.GenerateNamingAction" text="Name for Any" description="Generate naming suggestions" icon="AllIcons.Actions.GroupByModuleGroup"/>
+            <action id="Nekoama.GenerateComment" class="com.cw2.nekoama.presentation.actions.GenerateCommentAction" text="Comment for Me" description="Generate documentation" icon="AllIcons.Actions.Lightning"/>
+            <action id="Nekoama.CustomGenerate" class="com.cw2.nekoama.presentation.actions.CustomGenerateAction" text="IDEA for Neko" description="Custom generate with context" icon="AllIcons.Actions.EnableNewUi"/>
         </group>
 
         <!-- 未使用代码扫描 Action -->
-        <action id="Nekoama.AnalyzeUnusedCode" class="com.cw2.nekoama.presentation.actions.AnalyzeUnusedCodeAction" text="Nekoama: Analyze Unused Code" description="Scan project for unused files/classes/methods">
+        <action id="Nekoama.AnalyzeUnusedCode" class="com.cw2.nekoama.presentation.actions.AnalyzeUnusedCodeAction" text="Nekoama: Analyze Unused Code" description="Scan project for unused files/classes/methods" icon="AllIcons.Actions.ClearCash">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
         </action>
 
         <!-- 右键菜单集成 -->
-        <action id="Nekoama.GenerateNaming.Popup" class="com.cw2.nekoama.presentation.actions.GenerateNamingAction" text="Nekoama: Generate Naming" icon="AllIcons.Actions.IntentionBulb">
+        <action id="Nekoama.GenerateNaming.Popup" class="com.cw2.nekoama.presentation.actions.GenerateNamingAction" text="Name for Any" icon="AllIcons.Actions.GroupByModuleGroup">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
         </action>
-        <action id="Nekoama.GenerateComment.Popup" class="com.cw2.nekoama.presentation.actions.GenerateCommentAction" text="Nekoama: Generate Comment" icon="AllIcons.Actions.IntentionBulb">
+        <action id="Nekoama.GenerateComment.Popup" class="com.cw2.nekoama.presentation.actions.GenerateCommentAction" text="Comment for Me" icon="AllIcons.Actions.Lightning">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
         </action>
-        <action id="Nekoama.CustomGenerate.Popup" class="com.cw2.nekoama.presentation.actions.CustomGenerateAction" text="Nekoama: Custom Generate" icon="AllIcons.Actions.IntentionBulb">
+        <action id="Nekoama.CustomGenerate.Popup" class="com.cw2.nekoama.presentation.actions.CustomGenerateAction" text="IDEA for Neko" icon="AllIcons.Actions.EnableNewUi">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
         </action>
 
         <!-- Code 菜单集成 -->
-        <action id="Nekoama.GenerateNaming.CodeMenu" class="com.cw2.nekoama.presentation.actions.GenerateNamingAction" text="Nekoama: Generate Naming">
+        <action id="Nekoama.GenerateNaming.CodeMenu" class="com.cw2.nekoama.presentation.actions.GenerateNamingAction" text="Name for Any" icon="AllIcons.Actions.GroupByModuleGroup">
             <add-to-group group-id="CodeMenu" anchor="last"/>
         </action>
-        <action id="Nekoama.GenerateComment.CodeMenu" class="com.cw2.nekoama.presentation.actions.GenerateCommentAction" text="Nekoama: Generate Comment">
+        <action id="Nekoama.GenerateComment.CodeMenu" class="com.cw2.nekoama.presentation.actions.GenerateCommentAction" text="Comment for Me" icon="AllIcons.Actions.Lightning">
             <add-to-group group-id="CodeMenu" anchor="last"/>
         </action>
     </actions>

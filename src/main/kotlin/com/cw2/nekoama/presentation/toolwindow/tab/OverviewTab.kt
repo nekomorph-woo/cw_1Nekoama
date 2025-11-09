@@ -4,7 +4,13 @@ import com.cw2.nekoama.core.metrics.EnhancedMetricsCollector
 import com.cw2.nekoama.core.metrics.ActionType
 import com.cw2.nekoama.core.logging.NekoamaLogger
 import com.cw2.nekoama.data.settings.NekoamaSettings
+import com.cw2.nekoama.data.settings.NekoamaSecureStorage
 import com.cw2.nekoama.presentation.messages.NekoamaBundle
+import com.cw2.nekoama.ai.provider.AIProvider
+import com.cw2.nekoama.ai.provider.openai.OpenAIProvider
+import com.cw2.nekoama.ai.provider.openai.OpenAIConfig
+import com.cw2.nekoama.ai.provider.custom.CustomAPIProvider
+import com.cw2.nekoama.ai.provider.custom.CustomAPIConfig
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.ui.components.JBLabel
@@ -498,35 +504,81 @@ class OverviewTab : BaseNekoamaTab() {
             connectionStatusLabel.text = NekoamaBundle.message("overview.status.checking")
             connectionStatusLabel.foreground = UIManager.getColor("Label.foreground")
 
-            // 检查API配置是否完整
-            val settings = NekoamaSettings.getInstance()
-            if (settings.apiKey.isEmpty()) {
-                connectionStatusLabel.text = NekoamaBundle.message("overview.api.key.not.configured")
-                connectionStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
+            NekoamaLogger.debug("OverviewTab", "Checking connection status")
+
+            // 使用createAIProvider方法验证配置
+            val provider = createAIProvider()
+            if (provider == null) {
+                // 检查具体是哪项配置缺失
+                val settings = NekoamaSettings.getInstance()
+                val secureKey = NekoamaSecureStorage.getApiKey()
+                val resolvedKey = if (secureKey.isNotBlank()) {
+                    secureKey
+                } else {
+                    settings.apiKey.ifBlank { System.getenv("OPENAI_API_KEY") ?: "" }
+                }
+
+                when {
+                    resolvedKey.isBlank() -> {
+                        connectionStatusLabel.text = NekoamaBundle.message("overview.api.key.not.configured")
+                        connectionStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
+                    }
+                    settings.apiEndpoint.isBlank() -> {
+                        connectionStatusLabel.text = NekoamaBundle.message("overview.endpoint.not.configured")
+                        connectionStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
+                    }
+                    settings.model.isBlank() -> {
+                        connectionStatusLabel.text = NekoamaBundle.message("overview.config.item.model") + " " +
+                                NekoamaBundle.message("overview.not.configured")
+                        connectionStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
+                    }
+                    else -> {
+                        connectionStatusLabel.text = NekoamaBundle.message("overview.config.abnormal")
+                        connectionStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
+                    }
+                }
                 return
             }
 
-            if (settings.apiEndpoint.isEmpty()) {
-                connectionStatusLabel.text = NekoamaBundle.message("overview.endpoint.not.configured")
-                connectionStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
-                return
-            }
+            // 使用AI提供商进行轻量级连接检查
+            val result = provider.isAvailable()
 
-            // 模拟连接测试（实际项目中可以调用真实的API测试）
-            delay(500) // 模拟网络延迟
-
-            // 根据配置显示连接状态
-            if (settings.apiEndpoint.contains("api.openai.com") || settings.apiEndpoint.contains("custom")) {
-                connectionStatusLabel.text = NekoamaBundle.message("overview.connected")
-                connectionStatusLabel.foreground = UIManager.getColor("Label.successForeground")
-            } else {
-                connectionStatusLabel.text = NekoamaBundle.message("overview.config.abnormal")
-                connectionStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
+            when {
+                result.isSuccess && result.getOrNull() == true -> {
+                    connectionStatusLabel.text = NekoamaBundle.message("overview.connected")
+                    connectionStatusLabel.foreground = UIManager.getColor("Label.successForeground")
+                    NekoamaLogger.debug("OverviewTab", "Connection check successful")
+                }
+                result.getOrNull() == false -> {
+                    val error = try { throw Exception("Connection test failed") } catch (e: Exception) { e }
+                    when {
+                        error?.message?.contains("401") == true ||
+                        error?.message?.contains("authentication") == true -> {
+                            connectionStatusLabel.text = NekoamaBundle.message("overview.connection.error.invalid.key")
+                            connectionStatusLabel.foreground = UIManager.getColor("Label.errorForeground")
+                        }
+                        error?.message?.contains("timeout") == true -> {
+                            connectionStatusLabel.text = NekoamaBundle.message("overview.connection.error.timeout")
+                            connectionStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
+                        }
+                        else -> {
+                            connectionStatusLabel.text = NekoamaBundle.message("overview.connection.failed")
+                            connectionStatusLabel.foreground = UIManager.getColor("Label.errorForeground")
+                        }
+                    }
+                    NekoamaLogger.debug("OverviewTab", "Connection check failed: ${error?.message}")
+                }
+                else -> {
+                    connectionStatusLabel.text = NekoamaBundle.message("overview.connection.error.service.unavailable")
+                    connectionStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
+                    NekoamaLogger.debug("OverviewTab", "Service unavailable")
+                }
             }
 
         } catch (e: Exception) {
             connectionStatusLabel.text = NekoamaBundle.message("overview.status.check.failed")
             connectionStatusLabel.foreground = UIManager.getColor("Label.errorForeground")
+            NekoamaLogger.error("OverviewTab", "Connection status check failed", error = e)
         }
     }
 
@@ -590,6 +642,87 @@ class OverviewTab : BaseNekoamaTab() {
     }
 
     /**
+     * 创建AI提供商实例
+     */
+    private fun createAIProvider(): AIProvider? {
+        try {
+            val settings = NekoamaSettings.getInstance()
+
+            // 获取API Key的优先级：安全存储 > 设置 > 环境变量
+            val secureKey = NekoamaSecureStorage.getApiKey()
+            val resolvedKey = if (secureKey.isNotBlank()) {
+                secureKey
+            } else {
+                settings.apiKey.ifBlank {
+                    System.getenv("OPENAI_API_KEY") ?: ""
+                }
+            }
+
+            // 验证必要的配置
+            if (resolvedKey.isBlank()) {
+                NekoamaLogger.warn("OverviewTab", "API key not configured")
+                return null
+            }
+
+            if (settings.apiEndpoint.isBlank()) {
+                NekoamaLogger.warn("OverviewTab", "API endpoint not configured")
+                return null
+            }
+
+            if (settings.model.isBlank()) {
+                NekoamaLogger.warn("OverviewTab", "Model not configured")
+                return null
+            }
+
+            // 根据提供商类型创建相应的实例
+            return when {
+                settings.apiEndpoint.contains("api.openai.com") -> {
+                    OpenAIProvider(
+                        OpenAIConfig(
+                            apiKey = resolvedKey,
+                            model = settings.model,
+                            temperature = settings.modelTemperature / 100.0,
+                            timeoutMs = settings.requestTimeoutMs.toLong(),
+                            maxTokens = 1 // 连接测试用最小Token数
+                        )
+                    )
+                }
+                else -> {
+                    CustomAPIProvider(
+                        CustomAPIConfig(
+                            providerName = "Custom API",
+                            apiUrl = settings.apiEndpoint,
+                            apiKey = resolvedKey,
+                            model = settings.model,
+                            temperature = settings.modelTemperature / 100.0,
+                            timeoutMs = settings.requestTimeoutMs.toLong(),
+                            maxTokens = 1 // 连接测试用最小Token数
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            NekoamaLogger.error("OverviewTab", "Failed to create AI provider", error = e)
+            return null
+        }
+    }
+
+    /**
+     * 显示连接错误
+     */
+    private fun showConnectionError(message: String) {
+        connectionStatusLabel.text = NekoamaBundle.message("overview.connection.failed")
+        connectionStatusLabel.foreground = UIManager.getColor("Label.errorForeground")
+
+        JOptionPane.showMessageDialog(
+            mainPanel,
+            NekoamaBundle.message("overview.connection.test.failed", message),
+            NekoamaBundle.message("overview.connection.test.title"),
+            JOptionPane.ERROR_MESSAGE
+        )
+    }
+
+    /**
      * 测试连接
      */
     private fun testConnection() {
@@ -598,28 +731,62 @@ class OverviewTab : BaseNekoamaTab() {
                 connectionStatusLabel.text = NekoamaBundle.message("overview.connection.testing")
                 connectionStatusLabel.foreground = UIManager.getColor("Label.foreground")
 
-                // 这里可以添加实际的连接测试逻辑
-                delay(1000) // 模拟测试延迟
+                NekoamaLogger.debug("OverviewTab", "Starting connection test")
 
-                connectionStatusLabel.text = NekoamaBundle.message("overview.connection.normal")
-                connectionStatusLabel.foreground = UIManager.getColor("Label.successForeground")
+                // 创建AI提供商实例
+                val provider = createAIProvider()
+                if (provider == null) {
+                    showConnectionError(NekoamaBundle.message("overview.connection.error.not.configured"))
+                    return@launch
+                }
 
-                JOptionPane.showMessageDialog(
-                    mainPanel,
-                    NekoamaBundle.message("overview.connection.test.success"),
-                    NekoamaBundle.message("overview.connection.test.title"),
-                    JOptionPane.INFORMATION_MESSAGE
-                )
+                NekoamaLogger.debug("OverviewTab", "AI provider created successfully, testing availability")
+
+                // 使用AI提供商的isAvailable方法进行真实连接测试
+                val startTime = System.currentTimeMillis()
+                val result = provider.isAvailable()
+                val latency = System.currentTimeMillis() - startTime
+
+                NekoamaLogger.debug("OverviewTab", "Connection test result: $result, latency: ${latency}ms")
+
+                when {
+                    result.isSuccess && result.getOrNull() == true -> {
+                        connectionStatusLabel.text = NekoamaBundle.message("overview.connected")
+                        connectionStatusLabel.foreground = UIManager.getColor("Label.successForeground")
+
+                        val successMessage = NekoamaBundle.message("overview.connection.test.success") +
+                                "\n" + NekoamaBundle.message("overview.connection.test.latency", latency)
+
+                        JOptionPane.showMessageDialog(
+                            mainPanel,
+                            successMessage,
+                            NekoamaBundle.message("overview.connection.test.title"),
+                            JOptionPane.INFORMATION_MESSAGE
+                        )
+                    }
+                    result.getOrNull() == false -> {
+                        val error = try { throw Exception("Connection test failed") } catch (e: Exception) { e }
+                        val errorMessage = when {
+                            error?.message?.contains("401") == true ||
+                            error?.message?.contains("authentication") == true ->
+                                NekoamaBundle.message("overview.connection.error.invalid.key")
+                            error?.message?.contains("timeout") == true ->
+                                NekoamaBundle.message("overview.connection.error.timeout")
+                            error?.message?.contains("network") == true ||
+                            error?.message?.contains("connection") == true ->
+                                NekoamaBundle.message("overview.connection.error.network.error")
+                            else -> error?.message ?: "Unknown error"
+                        }
+                        showConnectionError(errorMessage)
+                    }
+                    else -> {
+                        showConnectionError(NekoamaBundle.message("overview.connection.error.service.unavailable"))
+                    }
+                }
+
             } catch (e: Exception) {
-                connectionStatusLabel.text = NekoamaBundle.message("overview.connection.failed")
-                connectionStatusLabel.foreground = UIManager.getColor("Label.errorForeground")
-
-                JOptionPane.showMessageDialog(
-                    mainPanel,
-                    NekoamaBundle.message("overview.connection.test.failed", e.message ?: ""),
-                    NekoamaBundle.message("overview.connection.test.title"),
-                    JOptionPane.ERROR_MESSAGE
-                )
+                NekoamaLogger.error("OverviewTab", "Connection test failed", error = e)
+                showConnectionError(NekoamaBundle.message("overview.connection.error.network.error"))
             }
         }
     }
