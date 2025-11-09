@@ -25,6 +25,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
+import com.intellij.openapi.options.ShowSettingsUtil
+import com.intellij.openapi.options.Configurable
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.application.ApplicationManager
+import java.awt.event.ActionEvent
 
 /**
  * 模块化的Nekoama工具窗口
@@ -272,25 +277,82 @@ class ModularToolWindow {
      * 打开设置页面
      */
     private fun openSettings() {
-        scope.launch {
+        // 确保在 EDT 上执行
+        ApplicationManager.getApplication().invokeLater {
             try {
-                // 备用方案：显示设置信息
                 val contentMessage = NekoamaBundle.message("settings.info.content")
                 val itemsMessage = NekoamaBundle.message("settings.info.configurable.items").replace("\\n", "\n")
                 val message = contentMessage + "\n\n" + itemsMessage
 
-                JOptionPane.showMessageDialog(
+                NekoamaLogger.debug("ModularToolWindow", "Showing settings dialog")
+
+                // 使用标准的 showConfirmDialog 而不是复杂的自定义按钮方案
+                val result = JOptionPane.showConfirmDialog(
                     mainPanel,
                     message,
                     NekoamaBundle.message("settings.info.title"),
+                    JOptionPane.YES_NO_OPTION,
                     JOptionPane.INFORMATION_MESSAGE,
                     AllIcons.General.Settings
                 )
+
+                NekoamaLogger.debug("ModularToolWindow", "Settings dialog result: $result")
+
+                // YES_OPTION 对应第一个按钮（Yes/去设置），NO_OPTION 对应第二个按钮（No/取消）
+                if (result == JOptionPane.YES_OPTION) {
+                    openNekoamaSettings()
+                }
             } catch (e: Exception) {
                 NekoamaLogger.error("ModularToolWindow", "Failed to open settings", error = e)
                 JOptionPane.showMessageDialog(
                     mainPanel,
                     NekoamaBundle.message("settings.info.error.failed", e.message ?: ""),
+                    NekoamaBundle.message("toolbar.dialog.error.title"),
+                    JOptionPane.ERROR_MESSAGE,
+                    AllIcons.General.Error
+                )
+            }
+        }
+    }
+
+    /**
+     * 打开Nekoama设置页面
+     */
+    private fun openNekoamaSettings() {
+        try {
+            NekoamaLogger.debug("ModularToolWindow", "Attempting to open Nekoama settings")
+
+            // 获取当前项目
+            val project = com.intellij.openapi.project.ProjectManager.getInstance().openProjects.firstOrNull()
+
+            if (project != null) {
+                NekoamaLogger.debug("ModularToolWindow", "Found project: ${project.name}, opening settings")
+
+                // 修复：使用正确的设置页面ID "Nekoama.settings"
+                ShowSettingsUtil.getInstance().showSettingsDialog(project, "Nekoama.settings")
+                NekoamaLogger.info("ModularToolWindow", "Successfully opened Nekoama settings dialog")
+            } else {
+                NekoamaLogger.warn("ModularToolWindow", "No open project found")
+
+                // 如果没有打开的项目，显示错误信息
+                ApplicationManager.getApplication().invokeLater {
+                    JOptionPane.showMessageDialog(
+                        mainPanel,
+                        NekoamaBundle.message("settings.info.no.project"),
+                        NekoamaBundle.message("toolbar.dialog.error.title"),
+                        JOptionPane.ERROR_MESSAGE,
+                        AllIcons.General.Error
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            NekoamaLogger.error("ModularToolWindow", "Failed to open Nekoama settings", error = e)
+            val errorMessage = NekoamaBundle.message("settings.info.error.failed", e.message ?: "")
+
+            ApplicationManager.getApplication().invokeLater {
+                JOptionPane.showMessageDialog(
+                    mainPanel,
+                    errorMessage,
                     NekoamaBundle.message("toolbar.dialog.error.title"),
                     JOptionPane.ERROR_MESSAGE,
                     AllIcons.General.Error

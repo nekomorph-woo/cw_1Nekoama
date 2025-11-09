@@ -11,7 +11,8 @@
       "Bash(./gradlew:*)",
       "Bash(find:*)",
       "Bash(gradlew.bat compileKotlin:*)",
-      "Bash(.gradlew.bat compileKotlin)"
+      "Bash(.gradlew.bat compileKotlin)",
+      "Bash(.gradlew compileKotlin)"
     ],
     "deny": [],
     "ask": []
