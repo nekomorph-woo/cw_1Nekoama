@@ -254,7 +254,7 @@ class NekoamaConfigurable : Configurable {
 
             ApplicationManager.getApplication().executeOnPooledThread {
                 // 在后台线程中获取存储的 API Key
-                val storedKey = NekoamaSecureStorage.getApiKey()
+                val storedKey = NekoamaSecureStorage.getApiKeySync()
                 val anyKey = inlineKey.ifBlank { storedKey }
                 var errorMessage: String? = null
                 val success = try {
@@ -312,7 +312,7 @@ class NekoamaConfigurable : Configurable {
     private fun initializeApiKey() {
         // 在后台线程加载 API Key
         ApplicationManager.getApplication().executeOnPooledThread {
-            cachedApiKey = NekoamaSecureStorage.getApiKey()
+            cachedApiKey = NekoamaSecureStorage.getApiKeySync()
             isApiKeyLoaded = true
             // 在EDT中更新UI状态，确保密码框正确显示已保存状态
             ApplicationManager.getApplication().invokeLater {
@@ -347,7 +347,7 @@ class NekoamaConfigurable : Configurable {
             cachedApiKey
         } else {
             // 如果缓存未加载，同步读取以确保数据正确性
-            NekoamaSecureStorage.getApiKey().also {
+            NekoamaSecureStorage.getApiKeySync().also {
                 cachedApiKey = it
                 isApiKeyLoaded = true
             }

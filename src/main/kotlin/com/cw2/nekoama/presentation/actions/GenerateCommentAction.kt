@@ -204,7 +204,7 @@ internal class GenerateCommentAction : BaseAction() {
      */
     private fun createAIProvider(): com.cw2.nekoama.ai.provider.AIProvider? {
         val settings = NekoamaSettings.getInstance()
-        val secureKey = NekoamaSecureStorage.getApiKey()
+        val secureKey = NekoamaSecureStorage.getApiKeySync()
         val resolvedKey =
             if (secureKey.isNotBlank()) secureKey else settings.apiKey.ifBlank { System.getenv("OPENAI_API_KEY") ?: "" }
 

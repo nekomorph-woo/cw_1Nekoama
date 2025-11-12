@@ -120,7 +120,7 @@ class NekoamaAiCommentMacro : Macro() {
 
         // 通过应用服务选择 Provider（最小实现：直接构造 OpenAIProvider 或交由未来的 Provider 工厂）
         // 优先走安全存储，向后兼容读取旧字段与环境变量
-        val secureKey = com.cw2.nekoama.data.settings.NekoamaSecureStorage.getApiKey()
+        val secureKey = com.cw2.nekoama.data.settings.NekoamaSecureStorage.getApiKeySync()
         val resolvedKey = if (secureKey.isNotBlank()) secureKey else settings.apiKey.ifBlank { System.getenv("OPENAI_API_KEY") ?: "" }
         val provider = com.cw2.nekoama.ai.provider.openai.OpenAIProvider(
             com.cw2.nekoama.ai.provider.openai.OpenAIConfig(

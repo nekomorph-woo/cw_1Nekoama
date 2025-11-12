@@ -78,14 +78,8 @@ class CustomAPIHttpClient(
                 200 -> {
                     val response = parseSuccessResponse(httpResponse.body())
                     response.onSuccess { 
-                        NekoamaLogger.logAICall(
-                            provider = config.providerName,
-                            model = config.model,
-                            operation = "sendRequest",
-                            success = true,
-                            durationMs = duration,
-                            tokenCount = it.usage?.totalTokens
-                        )
+                        // 移除HttpClient层的日志调用，避免重复埋点
+                        // 日志记录由Provider层的logAICallWithActionType处理
                     }
                     response
                 }
@@ -183,14 +177,8 @@ class CustomAPIHttpClient(
                 200 -> {
                     val response = parseSuccessResponse(httpResponse.body())
                     response.onSuccess { 
-                        NekoamaLogger.logAICall(
-                            provider = config.providerName,
-                            model = config.model,
-                            operation = "sendRequestSync",
-                            success = true,
-                            durationMs = duration,
-                            tokenCount = it.usage?.totalTokens
-                        )
+                        // 移除HttpClient层的日志调用，避免重复埋点
+                        // 日志记录由Provider层的logAICallWithActionType处理
                     }
                     response
                 }

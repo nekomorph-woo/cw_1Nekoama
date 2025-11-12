@@ -28,6 +28,8 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.swing.*
 import javax.swing.border.EmptyBorder
+import javax.swing.text.StyleConstants
+import javax.swing.text.StyleContext
 
 /**
  * Token统计Tab
@@ -381,8 +383,28 @@ class TokenStatsTab : BaseNekoamaTab() {
         val labelComponent = JBLabel("$label:")
         labelComponent.horizontalAlignment = SwingConstants.LEFT
 
-        val valueComponent = JBLabel(value)
-        valueComponent.horizontalAlignment = SwingConstants.RIGHT
+        // 对于较长的值，使用支持换行的文本组件
+        val valueComponent = if (value.length > 30) {
+            val textPane = JTextPane()
+            textPane.contentType = "text/plain"
+            textPane.text = value
+            textPane.isEditable = false
+            textPane.isOpaque = false
+            textPane.border = null
+            // 设置字体样式以匹配JBLabel
+            textPane.font = UIUtil.getLabelFont()
+            textPane.foreground = UIUtil.getLabelForeground()
+            // 右对齐
+            val styledDoc = textPane.styledDocument
+            val style = styledDoc.getStyle(StyleContext.DEFAULT_STYLE)
+            StyleConstants.setAlignment(style, StyleConstants.ALIGN_RIGHT)
+            styledDoc.setParagraphAttributes(0, styledDoc.length, style, false)
+            textPane
+        } else {
+            val label = JBLabel(value)
+            label.horizontalAlignment = SwingConstants.RIGHT
+            label
+        }
 
         row.add(labelComponent, BorderLayout.WEST)
         row.add(valueComponent, BorderLayout.EAST)

@@ -31,15 +31,18 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.withContext
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.FlowLayout
-import java.awt.Insets
+import java.awt.*
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.swing.*
+import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.application.ApplicationManager
 
 /**
  * 概览Tab
@@ -76,7 +79,9 @@ class OverviewTab : BaseNekoamaTab() {
 
     init {
         setupUI()
-        refreshStatus()
+        scope.launch {
+            refreshStatus()
+        }
         NekoamaLogger.debug("OverviewTab", "initialized")
     }
 
@@ -84,19 +89,57 @@ class OverviewTab : BaseNekoamaTab() {
      * 设置UI布局
      */
     private fun setupUI() {
+        // 创建占位内容面板，后续异步加载真实内容
+        val placeholderPanel = JBPanel<JBPanel<*>>()
+        placeholderPanel.layout = BoxLayout(placeholderPanel, BoxLayout.Y_AXIS)
+        placeholderPanel.border = JBEmptyBorder(JBUI.insets(10))
+
+        // 添加加载提示
+        val loadingLabel = JBLabel(NekoamaBundle.message("overview.status.loading"))
+        loadingLabel.alignmentX = Component.CENTER_ALIGNMENT
+        placeholderPanel.add(Box.createVerticalStrut(50))
+        placeholderPanel.add(loadingLabel)
+
         // 滚动面板支持内容较多时的滚动
-        val scrollPane = JBScrollPane(createContentPanel())
+        val scrollPane = JBScrollPane(placeholderPanel)
         scrollPane.verticalScrollBarPolicy = JBScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED
         scrollPane.horizontalScrollBarPolicy = JBScrollPane.HORIZONTAL_SCROLLBAR_NEVER
         scrollPane.border = null
 
         mainPanel.add(scrollPane, BorderLayout.CENTER)
+
+        // 异步创建真实内容
+        scope.launch {
+            try {
+                val realContent = createContentPanel()
+                // 在EDT线程更新UI
+                withContext(Dispatchers.Main) {
+                    scrollPane.setViewportView(realContent)
+                }
+                NekoamaLogger.debug("OverviewTab", "UI content loaded successfully")
+            } catch (e: Exception) {
+                NekoamaLogger.error("OverviewTab", "Failed to load UI content", error = e)
+                // 显示错误信息
+                withContext(Dispatchers.Main) {
+                    val errorPanel = JBPanel<JBPanel<*>>()
+                    errorPanel.layout = BoxLayout(errorPanel, BoxLayout.Y_AXIS)
+                    errorPanel.border = JBEmptyBorder(JBUI.insets(20))
+
+                    val errorLabel = JBLabel("Failed to load content: ${e.message}")
+                    errorLabel.foreground = UIManager.getColor("Label.errorForeground")
+                    errorLabel.alignmentX = Component.CENTER_ALIGNMENT
+
+                    errorPanel.add(errorLabel)
+                    scrollPane.setViewportView(errorPanel)
+                }
+            }
+        }
     }
 
     /**
      * 创建主内容面板
      */
-    private fun createContentPanel(): JBPanel<JBPanel<*>> {
+    private suspend fun createContentPanel(): JBPanel<JBPanel<*>> {
         val contentPanel = JBPanel<JBPanel<*>>()
         contentPanel.layout = BoxLayout(contentPanel, BoxLayout.Y_AXIS)
         contentPanel.border = JBEmptyBorder(JBUI.insets(10))
@@ -276,7 +319,7 @@ class OverviewTab : BaseNekoamaTab() {
     /**
      * 创建最近活动卡片
      */
-    private fun createRecentActivityCard(): JPanel {
+    private suspend fun createRecentActivityCard(): JPanel {
         val card = createThemedCard(15, 15, 15, 15)
 
         // 标题
@@ -293,11 +336,51 @@ class OverviewTab : BaseNekoamaTab() {
         // 添加刷新按钮
         val refreshButton = JButton(NekoamaBundle.message("overview.button.refresh"))
         refreshButton.addActionListener {
+            NekoamaLogger.info("OverviewTab", "Recent activities refresh button clicked")
+            val refreshStartTime = System.currentTimeMillis()
+
             scope.launch {
-                activityPanel.removeAll()
-                loadRecentActivities(activityPanel)
-                activityPanel.revalidate()
-                activityPanel.repaint()
+                try {
+                    // 在后台加载数据
+                    val activitiesLoaded = withContext(Dispatchers.IO) {
+                        NekoamaLogger.debug("OverviewTab", "Starting recent activities data reload")
+                        activityPanel.removeAll()
+                        loadRecentActivities(activityPanel)
+                        true
+                    }
+
+                    if (activitiesLoaded) {
+                        NekoamaLogger.debug("OverviewTab", "Recent activities data loaded successfully")
+                    }
+
+                    // 在EDT线程更新UI
+                    withContext(Dispatchers.Main) {
+                        NekoamaLogger.debug("OverviewTab", "Updating recent activities UI")
+                        activityPanel.revalidate()
+                        activityPanel.repaint()
+                    }
+
+                    // 同时强制刷新所有状态信息，确保数据一致性
+                    NekoamaLogger.debug("OverviewTab", "Triggering full status refresh from activities button")
+                    refreshStatus(forceRefresh = true)
+
+                    val refreshDuration = System.currentTimeMillis() - refreshStartTime
+                    NekoamaLogger.info("OverviewTab", "Recent activities refresh completed", mapOf(
+                        "duration" to "${refreshDuration}ms"
+                    ))
+
+                } catch (e: Exception) {
+                    NekoamaLogger.error("OverviewTab", "Failed to refresh recent activities", error = e)
+
+                    // 在EDT显示错误信息
+                    withContext(Dispatchers.Main) {
+                        val errorLabel = JBLabel("刷新失败: ${e.message}")
+                        errorLabel.foreground = UIManager.getColor("Label.errorForeground")
+                        activityPanel.add(errorLabel)
+                        activityPanel.revalidate()
+                        activityPanel.repaint()
+                    }
+                }
             }
         }
 
@@ -317,32 +400,51 @@ class OverviewTab : BaseNekoamaTab() {
     /**
      * 加载最近活动数据
      */
-    private fun loadRecentActivities(panel: JPanel) {
+    private suspend fun loadRecentActivities(panel: JPanel) {
         try {
-            // 获取最近的7天趋势数据
-            val snapshot = runBlocking { EnhancedMetricsCollector.getEnhancedSnapshot() }
+            // 先强制同步数据，确保获取最新数据
+            EnhancedMetricsCollector.forceSync()
+            NekoamaLogger.debug("OverviewTab", "Recent activities data sync completed")
+
+            // 在后台线程获取最近的7天趋势数据
+            val snapshot = withContext(Dispatchers.IO) {
+                EnhancedMetricsCollector.getEnhancedSnapshot()
+            }
+            NekoamaLogger.debug("OverviewTab", "Recent activities snapshot loaded", mapOf(
+                "trendSize" to snapshot.dailyTrend.size,
+                "todayRequests" to snapshot.today
+            ))
 
             if (snapshot.dailyTrend.isEmpty()) {
-                val placeholderLabel = JBLabel(NekoamaBundle.message("overview.activity.no.records"))
-                placeholderLabel.foreground = Gray._128
-                panel.add(placeholderLabel)
+                // 在EDT线程创建UI组件
+                withContext(Dispatchers.Main) {
+                    val placeholderLabel = JBLabel(NekoamaBundle.message("overview.activity.no.records"))
+                    placeholderLabel.foreground = Gray._128
+                    panel.add(placeholderLabel)
+                }
                 return
             }
 
             // 显示最近5天的活动
             val recentDays = snapshot.dailyTrend.takeLast(5).reversed()
 
-            recentDays.forEach { trend ->
-                val activityItem = createActivityItem(trend)
-                panel.add(activityItem)
-                panel.add(Box.createVerticalStrut(5))
+            // 在EDT线程创建UI组件
+            withContext(Dispatchers.Main) {
+                recentDays.forEach { trend ->
+                    val activityItem = createActivityItem(trend)
+                    panel.add(activityItem)
+                    panel.add(Box.createVerticalStrut(5))
+                }
             }
 
         } catch (e: Exception) {
             NekoamaLogger.error("OverviewTab", "Failed to load recent activities", error = e)
-            val errorLabel = JBLabel(NekoamaBundle.message("overview.activity.load.failed"))
-            errorLabel.foreground = UIManager.getColor("Label.errorForeground")
-            panel.add(errorLabel)
+            // 在EDT线程创建错误UI组件
+            withContext(Dispatchers.Main) {
+                val errorLabel = JBLabel(NekoamaBundle.message("overview.activity.load.failed"))
+                errorLabel.foreground = UIManager.getColor("Label.errorForeground")
+                panel.add(errorLabel)
+            }
         }
     }
 
@@ -458,10 +560,10 @@ class OverviewTab : BaseNekoamaTab() {
     /**
      * 刷新状态信息（带防抖优化）
      */
-    private fun refreshStatus() {
+    private fun refreshStatus(forceRefresh: Boolean = false) {
         // 性能优化：防抖机制避免频繁刷新
         val currentTime = System.currentTimeMillis()
-        if (currentTime - lastRefreshTime < refreshDebounceMs) {
+        if (!forceRefresh && currentTime - lastRefreshTime < refreshDebounceMs) {
             NekoamaLogger.debug("OverviewTab", "refreshStatus call debounced")
             return
         }
@@ -471,20 +573,62 @@ class OverviewTab : BaseNekoamaTab() {
         startLoadingAnimation()
 
         scope.launch {
+            val refreshStartTime = System.currentTimeMillis()
+            NekoamaLogger.debug("OverviewTab", "Starting status refresh", mapOf(
+                "forceRefresh" to forceRefresh,
+                "currentTime" to refreshStartTime
+            ))
+
             try {
-                // 检查AI服务连接状态
-                checkConnectionStatus()
+                // 在后台线程执行慢操作
+                val connectionResult = withContext(Dispatchers.IO) {
+                    NekoamaLogger.debug("OverviewTab", "Checking connection status in background")
+                    // 检查AI服务连接状态（涉及密码存储访问）
+                    checkConnectionStatusInBackground()
+                }
 
-                // 检查配置状态
-                checkConfigStatus()
+                NekoamaLogger.debug("OverviewTab", "Connection status check completed", mapOf(
+                    "status" to connectionResult.status.name,
+                    "message" to connectionResult.message,
+                    "isWarning" to connectionResult.isWarning
+                ))
 
-                // 更新使用摘要
-                updateUsageSummary()
+                val configResult = withContext(Dispatchers.IO) {
+                    NekoamaLogger.debug("OverviewTab", "Checking configuration status in background")
+                    // 检查配置状态
+                    checkConfigStatusInBackground()
+                }
 
-                // 停止加载动画
+                NekoamaLogger.debug("OverviewTab", "Configuration status check completed", mapOf(
+                    "configComplete" to configResult
+                ))
+
+                withContext(Dispatchers.IO) {
+                    NekoamaLogger.debug("OverviewTab", "Starting usage summary update in background")
+                    // 更新使用摘要（涉及数据收集器访问）
+                    updateUsageSummary()
+                }
+
+                // 在EDT上更新UI
+                NekoamaLogger.debug("OverviewTab", "Updating UI on EDT thread")
+                updateConnectionStatusUI(connectionResult)
+                updateConfigStatusUI(configResult)
+
+                // 停止加载动画（UI操作，回到EDT）
                 stopLoadingAnimation()
 
-                NekoamaLogger.debug("OverviewTab", "status refreshed successfully")
+                val refreshDuration = System.currentTimeMillis() - refreshStartTime
+                NekoamaLogger.info("OverviewTab", "Status refresh completed successfully", mapOf(
+                    "duration" to "${refreshDuration}ms",
+                    "forceRefresh" to forceRefresh
+                ))
+
+                // 通知TabManager同步刷新所有Tab，确保数据一致性
+                try {
+                    NekoamaTabManager.getInstance().refreshAllTabs()
+                } catch (e: Exception) {
+                    NekoamaLogger.warn("OverviewTab", "Failed to sync tabs refresh", error = e)
+                }
             } catch (e: Exception) {
                 NekoamaLogger.error("OverviewTab", "Failed to refresh status", error = e)
                 connectionStatusLabel.text = NekoamaBundle.message("overview.status.check.failed")
@@ -530,14 +674,11 @@ class OverviewTab : BaseNekoamaTab() {
     }
 
     /**
-     * 检查连接状态
+     * 检查连接状态（后台线程）
      */
-    private suspend fun checkConnectionStatus() {
+    private suspend fun checkConnectionStatusInBackground(): ConnectionStatusResult {
         try {
-            connectionStatusLabel.text = NekoamaBundle.message("overview.status.checking")
-            connectionStatusLabel.foreground = UIManager.getColor("Label.foreground")
-
-            NekoamaLogger.debug("OverviewTab", "Checking connection status")
+            NekoamaLogger.debug("OverviewTab", "Checking connection status in background")
 
             // 使用createAIProvider方法验证配置
             val provider = createAIProvider()
@@ -551,120 +692,268 @@ class OverviewTab : BaseNekoamaTab() {
                     settings.apiKey.ifBlank { System.getenv("OPENAI_API_KEY") ?: "" }
                 }
 
-                when {
-                    resolvedKey.isBlank() -> {
-                        connectionStatusLabel.text = NekoamaBundle.message("overview.api.key.not.configured")
-                        connectionStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
-                    }
-                    settings.apiEndpoint.isBlank() -> {
-                        connectionStatusLabel.text = NekoamaBundle.message("overview.endpoint.not.configured")
-                        connectionStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
-                    }
-                    settings.model.isBlank() -> {
-                        connectionStatusLabel.text = NekoamaBundle.message("overview.config.item.model") + " " +
-                                NekoamaBundle.message("overview.not.configured")
-                        connectionStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
-                    }
-                    else -> {
-                        connectionStatusLabel.text = NekoamaBundle.message("overview.config.abnormal")
-                        connectionStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
-                    }
+                val result = when {
+                    resolvedKey.isBlank() -> ConnectionStatusResult(
+                        status = ConnectionStatus.NOT_CONFIGURED,
+                        message = NekoamaBundle.message("overview.api.key.not.configured"),
+                        isWarning = true
+                    )
+                    settings.apiEndpoint.isBlank() -> ConnectionStatusResult(
+                        status = ConnectionStatus.NOT_CONFIGURED,
+                        message = NekoamaBundle.message("overview.endpoint.not.configured"),
+                        isWarning = true
+                    )
+                    settings.model.isBlank() -> ConnectionStatusResult(
+                        status = ConnectionStatus.NOT_CONFIGURED,
+                        message = NekoamaBundle.message("overview.config.item.model") + " " +
+                                NekoamaBundle.message("overview.not.configured"),
+                        isWarning = true
+                    )
+                    else -> ConnectionStatusResult(
+                        status = ConnectionStatus.NOT_CONFIGURED,
+                        message = NekoamaBundle.message("overview.config.incomplete"),
+                        isWarning = true
+                    )
                 }
-                return
+                return result
             }
 
-            // 使用AI提供商进行轻量级连接检查
-            val result = provider.isAvailable()
-
-            when {
-                result.isSuccess && result.getOrNull() == true -> {
-                    connectionStatusLabel.text = NekoamaBundle.message("overview.connected")
-                    connectionStatusLabel.foreground = UIManager.getColor("Label.successForeground")
-                    NekoamaLogger.debug("OverviewTab", "Connection check successful")
-                }
-                result.getOrNull() == false -> {
-                    val error = try { throw Exception("Connection test failed") } catch (e: Exception) { e }
-                    when {
-                        error?.message?.contains("401") == true ||
-                        error?.message?.contains("authentication") == true -> {
-                            connectionStatusLabel.text = NekoamaBundle.message("overview.connection.error.invalid.key")
-                            connectionStatusLabel.foreground = UIManager.getColor("Label.errorForeground")
-                        }
-                        error?.message?.contains("timeout") == true -> {
-                            connectionStatusLabel.text = NekoamaBundle.message("overview.connection.error.timeout")
-                            connectionStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
-                        }
-                        else -> {
-                            connectionStatusLabel.text = NekoamaBundle.message("overview.connection.failed")
-                            connectionStatusLabel.foreground = UIManager.getColor("Label.errorForeground")
-                        }
-                    }
-                    NekoamaLogger.debug("OverviewTab", "Connection check failed: ${error?.message}")
-                }
-                else -> {
-                    connectionStatusLabel.text = NekoamaBundle.message("overview.connection.error.service.unavailable")
-                    connectionStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
-                    NekoamaLogger.debug("OverviewTab", "Service unavailable")
-                }
+            // 测试实际连接
+            val available = provider.isAvailable()
+            return if (available.isSuccess) {
+                ConnectionStatusResult(
+                    status = ConnectionStatus.CONNECTED,
+                    message = NekoamaBundle.message("overview.status.connected"),
+                    isWarning = false
+                )
+            } else {
+                ConnectionStatusResult(
+                    status = ConnectionStatus.FAILED,
+                    message = NekoamaBundle.message("overview.status.failed"),
+                    isWarning = true
+                )
             }
 
         } catch (e: Exception) {
-            connectionStatusLabel.text = NekoamaBundle.message("overview.status.check.failed")
-            connectionStatusLabel.foreground = UIManager.getColor("Label.errorForeground")
-            NekoamaLogger.error("OverviewTab", "Connection status check failed", error = e)
+            NekoamaLogger.error("checkConnectionStatusInBackground", "Failed to check connection status", error = e)
+            return ConnectionStatusResult(
+                status = ConnectionStatus.ERROR,
+                message = NekoamaBundle.message("overview.status.error"),
+                isWarning = true
+            )
         }
     }
 
     /**
-     * 检查配置状态
+     * 更新连接状态UI（EDT线程）
      */
-    private suspend fun checkConfigStatus() {
+    private fun updateConnectionStatusUI(result: ConnectionStatusResult) {
+        connectionStatusLabel.text = result.message
+        connectionStatusLabel.foreground = if (result.isWarning) {
+            UIManager.getColor("Label.warningForeground")
+        } else {
+            UIManager.getColor("Label.foreground")
+        }
+    }
+
+    /**
+     * 更新配置状态UI（EDT线程）
+     */
+    private fun updateConfigStatusUI(result: ConfigStatusResult) {
+        val message = if (result.isFullyConfigured) {
+            NekoamaBundle.message("overview.config.complete")
+        } else {
+            NekoamaBundle.message("overview.config.missing") + ": " + result.missingItems.joinToString(", ")
+        }
+
+        configStatusLabel.text = message
+        configStatusLabel.foreground = if (result.isFullyConfigured) {
+            UIManager.getColor("Label.foreground")
+        } else {
+            UIManager.getColor("Label.warningForeground")
+        }
+    }
+
+    /**
+     * 检查配置状态（后台线程）
+     */
+    private suspend fun checkConfigStatusInBackground(): ConfigStatusResult {
         try {
             val settings = NekoamaSettings.getInstance()
+            val configuredItems = mutableListOf<String>()
+            val missingItems = mutableListOf<String>()
 
-            // 检查各个配置项的完整性
-            val configItems = mutableListOf<String>()
-
-            if (settings.apiKey.isNotEmpty()) {
-                configItems.add(NekoamaBundle.message("overview.config.item.api.key"))
+            // 检查各个配置项
+            if (settings.apiKey.isNotBlank() || NekoamaSecureStorage.getApiKey().isNotBlank()) {
+                configuredItems.add(NekoamaBundle.message("overview.config.item.api.key"))
+            } else {
+                missingItems.add(NekoamaBundle.message("overview.config.item.api.key"))
             }
 
-            if (settings.apiEndpoint.isNotEmpty()) {
-                configItems.add(NekoamaBundle.message("overview.config.item.endpoint"))
+            if (settings.apiEndpoint.isNotBlank()) {
+                configuredItems.add(NekoamaBundle.message("overview.config.item.endpoint"))
+            } else {
+                missingItems.add(NekoamaBundle.message("overview.config.item.endpoint"))
             }
 
-            if (settings.model.isNotEmpty()) {
-                configItems.add(NekoamaBundle.message("overview.config.item.model"))
+            if (settings.model.isNotBlank()) {
+                configuredItems.add(NekoamaBundle.message("overview.config.item.model"))
+            } else {
+                missingItems.add(NekoamaBundle.message("overview.config.item.model"))
             }
 
-            when (configItems.size) {
-                3 -> {
-                    configStatusLabel.text = NekoamaBundle.message("overview.configured")
-                    configStatusLabel.foreground = UIManager.getColor("Label.successForeground")
-                }
-                2 -> {
-                    configStatusLabel.text = NekoamaBundle.message("overview.config.partial", configItems.joinToString("/"))
-                    configStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
-                }
-                1 -> {
-                    configStatusLabel.text = NekoamaBundle.message("overview.config.single", configItems.first())
-                    configStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
-                }
-                else -> {
-                    configStatusLabel.text = NekoamaBundle.message("overview.not.configured.apikey")
-                    configStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
-                }
-            }
-
+            return ConfigStatusResult(
+                configuredItems = configuredItems,
+                missingItems = missingItems,
+                isFullyConfigured = missingItems.isEmpty()
+            )
         } catch (e: Exception) {
-            configStatusLabel.text = NekoamaBundle.message("overview.config.check.failed")
-            configStatusLabel.foreground = UIManager.getColor("Label.errorForeground")
+            NekoamaLogger.error("checkConfigStatusInBackground", "Failed to check config status", error = e)
+            return ConfigStatusResult(
+                configuredItems = emptyList(),
+                missingItems = listOf(NekoamaBundle.message("overview.status.error")),
+                isFullyConfigured = false
+            )
         }
     }
 
     /**
-     * 验证EnhancedMetricsCollector数据
+     * 检查连接状态的简化版本（仅用于设置检查中状态）
      */
+    private suspend fun checkConnectionStatus() {
+        // 设置检查中状态（UI操作）
+        connectionStatusLabel.text = NekoamaBundle.message("overview.status.checking")
+        connectionStatusLabel.foreground = UIManager.getColor("Label.foreground")
+
+        NekoamaLogger.debug("OverviewTab", "Checking connection status")
+    }
+// 
+//             // 使用createAIProvider方法验证配置
+//             val provider = createAIProvider()
+//             if (provider == null) {
+//                 // 检查具体是哪项配置缺失
+//                 val settings = NekoamaSettings.getInstance()
+//                 val secureKey = NekoamaSecureStorage.getApiKey()
+//                 val resolvedKey = if (secureKey.isNotBlank()) {
+//                     secureKey
+//                 } else {
+//                     settings.apiKey.ifBlank { System.getenv("OPENAI_API_KEY") ?: "" }
+//                 }
+// 
+//                 when {
+//                     resolvedKey.isBlank() -> {
+//                         connectionStatusLabel.text = NekoamaBundle.message("overview.api.key.not.configured")
+//                         connectionStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
+//                     }
+//                     settings.apiEndpoint.isBlank() -> {
+//                         connectionStatusLabel.text = NekoamaBundle.message("overview.endpoint.not.configured")
+//                         connectionStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
+//                     }
+//                     settings.model.isBlank() -> {
+//                         connectionStatusLabel.text = NekoamaBundle.message("overview.config.item.model") + " " +
+//                                 NekoamaBundle.message("overview.not.configured")
+//                         connectionStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
+//                     }
+//                     else -> {
+//                         connectionStatusLabel.text = NekoamaBundle.message("overview.config.abnormal")
+//                         connectionStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
+//                     }
+//                 }
+//                 return
+//             }
+// 
+//             // 使用AI提供商进行轻量级连接检查
+//             val result = provider.isAvailable()
+// 
+//             when {
+//                 result.isSuccess && result.getOrNull() == true -> {
+//                     connectionStatusLabel.text = NekoamaBundle.message("overview.connected")
+//                     connectionStatusLabel.foreground = UIManager.getColor("Label.successForeground")
+//                     NekoamaLogger.debug("OverviewTab", "Connection check successful")
+//                 }
+//                 result.getOrNull() == false -> {
+//                     val error = try { throw Exception("Connection test failed") } catch (e: Exception) { e }
+//                     when {
+//                         error?.message?.contains("401") == true ||
+//                         error?.message?.contains("authentication") == true -> {
+//                             connectionStatusLabel.text = NekoamaBundle.message("overview.connection.error.invalid.key")
+//                             connectionStatusLabel.foreground = UIManager.getColor("Label.errorForeground")
+//                         }
+//                         error?.message?.contains("timeout") == true -> {
+//                             connectionStatusLabel.text = NekoamaBundle.message("overview.connection.error.timeout")
+//                             connectionStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
+//                         }
+//                         else -> {
+//                             connectionStatusLabel.text = NekoamaBundle.message("overview.connection.failed")
+//                             connectionStatusLabel.foreground = UIManager.getColor("Label.errorForeground")
+//                         }
+//                     }
+//                     NekoamaLogger.debug("OverviewTab", "Connection check failed: ${error?.message}")
+//                 }
+//                 else -> {
+//                     connectionStatusLabel.text = NekoamaBundle.message("overview.connection.error.service.unavailable")
+//                     connectionStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
+//                     NekoamaLogger.debug("OverviewTab", "Service unavailable")
+//                 }
+//             }
+// 
+//         } catch (e: Exception) {
+//             connectionStatusLabel.text = NekoamaBundle.message("overview.status.check.failed")
+//             connectionStatusLabel.foreground = UIManager.getColor("Label.errorForeground")
+//             NekoamaLogger.error("OverviewTab", "Connection status check failed", error = e)
+//         }
+//     }
+// 
+//     /**
+//      * 检查配置状态
+//      */
+//     private suspend fun checkConfigStatus() {
+//         try {
+//             val settings = NekoamaSettings.getInstance()
+// 
+//             // 检查各个配置项的完整性
+//             val configItems = mutableListOf<String>()
+// 
+//             if (settings.apiKey.isNotEmpty()) {
+//                 configItems.add(NekoamaBundle.message("overview.config.item.api.key"))
+//             }
+// 
+//             if (settings.apiEndpoint.isNotEmpty()) {
+//                 configItems.add(NekoamaBundle.message("overview.config.item.endpoint"))
+//             }
+// 
+//             if (settings.model.isNotEmpty()) {
+//                 configItems.add(NekoamaBundle.message("overview.config.item.model"))
+//             }
+// 
+//             when (configItems.size) {
+//                 3 -> {
+//                     configStatusLabel.text = NekoamaBundle.message("overview.configured")
+//                     configStatusLabel.foreground = UIManager.getColor("Label.successForeground")
+//                 }
+//                 2 -> {
+//                     configStatusLabel.text = NekoamaBundle.message("overview.config.partial", configItems.joinToString("/"))
+//                     configStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
+//                 }
+//                 1 -> {
+//                     configStatusLabel.text = NekoamaBundle.message("overview.config.single", configItems.first())
+//                     configStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
+//                 }
+//                 else -> {
+//                     configStatusLabel.text = NekoamaBundle.message("overview.not.configured.apikey")
+//                     configStatusLabel.foreground = UIManager.getColor("Label.warningForeground")
+//                 }
+//             }
+// 
+//         } catch (e: Exception) {
+//             configStatusLabel.text = NekoamaBundle.message("overview.config.check.failed")
+//             configStatusLabel.foreground = UIManager.getColor("Label.errorForeground")
+//         }
+//     }
+// 
+//     /**
+//      * 验证EnhancedMetricsCollector数据
+//      */
     private suspend fun validateMetricsData(): Boolean {
         return try {
             val snapshot = EnhancedMetricsCollector.getEnhancedSnapshot()
@@ -687,46 +976,100 @@ class OverviewTab : BaseNekoamaTab() {
     }
 
     /**
-     * 更新使用摘要
+     * 更新使用摘要（改进版本：完全分离数据获取和UI更新）
      */
     private suspend fun updateUsageSummary() {
+        NekoamaLogger.debug("OverviewTab", "Starting usage summary update")
+
+        // 在后台线程执行所有数据操作
+        val updateData = withContext(Dispatchers.IO) {
+            try {
+                // 首先验证数据可用性
+                val hasValidData = validateMetricsData()
+
+                if (!hasValidData) {
+                    return@withContext UsageUpdateData(
+                        hasData = false,
+                        message = NekoamaBundle.message("overview.usage.no.data")
+                    )
+                }
+
+                // 强制同步数据：确保内存统计已持久化并重新加载
+                EnhancedMetricsCollector.forceSync()
+                NekoamaLogger.debug("OverviewTab", "Data sync completed in updateUsageSummary")
+
+                // 获取实际数据
+                val snapshot = EnhancedMetricsCollector.getEnhancedSnapshot()
+
+                return@withContext UsageUpdateData(
+                    hasData = true,
+                    todayRequests = snapshot.today,
+                    todayTokens = snapshot.tokensToday,
+                    successRate = snapshot.successRate,
+                    avgLatency = snapshot.averageLatencyMs.toLong()
+                )
+
+            } catch (e: Exception) {
+                NekoamaLogger.error("OverviewTab", "Failed to prepare usage summary data", error = e)
+                return@withContext UsageUpdateData(
+                    hasData = false,
+                    message = NekoamaBundle.message("overview.status.load.failed")
+                )
+            }
+        }
+
+        // 在EDT线程更新UI
+        withContext(Dispatchers.Main) {
+            applyUsageDataToUI(updateData)
+        }
+    }
+
+    /**
+     * 使用摘要更新数据类
+     */
+    private data class UsageUpdateData(
+        val hasData: Boolean,
+        val todayRequests: Int = 0,
+        val todayTokens: Int = 0,
+        val successRate: Double = 0.0,
+        val avgLatency: Long = 0,
+        val message: String = ""
+    )
+
+    /**
+     * 将使用数据应用到UI（在EDT线程执行）
+     */
+    private fun applyUsageDataToUI(data: UsageUpdateData) {
         try {
-            NekoamaLogger.debug("OverviewTab", "Starting to update usage summary with real UI components")
+            if (data.hasData) {
+                // 更新所有动态UI组件
+                todayUsageValueLabel.text = "${data.todayRequests} " + NekoamaBundle.message("overview.usage.times")
+                todayTokensValueLabel.text = "${data.todayTokens}"
+                successRateValueLabel.text = String.format("%.1f%%", data.successRate * 100)
+                avgLatencyValueLabel.text = "${data.avgLatency}ms"
 
-            // 首先验证数据可用性
-            val hasValidData = validateMetricsData()
+                // 同时更新旧变量以保持兼容性
+                todayUsageLabel.text = "${data.todayRequests} " + NekoamaBundle.message("overview.usage.times")
 
-            if (!hasValidData) {
-                // 显示"无数据"状态而不是错误
-                val noDataMsg = NekoamaBundle.message("overview.usage.no.data")
-                todayUsageValueLabel.text = noDataMsg
-                todayTokensValueLabel.text = noDataMsg
+                NekoamaLogger.debug("OverviewTab", "Usage data applied to UI successfully", mapOf(
+                    "requests" to data.todayRequests,
+                    "tokens" to data.todayTokens
+                ))
+            } else {
+                // 显示"无数据"或错误状态
+                val displayMsg = if (data.message.isNotEmpty()) data.message else "--"
+                todayUsageValueLabel.text = displayMsg
+                todayTokensValueLabel.text = displayMsg
                 successRateValueLabel.text = "--"
                 avgLatencyValueLabel.text = "--"
-                todayUsageLabel.text = noDataMsg
+                todayUsageLabel.text = displayMsg
 
-                NekoamaLogger.debug("OverviewTab", "No data available to display")
-                return
+                NekoamaLogger.debug("OverviewTab", "No data state applied to UI", mapOf("message" to data.message))
             }
-
-            // 获取实际数据
-            val snapshot = EnhancedMetricsCollector.getEnhancedSnapshot()
-
-            // 更新所有动态UI组件
-            todayUsageValueLabel.text = "${snapshot.today} " + NekoamaBundle.message("overview.usage.times")
-            todayTokensValueLabel.text = "${snapshot.tokensToday}"
-            successRateValueLabel.text = String.format("%.1f%%", snapshot.successRate * 100)
-            avgLatencyValueLabel.text = "${snapshot.averageLatencyMs}ms"
-
-            // 同时更新旧变量以保持兼容性
-            todayUsageLabel.text = "${snapshot.today} " + NekoamaBundle.message("overview.usage.times")
-
-            NekoamaLogger.debug("OverviewTab", "Usage summary updated successfully: requests=${snapshot.today}, tokens=${snapshot.tokensToday}")
-
         } catch (e: Exception) {
-            NekoamaLogger.error("OverviewTab", "Failed to update usage summary", error = e)
+            NekoamaLogger.error("OverviewTab", "Failed to apply usage data to UI", error = e)
 
-            // 更新所有UI组件显示错误状态
+            // 显示错误状态
             val errorMsg = NekoamaBundle.message("overview.status.load.failed")
             todayUsageValueLabel.text = errorMsg
             todayTokensValueLabel.text = errorMsg
@@ -744,7 +1087,7 @@ class OverviewTab : BaseNekoamaTab() {
             val settings = NekoamaSettings.getInstance()
 
             // 获取API Key的优先级：安全存储 > 设置 > 环境变量
-            val secureKey = NekoamaSecureStorage.getApiKey()
+            val secureKey = NekoamaSecureStorage.getApiKeySync()
             val resolvedKey = if (secureKey.isNotBlank()) {
                 secureKey
             } else {
@@ -1016,7 +1359,7 @@ class OverviewTab : BaseNekoamaTab() {
         val refreshButton = JButton(AllIcons.Actions.Refresh)
         refreshButton.toolTipText = NekoamaBundle.message("overview.refresh.status.tooltip")
         refreshButton.isFocusable = false
-        refreshButton.addActionListener { refreshStatus() }
+        refreshButton.addActionListener { refreshStatus(forceRefresh = true) }
 
         val buttonPanel = JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.RIGHT))
         buttonPanel.add(refreshButton)
@@ -1060,4 +1403,33 @@ class OverviewTab : BaseNekoamaTab() {
 
         grid.add(itemPanel, gbc)
     }
+}
+
+/**
+ * 连接状态结果
+ */
+data class ConnectionStatusResult(
+    val status: ConnectionStatus,
+    val message: String,
+    val isWarning: Boolean
+)
+
+/**
+ * 配置状态结果
+ */
+data class ConfigStatusResult(
+    val configuredItems: List<String>,
+    val missingItems: List<String>,
+    val isFullyConfigured: Boolean
+)
+
+/**
+ * 连接状态枚举
+ */
+enum class ConnectionStatus {
+    CHECKING,
+    CONNECTED,
+    FAILED,
+    NOT_CONFIGURED,
+    ERROR
 }

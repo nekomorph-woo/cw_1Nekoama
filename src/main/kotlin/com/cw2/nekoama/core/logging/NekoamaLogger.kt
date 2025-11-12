@@ -178,21 +178,46 @@ object NekoamaLogger {
         if (success) {
             info("AI_CALL", "AI 服务调用成功", context)
             logPerformance("AI_CALL", durationMs, context)
-            // 记录 Token 使用量到增强版指标采集器（中文说明：便于工具窗口统计展示）
-            tokenCount?.let {
-                try {
-                    kotlinx.coroutines.runBlocking {
-                        com.cw2.nekoama.core.metrics.EnhancedMetricsCollector.recordTokens(it)
-                    }
-                } catch (_: Throwable) {
-                    // 指标统计失败不影响主流程
-                }
-            }
+            // 注意：移除了重复的token记录逻辑以避免双重计数
+            // token统计由BaseAction中的EnhancedMetricsCollector.record()统一处理
         } else {
             error?.let { logError("AI_CALL", it, context) }
         }
     }
-    
+
+    /**
+     * 记录AI调用（增强版，支持ActionType）
+     */
+    fun logAICallWithActionType(
+        provider: String,
+        model: String,
+        operation: String,
+        success: Boolean,
+        durationMs: Long,
+        actionType: String,
+        tokenCount: Int? = null,
+        error: NekoamaError? = null
+    ) {
+        val context = mutableMapOf<String, Any?>(
+            "provider" to provider,
+            "model" to model,
+            "duration" to "${durationMs}ms",
+            "success" to success,
+            "actionType" to actionType
+        )
+
+        tokenCount?.let { context["tokens"] = it }
+
+        if (success) {
+            info("AI_CALL", "AI 服务调用成功", context)
+            logPerformance("AI_CALL", durationMs, context)
+            // 注意：移除了重复的token记录逻辑以避免双重计数
+            // token统计由BaseAction中的EnhancedMetricsCollector.record()统一处理
+        } else {
+            error?.let { logError("AI_CALL", it, context) }
+        }
+    }
+
     /**
      * 记录用户操作 - Log user operations
      */

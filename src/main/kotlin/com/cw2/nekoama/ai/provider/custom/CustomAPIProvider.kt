@@ -41,7 +41,8 @@ class CustomAPIProvider(
             val duration = System.currentTimeMillis() - startTime
             
             response.flatMap { openAIResponse ->
-                NekoamaLogger.logAICall(name, config.model, "generateNaming", true, duration,
+                NekoamaLogger.logAICallWithActionType(name, config.model, "generateNaming", true, duration,
+                    "GENERATE_NAMING",
                     tokenCount = openAIResponse.usage?.totalTokens)
                 OpenAIResponseParser.parseNamingResponse(openAIResponse, context)
             }.onError { error ->
@@ -68,7 +69,8 @@ class CustomAPIProvider(
             val duration = System.currentTimeMillis() - startTime
             
             response.flatMap { openAIResponse ->
-                NekoamaLogger.logAICall(name, config.model, "generateComment", true, duration,
+                NekoamaLogger.logAICallWithActionType(name, config.model, "generateComment", true, duration,
+                    "GENERATE_COMMENT",
                     tokenCount = openAIResponse.usage?.totalTokens)
                 OpenAIResponseParser.parseCommentResponse(openAIResponse, context)
             }.onError { error ->
@@ -95,7 +97,8 @@ class CustomAPIProvider(
             val duration = System.currentTimeMillis() - startTime
             
             response.flatMap { openAIResponse ->
-                NekoamaLogger.logAICall(name, config.model, "generateCustom", true, duration,
+                NekoamaLogger.logAICallWithActionType(name, config.model, "generateCustom", true, duration,
+                    "CUSTOM_GENERATE",
                     tokenCount = openAIResponse.usage?.totalTokens)
                 OpenAIResponseParser.parseCustomResponse(openAIResponse)
             }.onError { error ->

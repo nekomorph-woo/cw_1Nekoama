@@ -12,7 +12,11 @@
       "Bash(find:*)",
       "Bash(gradlew.bat compileKotlin:*)",
       "Bash(.gradlew.bat compileKotlin)",
-      "Bash(.gradlew compileKotlin)"
+      "Bash(.gradlew compileKotlin)",
+      "Bash(grep:*)",
+      "Bash(xxd:*)",
+      "WebSearch",
+      "WebFetch(domain:plugins.jetbrains.com)"
     ],
     "deny": [],
     "ask": []
