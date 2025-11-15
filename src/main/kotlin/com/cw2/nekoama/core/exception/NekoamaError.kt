@@ -1,5 +1,7 @@
 package com.cw2.nekoama.core.exception
 
+import com.cw2.nekoama.presentation.messages.NekoamaBundle
+
 /**
  * Nekoama 插件异常定义体系 - Exception definition system for Nekoama plugin
  * 
@@ -23,7 +25,7 @@ sealed class NekoamaError(
          * 连接超时错误 - Connection timeout error
          */
         data class ConnectionTimeout(
-            override val message: String = "网络连接超时",
+            override val message: String = NekoamaBundle.message("error.network.connection.timeout"),
             override val cause: Throwable? = null
         ) : NetworkError(message, cause)
         
@@ -31,23 +33,23 @@ sealed class NekoamaError(
          * 读取超时错误 - Read timeout error
          */
         data class ReadTimeout(
-            override val message: String = "网络读取超时",
+            override val message: String = NekoamaBundle.message("error.network.read.timeout"),
             override val cause: Throwable? = null
         ) : NetworkError(message, cause)
-        
+
         /**
          * 网络不可达错误 - Network unreachable error
          */
         data class NetworkUnreachable(
-            override val message: String = "网络不可达",
+            override val message: String = NekoamaBundle.message("error.network.unreachable"),
             override val cause: Throwable? = null
         ) : NetworkError(message, cause)
-        
+
         /**
          * 通用网络错误 - Generic network error
          */
         data class Generic(
-            override val message: String = "网络请求失败",
+            override val message: String = NekoamaBundle.message("error.network.request.failed"),
             override val cause: Throwable? = null
         ) : NetworkError(message, cause)
     }
@@ -64,23 +66,23 @@ sealed class NekoamaError(
          * API 密钥无效 - Invalid API key
          */
         data class InvalidApiKey(
-            override val message: String = "API 密钥无效或已过期",
+            override val message: String = NekoamaBundle.message("error.auth.invalid.api.key"),
             override val cause: Throwable? = null
         ) : AuthenticationError(message, cause)
-        
+
         /**
          * API 密钥未配置 - API key not configured
          */
         data class ApiKeyNotConfigured(
-            override val message: String = "API 密钥未配置",
+            override val message: String = NekoamaBundle.message("error.auth.api.key.not.configured"),
             override val cause: Throwable? = null
         ) : AuthenticationError(message, cause)
-        
+
         /**
          * 权限不足 - Insufficient permissions
          */
         data class InsufficientPermissions(
-            override val message: String = "API 权限不足",
+            override val message: String = NekoamaBundle.message("error.auth.insufficient.permissions"),
             override val cause: Throwable? = null
         ) : AuthenticationError(message, cause)
     }
@@ -98,16 +100,16 @@ sealed class NekoamaError(
          * 请求频率过高 - Request rate too high
          */
         data class TooManyRequests(
-            override val message: String = "请求频率过高，请稍后重试",
+            override val message: String = NekoamaBundle.message("error.rate.limit.too.many.requests"),
             override val cause: Throwable? = null,
             override val retryAfter: Long? = null
         ) : RateLimitError(message, cause, retryAfter)
-        
+
         /**
          * 配额已耗尽 - Quota exhausted
          */
         data class QuotaExhausted(
-            override val message: String = "API 配额已耗尽",
+            override val message: String = NekoamaBundle.message("error.rate.limit.quota.exhausted"),
             override val cause: Throwable? = null,
             override val retryAfter: Long? = null
         ) : RateLimitError(message, cause, retryAfter)
@@ -296,21 +298,21 @@ sealed class NekoamaError(
      * 获取友好的用户显示消息 - Get user-friendly display message
      */
     fun getUserMessage(): String = when (this) {
-        is NetworkError.ConnectionTimeout -> "网络连接超时，请检查网络连接后重试"
-        is NetworkError.ReadTimeout -> "服务响应超时，请稍后重试"
-        is NetworkError.NetworkUnreachable -> "无法连接到 AI 服务，请检查网络设置"
-        is AuthenticationError.InvalidApiKey -> "API 密钥无效，请检查密钥配置"
-        is AuthenticationError.ApiKeyNotConfigured -> "请先在设置中配置 API 密钥"
-        is RateLimitError.TooManyRequests -> "请求过于频繁，请稍后重试"
-        is RateLimitError.QuotaExhausted -> "API 配额已用完，请检查账户余额"
-        is APIError.ServerError -> "AI 服务出现问题，请稍后重试"
-        is APIError.ServiceUnavailable -> "AI 服务暂时不可用，请稍后重试"
-        is PlatformError.IndexNotReady -> "IDE 正在建立索引，请稍等片刻"
-        is TimeoutError.OperationTimeout -> "操作执行超时，请稍后重试"
-        is TimeoutError.ConnectionEstablishmentTimeout -> "连接建立超时，请检查网络连接"
-        is TimeoutError.DataReadTimeout -> "数据读取超时，请稍后重试"
-        is TimeoutError.RequestTimeout -> "请求处理超时，请稍后重试"
-        is OperationCancelled -> "操作已取消"
+        is NetworkError.ConnectionTimeout -> NekoamaBundle.message("error.user.connection.timeout")
+        is NetworkError.ReadTimeout -> NekoamaBundle.message("error.user.read.timeout")
+        is NetworkError.NetworkUnreachable -> NekoamaBundle.message("error.user.network.unreachable")
+        is AuthenticationError.InvalidApiKey -> NekoamaBundle.message("error.user.invalid.api.key")
+        is AuthenticationError.ApiKeyNotConfigured -> NekoamaBundle.message("error.user.api.key.not.configured")
+        is RateLimitError.TooManyRequests -> NekoamaBundle.message("error.user.too.many.requests")
+        is RateLimitError.QuotaExhausted -> NekoamaBundle.message("error.user.quota.exhausted")
+        is APIError.ServerError -> NekoamaBundle.message("error.user.server.error")
+        is APIError.ServiceUnavailable -> NekoamaBundle.message("error.user.service.unavailable")
+        is PlatformError.IndexNotReady -> NekoamaBundle.message("error.user.index.not.ready")
+        is TimeoutError.OperationTimeout -> NekoamaBundle.message("error.user.operation.timeout")
+        is TimeoutError.ConnectionEstablishmentTimeout -> NekoamaBundle.message("error.user.connection.establishment.timeout")
+        is TimeoutError.DataReadTimeout -> NekoamaBundle.message("error.user.data.read.timeout")
+        is TimeoutError.RequestTimeout -> NekoamaBundle.message("error.user.request.timeout")
+        is OperationCancelled -> NekoamaBundle.message("error.user.operation.cancelled")
         else -> message
     }
     

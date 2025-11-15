@@ -130,7 +130,7 @@ internal class NekoamaTypedActionHandler(
 
     private fun createAIProvider(): AIProvider? {
         val settings = NekoamaSettings.getInstance()
-        val secureKey = NekoamaSecureStorage.getApiKey()
+        val secureKey = NekoamaSecureStorage.getApiKeySync()
         val resolvedKey = secureKey.ifBlank { settings.apiKey.ifBlank { System.getenv("OPENAI_API_KEY") ?: "" } }
         if (resolvedKey.isBlank()) return null
 

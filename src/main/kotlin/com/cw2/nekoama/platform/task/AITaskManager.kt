@@ -8,12 +8,9 @@ import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 
 /**
- * 后台 AI 任务执行器（第三阶段：4.1-23）
+ * 后台 AI 任务执行器
  *
- * 设计说明（中文）：
- * - 提供最小封装：在带进度的后台任务中执行传入的函数，支持取消与超时检查。
- * - 避免阻塞 EDT；UI 更新由调用方在 onSuccess/onError 中自行确保在 EDT 执行。
- * - 超时阈值读取自 NekoamaSettings（requestTimeoutMs），仅作软性检查（按需中断）。
+ * 提供带进度的后台任务执行，支持取消与超时检查。
  */
 object AITaskManager {
 

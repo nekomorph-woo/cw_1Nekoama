@@ -8,6 +8,7 @@ import com.cw2.nekoama.ai.provider.openai.OpenAIProvider
 import com.cw2.nekoama.core.logging.NekoamaLogger
 import com.cw2.nekoama.data.settings.NekoamaSecureStorage
 import com.cw2.nekoama.data.settings.NekoamaSettings
+import com.cw2.nekoama.core.metrics.ActionType
 import com.cw2.nekoama.integrations.psi.UniversalCodeAnalyzer
 import com.cw2.nekoama.presentation.messages.NekoamaBundle
 import com.cw2.nekoama.presentation.notifications.NekoamaNotifier
@@ -203,7 +204,7 @@ internal class GenerateCommentAction : BaseAction() {
      */
     private fun createAIProvider(): com.cw2.nekoama.ai.provider.AIProvider? {
         val settings = NekoamaSettings.getInstance()
-        val secureKey = NekoamaSecureStorage.getApiKey()
+        val secureKey = NekoamaSecureStorage.getApiKeySync()
         val resolvedKey =
             if (secureKey.isNotBlank()) secureKey else settings.apiKey.ifBlank { System.getenv("OPENAI_API_KEY") ?: "" }
 
@@ -432,4 +433,6 @@ internal class GenerateCommentAction : BaseAction() {
             null
         }
     }
+
+    override fun getActionType(): ActionType = ActionType.GENERATE_COMMENT
 }

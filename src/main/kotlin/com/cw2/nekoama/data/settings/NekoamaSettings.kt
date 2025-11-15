@@ -30,10 +30,7 @@ class NekoamaSettings : PersistentStateComponent<NekoamaSettings> {
     // 自动触发（预留）
     var autoTrigger: Boolean = false
 
-    // ===== AI 服务配置（第三阶段新增） =====
-    // 说明：
-    // - 为了最小变更，先使用明文字段存储；后续阶段将迁移到 IDE 安全存储（见安全与隐私章节）。
-    // - provider 固定为 Custom，支持 OpenAI 兼容的自定义 API。
+    // ===== AI 服务配置 =====
     var aiProvider: String = "Custom"
     var apiEndpoint: String = ""
     var apiKey: String = ""
@@ -42,18 +39,10 @@ class NekoamaSettings : PersistentStateComponent<NekoamaSettings> {
     // 模型温度（0-100，对应 0.0-1.0），便于 UI slider 绑定
     var modelTemperature: Int = 70
 
-    // ===== 高级性能配置（第三阶段：2.2-12） =====
-    // 为什么要引入这些字段：
-    // - 统一在 PersistentState 中保存可调性能参数，便于 UI 绑定与后续行为调整（并发/超时/缓存/内存阈值）
-    // - 采用保守的默认值，避免给 IDE 带来额外压力
-    // - 数值单位采用毫秒/条目数/MB，UI 中进行约束与提示
+    // ===== 高级性能配置 =====
     var requestTimeoutMs: Int = 60000 // 单请求超时，默认 60s（AI服务响应可能较慢）
 
-    // ===== 偏好设置（第三阶段：2.2-13） =====
-    // 说明（中文）：
-    // - languagePreference: 生成内容语言偏好（AUTO/EN/ZH），用于控制 AI 生成注释/说明等文本的语言。
-    // - namingStyle: 命名风格（CAMEL_CASE/SNAKE_CASE），作为生成与校验的偏好输入。
-    // - commentFormat: 注释格式（LINE/JAVADOC/JSDOC），用于控制模板输出样式。
+    // ===== 偏好设置 =====
     var languagePreference: String = "AUTO"
     var namingStyle: String = "CAMEL_CASE"
     var commentFormat: String = "JAVADOC"

@@ -20,16 +20,9 @@ import com.intellij.psi.PsiElement
 import java.util.UUID
 
 /**
- * Nekoama 自定义 Live Template 宏：基于当前光标上下文异步生成注释
+ * Nekoama 自定义 Live Template 宏：异步生成注释
  *
- * 设计说明（中文）：
- * - Live Template 展开通常发生在 EDT（事件派发线程），因此严禁直接做网络/IO。
- * - 该宏采用“占位符 + 后台生成 + 写命令替换”的策略，保证 UI 无阻塞。
- * - 为了最小改动：
- *   1) 立即返回一个唯一占位符文本（用户可见，避免空白）。
- *   2) 后台线程收集 PSI 上下文，调用既有 AI Provider 管线生成注释文本。
- *   3) 使用 WriteCommandAction 在文档中定位占位符并替换为最终结果。
- * - 当生成失败时，保留占位符并记录日志，避免破坏用户编辑流。
+ * 使用占位符 + 后台生成策略，避免 UI 阻塞。
  */
 class NekoamaAiCommentMacro : Macro() {
     override fun getName(): String = "nekoamaAiComment"
@@ -127,7 +120,7 @@ class NekoamaAiCommentMacro : Macro() {
 
         // 通过应用服务选择 Provider（最小实现：直接构造 OpenAIProvider 或交由未来的 Provider 工厂）
         // 优先走安全存储，向后兼容读取旧字段与环境变量
-        val secureKey = com.cw2.nekoama.data.settings.NekoamaSecureStorage.getApiKey()
+        val secureKey = com.cw2.nekoama.data.settings.NekoamaSecureStorage.getApiKeySync()
         val resolvedKey = if (secureKey.isNotBlank()) secureKey else settings.apiKey.ifBlank { System.getenv("OPENAI_API_KEY") ?: "" }
         val provider = com.cw2.nekoama.ai.provider.openai.OpenAIProvider(
             com.cw2.nekoama.ai.provider.openai.OpenAIConfig(

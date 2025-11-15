@@ -1,13 +1,15 @@
 package com.cw2.nekoama.presentation.actions
 
 import com.cw2.nekoama.core.logging.NekoamaLogger
+import com.cw2.nekoama.core.metrics.ActionType
 import com.cw2.nekoama.core.result.Result
 import com.cw2.nekoama.integrations.psi.UnusedCodeScanner
 import com.cw2.nekoama.presentation.notifications.NekoamaNotifier
 import com.cw2.nekoama.presentation.messages.NekoamaBundle
-import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
-import com.intellij.openapi.project.DumbAware
+import com.intellij.openapi.actionSystem.CommonDataKeys
+import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.project.Project
 
 /**
  * 扫描未使用的文件/类/方法/属性，并生成报告。
@@ -16,14 +18,10 @@ import com.intellij.openapi.project.DumbAware
  * - 用户需要快速识别未使用的代码以便清理；该动作在后台完成扫描，避免阻塞 UI。
  * - 报告写入 build/nym-unused-report.txt，方便查看与版本控制外排除。
  */
-internal class AnalyzeUnusedCodeAction : AnAction(NekoamaBundle.message("action.analyzeUnused.text")), DumbAware {
+internal class AnalyzeUnusedCodeAction : BaseAction() {
 
-    override fun update(e: AnActionEvent) {
-        e.presentation.isEnabledAndVisible = e.project != null
-    }
-
-    override fun actionPerformed(e: AnActionEvent) {
-        val project = e.project ?: return
+    
+    override fun perform(project: Project, editor: Editor, e: AnActionEvent) {
         NekoamaLogger.info("UNUSED_SCAN", "start")
         UnusedCodeScanner.scanInBackground(project) { res ->
             when (res) {
@@ -50,8 +48,11 @@ internal class AnalyzeUnusedCodeAction : AnAction(NekoamaBundle.message("action.
                     val errMsg = res.error.message ?: NekoamaBundle.message("common.unknownError")
                     NekoamaNotifier.error(NekoamaBundle.message("action.analyzeUnused.failed", errMsg))
                     NekoamaLogger.logError("UNUSED_SCAN", res.error)
+                    // 不抛出异常，让BaseAction处理
                 }
             }
         }
     }
+
+    override fun getActionType(): ActionType = ActionType.ANALYZE_UNUSED_CODE
 }

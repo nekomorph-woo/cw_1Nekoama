@@ -47,14 +47,8 @@ class OpenAIHttpClient(
                 when (httpResponse.statusCode()) {
                     200 -> {
                         val response = parseSuccessResponse(httpResponse.body())
-                        NekoamaLogger.logAICall(
-                            provider = "OpenAI",
-                            model = config.model,
-                            operation = "sendRequest",
-                            success = true,
-                            durationMs = duration,
-                            tokenCount = response.getOrNull()?.usage?.totalTokens
-                        )
+                        // 移除HttpClient层的日志调用，避免重复埋点
+                        // 日志记录由Provider层的logAICallWithActionType处理
                         response
                     }
                     400 -> {
@@ -139,14 +133,8 @@ class OpenAIHttpClient(
             when (httpResponse.statusCode()) {
                 200 -> {
                     val response = parseSuccessResponse(httpResponse.body())
-                    NekoamaLogger.logAICall(
-                        provider = "OpenAI",
-                        model = config.model,
-                        operation = "sendRequestSync",
-                        success = true,
-                        durationMs = duration,
-                        tokenCount = response.getOrNull()?.usage?.totalTokens
-                    )
+                    // 移除HttpClient层的日志调用，避免重复埋点
+                    // 日志记录由Provider层的logAICallWithActionType处理
                     response
                 }
                 400 -> {

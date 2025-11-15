@@ -6,7 +6,6 @@ import kotlinx.serialization.Serializable
  * 命名建议数据类
  * 
  * 包含AI生成的命名建议及其相关信息，支持评分排序和元数据管理。
- * 按照需求文档要求，建议展示格式为 "命名内容 - 简单描述"。
  */
 @Serializable
 data class NamingSuggestion(
@@ -409,7 +408,6 @@ data class UserFeedback(
 /**
  * 建议排序器
  * 
- * 提供多种排序策略对建议进行排序
  */
 object SuggestionSorter {
     
@@ -455,7 +453,6 @@ object SuggestionSorter {
 /**
  * 建议过滤器
  * 
- * 提供多种过滤条件对建议进行筛选
  */
 object SuggestionFilter {
     

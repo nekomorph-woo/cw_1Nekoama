@@ -29,7 +29,7 @@ class OpenAIProvider(
      */
     override suspend fun generateNaming(context: CodeContext): Result<List<NamingSuggestion>> {
         return try {
-            NekoamaLogger.logAICall(name, config.model, "generateNaming", true, 0)
+            NekoamaLogger.logAICallWithActionType(name, config.model, "generateNaming", true, 0, "GENERATE_NAMING")
             
             val prompt = promptTemplates.createNamingPrompt(context, config.model)
             val response = httpClient.sendRequest(prompt)
@@ -54,7 +54,8 @@ class OpenAIProvider(
             val duration = System.currentTimeMillis() - startTime
             
             response.flatMap { openAIResponse ->
-                NekoamaLogger.logAICall(name, config.model, "generateComment", true, duration,
+                NekoamaLogger.logAICallWithActionType(name, config.model, "generateComment", true, duration,
+                    "GENERATE_COMMENT",
                     tokenCount = openAIResponse.usage?.totalTokens)
                 OpenAIResponseParser.parseCommentResponse(openAIResponse, context)
             }.onError { error ->
@@ -78,7 +79,8 @@ class OpenAIProvider(
             val duration = System.currentTimeMillis() - startTime
             
             response.flatMap { openAIResponse ->
-                NekoamaLogger.logAICall(name, config.model, "generateCustom", true, duration,
+                NekoamaLogger.logAICallWithActionType(name, config.model, "generateCustom", true, duration,
+                    "CUSTOM_GENERATE",
                     tokenCount = openAIResponse.usage?.totalTokens)
                 OpenAIResponseParser.parseCustomResponse(openAIResponse)
             }.onError { error ->

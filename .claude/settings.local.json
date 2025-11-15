@@ -1,7 +1,22 @@
 {
   "permissions": {
     "allow": [
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(git log:*)",
+      "Bash(nul)",
+      "Bash(findstr:*)",
+      "Bash(./gradlew compileKotlin:*)",
+      "Bash(./gradlew buildPlugin:*)",
+      "Bash(./gradlew test:*)",
+      "Bash(./gradlew:*)",
+      "Bash(find:*)",
+      "Bash(gradlew.bat compileKotlin:*)",
+      "Bash(.gradlew.bat compileKotlin)",
+      "Bash(.gradlew compileKotlin)",
+      "Bash(grep:*)",
+      "Bash(xxd:*)",
+      "WebSearch",
+      "WebFetch(domain:plugins.jetbrains.com)"
     ],
     "deny": [],
     "ask": []
