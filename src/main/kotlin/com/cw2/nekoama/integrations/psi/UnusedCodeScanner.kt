@@ -257,13 +257,17 @@ internal object UnusedCodeScanner {
     }
 
     /**
-     * 将报告写入项目根目录下 build/nym-unused-report.txt。
+     * 将报告写入项目根目录下 build/neko-unused-report-{时间戳}.txt。
      */
     fun writeReportToFile(project: Project, report: Report): File? {
         val base = project.basePath ?: return null
         val outDir = File(base, "build")
         if (!outDir.exists()) outDir.mkdirs()
-        val out = File(outDir, "nym-unused-report.txt")
+
+        // 生成带时间戳的文件名
+        val timestamp = java.text.SimpleDateFormat("yyyyMMdd-HHmmss").format(java.util.Date())
+        val fileName = "neko-unused-report-$timestamp.txt"
+        val out = File(outDir, fileName)
         out.printWriter().use { pw ->
             pw.println(NekoamaBundle.message("action.analyzeUnused.report.title"))
             pw.println("Root: ${report.rootPath}")

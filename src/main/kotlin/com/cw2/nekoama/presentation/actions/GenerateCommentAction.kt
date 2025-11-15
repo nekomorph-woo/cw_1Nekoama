@@ -36,12 +36,12 @@ import org.jetbrains.kotlin.psi.*
  */
 internal class GenerateCommentAction : BaseAction() {
 
-    override fun perform(project: Project, editor: Editor, e: AnActionEvent) {
+    override fun perform(project: Project, editor: Editor?, e: AnActionEvent) {
         val psiFile: PsiFile = e.getData(CommonDataKeys.PSI_FILE) ?: run {
             NekoamaNotifier.warn(NekoamaBundle.message("action.comment.noPsiFile"))
             return
         }
-        val offset = editor.caretModel.offset
+        val offset = editor!!.caretModel.offset
         val elementAndLang = ReadAction.compute<Pair<PsiElement, ProgrammingLanguage>?, Throwable> {
             val element = psiFile.findElementAt(offset)
             if (element != null) {
@@ -416,4 +416,6 @@ internal class GenerateCommentAction : BaseAction() {
     }
 
     override fun getActionType(): ActionType = ActionType.GENERATE_COMMENT
+
+    override fun requiresEditor(): Boolean = true
 }

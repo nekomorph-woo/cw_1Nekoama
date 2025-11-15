@@ -26,7 +26,7 @@ internal abstract class BaseAction : AnAction(), DumbAware {
     final override fun update(e: AnActionEvent) {
         val project = e.project
         val editor = e.getData(CommonDataKeys.EDITOR)
-        val enabled = project != null && editor != null
+        val enabled = project != null && (requiresEditor() || editor != null)
         e.presentation.isEnabledAndVisible = enabled
         // 在 Dumb 模式下也允许显示，但避免做索引相关操作（各子类在执行时需注意）
     }
@@ -34,7 +34,7 @@ internal abstract class BaseAction : AnAction(), DumbAware {
     final override fun actionPerformed(e: AnActionEvent) {
         val project = e.project
         val editor = e.getData(CommonDataKeys.EDITOR)
-        if (project == null || editor == null) {
+        if (project == null || (requiresEditor() && editor == null)) {
             NekoamaNotifier.warn(com.cw2.nekoama.presentation.messages.NekoamaBundle.message("base.action.missingContext"))
             return
         }
@@ -55,7 +55,7 @@ internal abstract class BaseAction : AnAction(), DumbAware {
             val cost = System.currentTimeMillis() - start
 
             // 获取文件信息
-            val fileName = getCurrentFileName(editor)
+            val fileName = getCurrentFileName(project, editor)
 
             // 使用增强版指标收集器记录详细信息
             runBlocking {
@@ -75,7 +75,7 @@ internal abstract class BaseAction : AnAction(), DumbAware {
     /**
      * 子类实现具体处理逻辑
      */
-    protected abstract fun perform(project: Project, editor: Editor, e: AnActionEvent)
+    protected abstract fun perform(project: Project, editor: Editor?, e: AnActionEvent)
 
     /**
      * 子类需要实现此方法来返回操作类型
@@ -83,12 +83,24 @@ internal abstract class BaseAction : AnAction(), DumbAware {
     protected abstract fun getActionType(): ActionType
 
     /**
+     * 子类需要实现此方法来指定是否需要editor上下文
+     * 返回true表示需要editor（如编辑器中的代码操作）
+     * 返回false表示不需要editor（如项目级别的扫描操作）
+     */
+    protected abstract fun requiresEditor(): Boolean
+
+    /**
      * 获取当前文件名
      */
-    private fun getCurrentFileName(editor: Editor): String? {
+    private fun getCurrentFileName(project: Project, editor: Editor?): String? {
         return try {
-            val virtualFile: VirtualFile? = com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().getFile(editor.document)
-            virtualFile?.name
+            if (editor != null) {
+                val virtualFile: VirtualFile? = com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().getFile(editor.document)
+                virtualFile?.name
+            } else {
+                // 对于不需要editor的Action，返回项目名称
+                project.name
+            }
         } catch (e: Exception) {
             null
         }

@@ -343,3 +343,5 @@ TabEventSystemSingleton.getInstance().subscribe(
 3. **避免使用 `Color.WHITE`、`Color.BLACK` 等硬编码颜色**
 4. **在开发过程中频繁切换主题进行测试**
 5. **总是在你的任务完成时确认可能的编译异常，然后修复它**
+6. **插件UI触发的任务处理参考 `docs/Kotlin_EDT_PSI实践.md`**
+7. **PSI_代码分析处理参考 `docs/PSI_AST代码分析方案.md`**

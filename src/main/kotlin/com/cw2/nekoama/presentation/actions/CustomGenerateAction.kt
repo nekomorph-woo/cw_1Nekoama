@@ -37,8 +37,8 @@ import kotlinx.coroutines.runBlocking
  */
 internal class CustomGenerateAction : BaseAction() {
 
-    override fun perform(project: Project, editor: Editor, e: AnActionEvent) {
-        val selection = editor.selectionModel.selectedText ?: run {
+    override fun perform(project: Project, editor: Editor?, e: AnActionEvent) {
+        val selection = editor!!.selectionModel.selectedText ?: run {
             NekoamaNotifier.warn(NekoamaBundle.message("action.custom.selectText"))
             return
         }
@@ -91,8 +91,8 @@ internal class CustomGenerateAction : BaseAction() {
                             .joinToString(separator = "\n// ") { it.trimEnd() }
                             .let { "// $it" }
                         WriteCommandAction.runWriteCommandAction(project, NekoamaBundle.message("action.customGenerate.text"), null, Runnable {
-                            val document = editor.document
-                            val startOffset = editor.selectionModel.selectionStart
+                            val document = editor!!.document
+                            val startOffset = editor!!.selectionModel.selectionStart
                             val lineNumber = document.getLineNumber(startOffset)
                             val insertionOffset = document.getLineStartOffset(lineNumber)
                             document.insertString(insertionOffset, "$lineComment\n\n")
@@ -159,11 +159,11 @@ internal class CustomGenerateAction : BaseAction() {
     /**
      * 构建代码上下文（轻量级版本）
      */
-    private fun buildCodeContext(project: Project, editor: Editor, psiFile: PsiFile, indicator: ProgressIndicator): CodeContext? {
+    private fun buildCodeContext(project: Project, editor: Editor?, psiFile: PsiFile, indicator: ProgressIndicator): CodeContext? {
         return try {
             ReadAction.compute<CodeContext?, Throwable> {
                 val analyzer = UniversalCodeAnalyzer(project)
-                val offset = editor.caretModel.offset
+                val offset = editor!!.caretModel.offset
                 val element = psiFile.findElementAt(offset)
                 
                 if (element == null) {
@@ -218,7 +218,7 @@ internal class CustomGenerateAction : BaseAction() {
                         modifiers = emptyList(),
                         annotations = emptyList(),
                         exceptions = emptyList(),
-                        methodBody = editor.selectionModel.selectedText,
+                        methodBody = editor!!.selectionModel.selectedText,
                         isConstructor = false,
                         isAbstract = false,
                         containingClass = null
@@ -234,4 +234,6 @@ internal class CustomGenerateAction : BaseAction() {
     }
 
     override fun getActionType(): ActionType = ActionType.CUSTOM_GENERATE
+
+    override fun requiresEditor(): Boolean = true
 }
