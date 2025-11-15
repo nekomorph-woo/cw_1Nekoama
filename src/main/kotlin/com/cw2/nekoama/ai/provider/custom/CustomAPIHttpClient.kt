@@ -3,6 +3,9 @@ package com.cw2.nekoama.ai.provider.custom
 import com.cw2.nekoama.ai.provider.openai.OpenAIRequest
 import com.cw2.nekoama.core.logging.NekoamaLogger
 import com.cw2.nekoama.core.serialization.toJson
+import com.cw2.nekoama.core.network.ProxyDetector
+import com.cw2.nekoama.core.network.ProxyConfig
+import com.cw2.nekoama.core.network.HttpClientProxyConfigurator
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
@@ -22,7 +25,7 @@ import java.security.cert.X509Certificate
 class CustomAPIHttpClient(
     private val config: CustomAPIConfig
 ) : BaseHttpClient() {
-    
+
     private val httpClient = createHttpClient()
     
     /**
@@ -31,10 +34,10 @@ class CustomAPIHttpClient(
     private fun createHttpClient(): HttpClient {
         // 连接超时设置为总超时的1/4，为AI服务响应留出更多时间
         val connectTimeoutMs = (config.timeoutMs / 4).coerceAtLeast(10000L).coerceAtMost(15000L)
-        
+
         val builder = HttpClient.newBuilder()
             .connectTimeout(Duration.ofMillis(connectTimeoutMs))
-        
+
         // 如果禁用 SSL 验证，使用自定义 SSL 上下文
         if (!config.verifySSL) {
             try {
@@ -43,17 +46,24 @@ class CustomAPIHttpClient(
                     override fun checkServerTrusted(certs: Array<X509Certificate>, authType: String) {}
                     override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
                 })
-                
+
                 val sslContext = SSLContext.getInstance("SSL")
                 sslContext.init(null, trustAllCerts, java.security.SecureRandom())
                 builder.sslContext(sslContext)
-                
+
                 NekoamaLogger.warn("CustomAPIHttpClient", "SSL 验证已禁用，仅用于开发环境")
             } catch (e: Exception) {
                 NekoamaLogger.warn("CustomAPIHttpClient", "无法禁用 SSL 验证: ${e.message}")
             }
         }
-        
+
+        // 初始化全局代理配置（确保所有HTTP客户端都使用IDEA的代理设置）
+        val proxyConfig = ProxyDetector.detectSystemProxy(config.buildEndpointUrl())
+        HttpClientProxyConfigurator.configureSystemProxy(proxyConfig)
+
+        NekoamaLogger.info("CustomAPIHttpClient",
+            "代理配置: ${ProxyDetector.getProxyStatus(proxyConfig)}")
+
         return builder.build()
     }
     

@@ -4,10 +4,13 @@ import com.cw2.nekoama.data.settings.NekoamaSettings
 import com.cw2.nekoama.data.settings.NekoamaSecureStorage
 import com.cw2.nekoama.presentation.messages.NekoamaBundle
 import com.cw2.nekoama.presentation.notifications.NekoamaNotifier
+import com.cw2.nekoama.core.network.ProxyConnectionTester
+import com.cw2.nekoama.core.network.ProxyInitializationManager
 import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
 import com.intellij.ui.JBColor
+import kotlinx.coroutines.runBlocking
 import java.awt.BorderLayout
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
@@ -163,7 +166,7 @@ class NekoamaConfigurable : Configurable {
         // 测试结果标签
         c.gridx = 0
         c.gridy++
-        c.insets = java.awt.Insets(5, 5, 5, 5) // 恢复默认间距
+        c.insets = java.awt.Insets(20, 5, 20, 5) // 测试结果下方增加间距
         form.add(testResultLabel, c)
 
         // ===== 性能优化设置区域 =====
@@ -241,62 +244,43 @@ class NekoamaConfigurable : Configurable {
             NekoamaNotifier.info(NekoamaBundle.message("notification.success"))
         }
 
-        // 测试连接：后台线程执行网络请求
+        // 测试连接：使用修复后的代理测试方法
         testButton.addActionListener {
             testButton.isEnabled = false
             testResultLabel.text = NekoamaBundle.message("settings.ai.test.connecting")
             testResultLabel.foreground = JBColor.CYAN
-            val endpoint = endpointField.text.trim()
-            val inlineKey = String(apiKeyField.password).trim()
-            val model = modelField.text.trim().ifEmpty { settings.model }
-            // 在EDT读取温度，避免后台线程访问Swing组件
-            val temperature = tempSlider.value / 100.0
 
             ApplicationManager.getApplication().executeOnPooledThread {
-                // 在后台线程中获取存储的 API Key
-                val storedKey = NekoamaSecureStorage.getApiKeySync()
-                val anyKey = inlineKey.ifBlank { storedKey }
-                var errorMessage: String? = null
-                val success = try {
-                    val cfg = com.cw2.nekoama.ai.provider.custom.CustomAPIConfig(
-                        providerName = "Custom",
-                        apiUrl = endpoint,
-                        apiKey = anyKey,
-                        model = model.ifBlank { "gpt-4o-mini" },
-                        temperature = temperature,
-                        timeoutMs = settings.requestTimeoutMs.toLong()
-                    )
-                    val client = com.cw2.nekoama.ai.provider.custom.CustomAPIHttpClient(cfg)
-                    val req = com.cw2.nekoama.ai.provider.openai.OpenAIRequest(
-                        model = cfg.model,
-                        messages = listOf(com.cw2.nekoama.ai.provider.openai.OpenAIMessage("user", "ping")),
-                        maxTokens = 10
-                    )
-                    val result = client.sendRequestSync(req)
-                    if (!result.isSuccess) {
-                        errorMessage = result.errorOrNull()?.message ?: NekoamaBundle.message("settings.test.unknown.error")
-                    }
-                    result.isSuccess
-                } catch (t: Throwable) {
-                    errorMessage = t.message ?: NekoamaBundle.message("settings.test.network.error")
-                    false
-                }
+                try {
+                    val endpoint = endpointField.text.trim().ifEmpty { "https://api.openai.com" }
 
-                ApplicationManager.getApplication().invokeLater({
-                    if (success) {
-                        testResultLabel.text = NekoamaBundle.message("settings.ai.test.success")
-                        testResultLabel.foreground = java.awt.Color.GREEN.darker()
-                    } else {
-                        val failMessage = if (errorMessage != null) {
-                            "${NekoamaBundle.message("settings.ai.test.fail")}: $errorMessage"
-                        } else {
-                            NekoamaBundle.message("settings.ai.test.fail")
-                        }
-                        testResultLabel.text = failMessage
-                        testResultLabel.foreground = JBColor.RED
+                    // 使用新的代理测试方法
+                    val result = runBlocking {
+                        ProxyConnectionTester.testCurrentIDEAProxy(endpoint)
                     }
-                    testButton.isEnabled = true
-                }, ModalityState.any())
+
+                    ApplicationManager.getApplication().invokeLater({
+                        if (result.success) {
+                            testResultLabel.text = if (result.statusCode == 200) {
+                                NekoamaBundle.message("settings.ai.test.success.proxy", result.responseTime)
+                            } else {
+                                NekoamaBundle.message("settings.ai.test.success.reachable", result.statusCode, result.responseTime)
+                            }
+                            testResultLabel.foreground = java.awt.Color.GREEN.darker()
+                        } else {
+                            val failMessage = NekoamaBundle.message("settings.ai.test.failed", result.message)
+                            testResultLabel.text = failMessage
+                            testResultLabel.foreground = JBColor.RED
+                        }
+                        testButton.isEnabled = true
+                    }, ModalityState.any())
+                } catch (e: Exception) {
+                    ApplicationManager.getApplication().invokeLater({
+                        testResultLabel.text = NekoamaBundle.message("settings.ai.test.exception", e.message ?: "")
+                        testResultLabel.foreground = JBColor.RED
+                        testButton.isEnabled = true
+                    }, ModalityState.any())
+                }
             }
         }
 

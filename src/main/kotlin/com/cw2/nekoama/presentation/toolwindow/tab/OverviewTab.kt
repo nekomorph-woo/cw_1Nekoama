@@ -6,6 +6,7 @@ import com.cw2.nekoama.core.logging.NekoamaLogger
 import com.cw2.nekoama.data.settings.NekoamaSettings
 import com.cw2.nekoama.data.settings.NekoamaSecureStorage
 import com.cw2.nekoama.presentation.messages.NekoamaBundle
+import com.cw2.nekoama.core.network.ProxyConnectionTester
 import com.cw2.nekoama.ai.provider.AIProvider
 import com.cw2.nekoama.ai.provider.custom.CustomAPIProvider
 import com.cw2.nekoama.ai.provider.custom.CustomAPIConfig
@@ -1162,29 +1163,33 @@ class OverviewTab : BaseNekoamaTab() {
 
                 NekoamaLogger.debug("OverviewTab", "Starting connection test")
 
-                // 创建AI提供商实例
-                val provider = createAIProvider()
-                if (provider == null) {
-                    showConnectionError(NekoamaBundle.message("overview.connection.error.not.configured"))
+                // 获取端点URL
+                val settings = NekoamaSettings.getInstance()
+                val endpoint = settings.apiEndpoint
+                if (endpoint.isBlank()) {
+                    showConnectionError(NekoamaBundle.message("overview.endpoint.not.configured"))
                     return@launch
                 }
 
-                NekoamaLogger.debug("OverviewTab", "AI provider created successfully, testing availability")
+                NekoamaLogger.debug("OverviewTab", "Testing connection to: $endpoint")
 
-                // 使用AI提供商的isAvailable方法进行真实连接测试
+                // 使用新的代理测试方法进行连接测试
                 val startTime = System.currentTimeMillis()
-                val result = provider.isAvailable()
+                val result = ProxyConnectionTester.testCurrentIDEAProxy(endpoint)
                 val latency = System.currentTimeMillis() - startTime
 
                 NekoamaLogger.debug("OverviewTab", "Connection test result: $result, latency: ${latency}ms")
 
                 when {
-                    result.isSuccess && result.getOrNull() == true -> {
+                    result.success -> {
                         connectionStatusLabel.text = NekoamaBundle.message("overview.connected")
                         connectionStatusLabel.foreground = UIManager.getColor("Label.successForeground")
 
-                        val successMessage = NekoamaBundle.message("overview.connection.test.success") +
-                                "\n" + NekoamaBundle.message("overview.connection.test.latency", latency)
+                        val successMessage = if (result.statusCode == 200) {
+                            NekoamaBundle.message("settings.ai.test.success.proxy", result.responseTime)
+                        } else {
+                            NekoamaBundle.message("settings.ai.test.success.reachable", result.statusCode, result.responseTime)
+                        } + "\n" + NekoamaBundle.message("overview.connection.test.latency", latency)
 
                         JOptionPane.showMessageDialog(
                             mainPanel,
@@ -1193,29 +1198,25 @@ class OverviewTab : BaseNekoamaTab() {
                             JOptionPane.INFORMATION_MESSAGE
                         )
                     }
-                    result.getOrNull() == false -> {
-                        val error = try { throw Exception("Connection test failed") } catch (e: Exception) { e }
+                    else -> {
                         val errorMessage = when {
-                            error?.message?.contains("401") == true ||
-                            error?.message?.contains("authentication") == true ->
+                            result.message.contains("401") == true ||
+                            result.message.contains("authentication") == true ->
                                 NekoamaBundle.message("overview.connection.error.invalid.key")
-                            error?.message?.contains("timeout") == true ->
+                            result.message.contains("timeout") == true ->
                                 NekoamaBundle.message("overview.connection.error.timeout")
-                            error?.message?.contains("network") == true ||
-                            error?.message?.contains("connection") == true ->
+                            result.message.contains("network") == true ||
+                            result.message.contains("connection") == true ->
                                 NekoamaBundle.message("overview.connection.error.network.error")
-                            else -> error?.message ?: "Unknown error"
+                            else -> NekoamaBundle.message("settings.ai.test.failed", result.message)
                         }
                         showConnectionError(errorMessage)
-                    }
-                    else -> {
-                        showConnectionError(NekoamaBundle.message("overview.connection.error.service.unavailable"))
                     }
                 }
 
             } catch (e: Exception) {
                 NekoamaLogger.error("OverviewTab", "Connection test failed", error = e)
-                showConnectionError(NekoamaBundle.message("overview.connection.error.network.error"))
+                showConnectionError(NekoamaBundle.message("settings.ai.test.exception", e.message ?: ""))
             }
         }
     }
