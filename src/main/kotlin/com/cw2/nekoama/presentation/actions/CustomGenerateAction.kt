@@ -5,8 +5,6 @@ import com.cw2.nekoama.ai.model.MethodContext
 import com.cw2.nekoama.ai.model.ProgrammingLanguage
 import com.cw2.nekoama.ai.model.SurroundingContext
 import com.cw2.nekoama.ai.model.TypeInfo
-import com.cw2.nekoama.ai.provider.openai.OpenAIProvider
-import com.cw2.nekoama.ai.provider.openai.OpenAIConfig
 import com.cw2.nekoama.ai.provider.custom.CustomAPIProvider
 import com.cw2.nekoama.ai.provider.custom.CustomAPIConfig
 import com.cw2.nekoama.core.logging.NekoamaLogger
@@ -120,42 +118,26 @@ internal class CustomGenerateAction : BaseAction() {
     }
 
     /**
-     * 根据设置创建AI Provider实例
+     * 创建AI Provider实例（固定使用Custom API）
      */
     private fun createAIProvider(): com.cw2.nekoama.ai.provider.AIProvider? {
         val settings = NekoamaSettings.getInstance()
         val secureKey = NekoamaSecureStorage.getApiKeySync()
         val resolvedKey = if (secureKey.isNotBlank()) secureKey else settings.apiKey.ifBlank { System.getenv("OPENAI_API_KEY") ?: "" }
-        
-        if (resolvedKey.isBlank()) return null
 
-        return when (settings.aiProvider) {
-            "Custom" -> {
-                if (settings.apiEndpoint.isBlank()) return null
-                CustomAPIProvider(
-                    CustomAPIConfig(
-                        providerName = "Custom API",
-                        apiUrl = settings.apiEndpoint,
-                        apiKey = resolvedKey,
-                        model = settings.model,
-                        temperature = settings.modelTemperature / 100.0,
-                        timeoutMs = settings.requestTimeoutMs.toLong(),
-                        maxTokens = 2000
-                    )
-                )
-            }
-            else -> {
-                OpenAIProvider(
-                    OpenAIConfig(
-                        apiKey = resolvedKey,
-                        model = settings.model,
-                        temperature = settings.modelTemperature / 100.0,
-                        timeoutMs = settings.requestTimeoutMs.toLong(),
-                        maxTokens = 2000
-                    )
-                )
-            }
-        }
+        if (resolvedKey.isBlank() || settings.apiEndpoint.isBlank()) return null
+
+        return CustomAPIProvider(
+            CustomAPIConfig(
+                providerName = "Custom API",
+                apiUrl = settings.apiEndpoint,
+                apiKey = resolvedKey,
+                model = settings.model,
+                temperature = settings.modelTemperature / 100.0,
+                timeoutMs = settings.requestTimeoutMs.toLong(),
+                maxTokens = 2000
+            )
+        )
     }
 
     /**

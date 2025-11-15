@@ -3,8 +3,6 @@ package com.cw2.nekoama.presentation.actions
 import com.cw2.nekoama.ai.model.*
 import com.cw2.nekoama.ai.provider.custom.CustomAPIConfig
 import com.cw2.nekoama.ai.provider.custom.CustomAPIProvider
-import com.cw2.nekoama.ai.provider.openai.OpenAIConfig
-import com.cw2.nekoama.ai.provider.openai.OpenAIProvider
 import com.cw2.nekoama.core.logging.NekoamaLogger
 import com.cw2.nekoama.data.settings.NekoamaSecureStorage
 import com.cw2.nekoama.data.settings.NekoamaSettings
@@ -130,7 +128,7 @@ internal class GenerateNamingAction : BaseAction() {
     }
 
     /**
-     * 根据设置创建AI Provider实例
+     * 创建AI Provider实例（固定使用Custom API）
      */
     private fun createAIProvider(): com.cw2.nekoama.ai.provider.AIProvider? {
         val settings = NekoamaSettings.getInstance()
@@ -138,36 +136,19 @@ internal class GenerateNamingAction : BaseAction() {
         val resolvedKey =
             if (secureKey.isNotBlank()) secureKey else settings.apiKey.ifBlank { System.getenv("OPENAI_API_KEY") ?: "" }
 
-        if (resolvedKey.isBlank()) return null
+        if (resolvedKey.isBlank() || settings.apiEndpoint.isBlank()) return null
 
-        return when (settings.aiProvider) {
-            "Custom" -> {
-                if (settings.apiEndpoint.isBlank()) return null
-                CustomAPIProvider(
-                    CustomAPIConfig(
-                        providerName = "Custom API",
-                        apiUrl = settings.apiEndpoint,
-                        apiKey = resolvedKey,
-                        model = settings.model,
-                        temperature = settings.modelTemperature / 100.0,
-                        timeoutMs = settings.requestTimeoutMs.toLong(),
-                        maxTokens = 150
-                    )
-                )
-            }
-
-            else -> {
-                OpenAIProvider(
-                    OpenAIConfig(
-                        apiKey = resolvedKey,
-                        model = settings.model,
-                        temperature = settings.modelTemperature / 100.0,
-                        timeoutMs = settings.requestTimeoutMs.toLong(),
-                        maxTokens = 150
-                    )
-                )
-            }
-        }
+        return CustomAPIProvider(
+            CustomAPIConfig(
+                providerName = "Custom API",
+                apiUrl = settings.apiEndpoint,
+                apiKey = resolvedKey,
+                model = settings.model,
+                temperature = settings.modelTemperature / 100.0,
+                timeoutMs = settings.requestTimeoutMs.toLong(),
+                maxTokens = 150
+            )
+        )
     }
 
     /**
