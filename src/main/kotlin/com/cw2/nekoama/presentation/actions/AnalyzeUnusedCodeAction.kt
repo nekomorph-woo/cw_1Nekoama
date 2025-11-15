@@ -16,12 +16,12 @@ import com.intellij.openapi.project.Project
  *
  * 设计说明（为什么）：
  * - 用户需要快速识别未使用的代码以便清理；该动作在后台完成扫描，避免阻塞 UI。
- * - 报告写入 build/nym-unused-report.txt，方便查看与版本控制外排除。
+ * - 报告写入 build/neko-unused-report-{时间戳}.txt，方便查看与版本控制外排除。
  */
 internal class AnalyzeUnusedCodeAction : BaseAction() {
 
     
-    override fun perform(project: Project, editor: Editor, e: AnActionEvent) {
+    override fun perform(project: Project, editor: Editor?, e: AnActionEvent): Int {
         NekoamaLogger.info("UNUSED_SCAN", "start")
         UnusedCodeScanner.scanInBackground(project) { res ->
             when (res) {
@@ -52,7 +52,10 @@ internal class AnalyzeUnusedCodeAction : BaseAction() {
                 }
             }
         }
+        return 0 // 分析操作不消耗AI Token
     }
 
     override fun getActionType(): ActionType = ActionType.ANALYZE_UNUSED_CODE
+
+    override fun requiresEditor(): Boolean = false
 }

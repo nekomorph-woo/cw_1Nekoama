@@ -2,6 +2,8 @@ package com.cw2.nekoama.core.logging
 
 import com.intellij.openapi.diagnostic.Logger
 import com.cw2.nekoama.core.exception.NekoamaError
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 
 /**
  * Nekoama 插件统一日志系统 - Unified logging system for Nekoama plugin
@@ -211,8 +213,26 @@ object NekoamaLogger {
         if (success) {
             info("AI_CALL", "AI 服务调用成功", context)
             logPerformance("AI_CALL", durationMs, context)
-            // 注意：移除了重复的token记录逻辑以避免双重计数
-            // token统计由BaseAction中的EnhancedMetricsCollector.record()统一处理
+
+            // 记录Token使用统计
+            tokenCount?.let { tokens ->
+                try {
+                    val actionTypeEnum = when (actionType) {
+                        "GENERATE_NAMING" -> com.cw2.nekoama.core.metrics.ActionType.GENERATE_NAMING
+                        "GENERATE_COMMENT" -> com.cw2.nekoama.core.metrics.ActionType.GENERATE_COMMENT
+                        "CUSTOM_GENERATE" -> com.cw2.nekoama.core.metrics.ActionType.CUSTOM_GENERATE
+                        "ANALYZE_UNUSED_CODE" -> com.cw2.nekoama.core.metrics.ActionType.ANALYZE_UNUSED_CODE
+                        else -> com.cw2.nekoama.core.metrics.ActionType.CUSTOM_GENERATE
+                    }
+
+                    GlobalScope.launch {
+                        com.cw2.nekoama.core.metrics.EnhancedMetricsCollector.recordTokens(tokens, actionTypeEnum)
+                    }
+                } catch (e: Exception) {
+                    // Token记录失败不应该影响主要功能
+                    System.err.println("Failed to record token usage: ${e.message}")
+                }
+            }
         } else {
             error?.let { logError("AI_CALL", it, context) }
         }

@@ -36,21 +36,21 @@ import org.jetbrains.kotlin.psi.KtProperty
  */
 internal class GenerateNamingAction : BaseAction() {
 
-    override fun perform(project: Project, editor: Editor, e: AnActionEvent) {
+    override fun perform(project: Project, editor: Editor?, e: AnActionEvent): Int {
         val psiFile = e.getData(CommonDataKeys.PSI_FILE) ?: run {
             NekoamaNotifier.warn(NekoamaBundle.message("action.naming.noPsiFile"))
-            return
+            return 0
         }
         // 优先使用光标位置的 PSI 元素；若不可用再回退到事件上下文中的 PSI 元素（右键位置）
-        val element = elementAtCaret(editor, psiFile) ?: e.getData(CommonDataKeys.PSI_ELEMENT)
+        val element = elementAtCaret(editor!!, psiFile) ?: e.getData(CommonDataKeys.PSI_ELEMENT)
         if (element == null) {
             NekoamaNotifier.warn(NekoamaBundle.message("action.naming.noElement"))
-            return
+            return 0
         }
 
         // 在主线程中预先获取选中文本，避免后台线程直接访问 UI
         val selectionText = ReadAction.compute<String?, Throwable> {
-            editor.selectionModel.selectedText
+            editor!!.selectionModel.selectedText
         }
 
         val title = NekoamaBundle.message("action.generateNaming.text")
@@ -110,10 +110,11 @@ internal class GenerateNamingAction : BaseAction() {
                 }
             }
         })
+        return 0 // TODO: 需要从AI响应中获取实际Token数量
     }
 
-    private fun elementAtCaret(editor: Editor, psiFile: PsiFile): PsiElement? {
-        val offset = editor.caretModel.offset
+    private fun elementAtCaret(editor: Editor?, psiFile: PsiFile): PsiElement? {
+        val offset = editor!!.caretModel.offset
         val element = psiFile.findElementAt(offset)
         if (element != null) {
             // 检查是否是局部变量（包括 Kotlin 和 Java）
@@ -838,4 +839,6 @@ internal class GenerateNamingAction : BaseAction() {
     }
 
     override fun getActionType(): ActionType = ActionType.GENERATE_NAMING
+
+    override fun requiresEditor(): Boolean = true
 }

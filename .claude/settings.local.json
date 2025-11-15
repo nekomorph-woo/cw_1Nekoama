@@ -16,7 +16,9 @@
       "Bash(grep:*)",
       "Bash(xxd:*)",
       "WebSearch",
-      "WebFetch(domain:plugins.jetbrains.com)"
+      "WebFetch(domain:plugins.jetbrains.com)",
+      "Bash(./gradlew.bat compileKotlin:*)",
+      "Bash(./gradlew.bat:*)"
     ],
     "deny": [],
     "ask": []
