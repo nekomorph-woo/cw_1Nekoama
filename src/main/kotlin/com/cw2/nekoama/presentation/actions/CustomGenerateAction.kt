@@ -37,10 +37,10 @@ import kotlinx.coroutines.runBlocking
  */
 internal class CustomGenerateAction : BaseAction() {
 
-    override fun perform(project: Project, editor: Editor?, e: AnActionEvent) {
+    override fun perform(project: Project, editor: Editor?, e: AnActionEvent): Int {
         val selection = editor!!.selectionModel.selectedText ?: run {
             NekoamaNotifier.warn(NekoamaBundle.message("action.custom.selectText"))
-            return
+            return 0
         }
 
         val psiFile = e.getData(CommonDataKeys.PSI_FILE)
@@ -115,6 +115,7 @@ internal class CustomGenerateAction : BaseAction() {
                 }
             }
         })
+        return 0 // TODO: 需要从AI响应中获取实际Token数量
     }
 
     /**

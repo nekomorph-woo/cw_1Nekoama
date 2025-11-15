@@ -21,7 +21,7 @@ import com.intellij.openapi.project.Project
 internal class AnalyzeUnusedCodeAction : BaseAction() {
 
     
-    override fun perform(project: Project, editor: Editor?, e: AnActionEvent) {
+    override fun perform(project: Project, editor: Editor?, e: AnActionEvent): Int {
         NekoamaLogger.info("UNUSED_SCAN", "start")
         UnusedCodeScanner.scanInBackground(project) { res ->
             when (res) {
@@ -52,6 +52,7 @@ internal class AnalyzeUnusedCodeAction : BaseAction() {
                 }
             }
         }
+        return 0 // 分析操作不消耗AI Token
     }
 
     override fun getActionType(): ActionType = ActionType.ANALYZE_UNUSED_CODE

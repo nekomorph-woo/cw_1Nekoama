@@ -43,9 +43,10 @@ internal abstract class BaseAction : AnAction(), DumbAware {
         val start = System.currentTimeMillis()
         var success = true
         var errorMessage: String? = null
+        var tokensUsed = 0
 
         try {
-            perform(project, editor, e)
+            tokensUsed = perform(project, editor, e)
         } catch (t: Throwable) {
             success = false
             errorMessage = t.message
@@ -63,7 +64,7 @@ internal abstract class BaseAction : AnAction(), DumbAware {
                     actionType = getActionType(),
                     success = success,
                     latencyMs = cost,
-                    tokensUsed = 0, // 将在具体的AI调用中更新
+                    tokensUsed = tokensUsed, // 使用实际的Token使用量
                     errorMessage = errorMessage,
                     project = project,
                     fileName = fileName
@@ -74,8 +75,9 @@ internal abstract class BaseAction : AnAction(), DumbAware {
 
     /**
      * 子类实现具体处理逻辑
+     * @return 返回使用的Token数量，如果无法获取则返回0
      */
-    protected abstract fun perform(project: Project, editor: Editor?, e: AnActionEvent)
+    protected abstract fun perform(project: Project, editor: Editor?, e: AnActionEvent): Int
 
     /**
      * 子类需要实现此方法来返回操作类型

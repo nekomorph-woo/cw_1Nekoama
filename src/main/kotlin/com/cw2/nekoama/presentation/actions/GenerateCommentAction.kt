@@ -36,10 +36,10 @@ import org.jetbrains.kotlin.psi.*
  */
 internal class GenerateCommentAction : BaseAction() {
 
-    override fun perform(project: Project, editor: Editor?, e: AnActionEvent) {
+    override fun perform(project: Project, editor: Editor?, e: AnActionEvent): Int {
         val psiFile: PsiFile = e.getData(CommonDataKeys.PSI_FILE) ?: run {
             NekoamaNotifier.warn(NekoamaBundle.message("action.comment.noPsiFile"))
-            return
+            return 0
         }
         val offset = editor!!.caretModel.offset
         val elementAndLang = ReadAction.compute<Pair<PsiElement, ProgrammingLanguage>?, Throwable> {
@@ -68,7 +68,7 @@ internal class GenerateCommentAction : BaseAction() {
         }
         if (elementAndLang == null) {
             NekoamaNotifier.warn(NekoamaBundle.message("action.comment.notSupportedHere"))
-            return
+            return 0
         }
         val (element, detectedLang) = elementAndLang
 
@@ -195,6 +195,7 @@ internal class GenerateCommentAction : BaseAction() {
                 }
             }
         })
+        return 0 // TODO: 需要从AI响应中获取实际Token数量
     }
 
     /**
