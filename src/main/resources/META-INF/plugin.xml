@@ -46,7 +46,7 @@
         <postStartupActivity implementation="com.cw2.nekoama.platform.lifecycle.NekoamaProjectActivity"/>
 
         <!-- 初始化指标系统 -->
-        <postStartupActivity implementation="com.cw2.nekoama.platform.lifecycle.MetricsInitializer"/>
+        <projectActivity implementation="com.cw2.nekoama.platform.lifecycle.MetricsInitializer"/>
 
         <!-- Live Template 自定义宏注册：用于 AI 注释生成占位与替换 -->
         <liveTemplateMacro implementation="com.cw2.nekoama.presentation.templates.NekoamaAiCommentMacro"/>
