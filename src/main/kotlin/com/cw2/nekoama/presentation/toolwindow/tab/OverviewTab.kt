@@ -7,8 +7,6 @@ import com.cw2.nekoama.data.settings.NekoamaSettings
 import com.cw2.nekoama.data.settings.NekoamaSecureStorage
 import com.cw2.nekoama.presentation.messages.NekoamaBundle
 import com.cw2.nekoama.ai.provider.AIProvider
-import com.cw2.nekoama.ai.provider.openai.OpenAIProvider
-import com.cw2.nekoama.ai.provider.openai.OpenAIConfig
 import com.cw2.nekoama.ai.provider.custom.CustomAPIProvider
 import com.cw2.nekoama.ai.provider.custom.CustomAPIConfig
 import com.intellij.icons.AllIcons
@@ -22,6 +20,7 @@ import com.intellij.util.ui.JBFont
 import com.intellij.util.ui.UIUtil
 import com.intellij.ui.Gray
 import javax.swing.border.EmptyBorder
+import javax.swing.BorderFactory
 import java.awt.event.ActionListener
 import javax.swing.Timer
 import kotlinx.coroutines.CoroutineScope
@@ -454,7 +453,14 @@ class OverviewTab : BaseNekoamaTab() {
     private fun createActivityItem(trend: com.cw2.nekoama.core.metrics.DailyTrendPoint): JComponent {
         val itemPanel = JPanel(BorderLayout())
         itemPanel.border = JBEmptyBorder(JBUI.insets(8, 8, 8, 8))
-        itemPanel.background = UIUtil.getPanelBackground().brighter()
+        // 使用主题感知的背景色，参考TokenStatsTab的createMetricCard方式
+        itemPanel.background = UIUtil.getPanelBackground()
+
+        // 添加微妙的边框以提供视觉分离，同时保持主题适配
+        itemPanel.border = BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(UIUtil.getPanelBackground().darker(), 1),
+            JBEmptyBorder(JBUI.insets(8, 8, 8, 8))
+        )
 
         // 日期标签
         val displayDate = try {
@@ -1112,33 +1118,18 @@ class OverviewTab : BaseNekoamaTab() {
                 return null
             }
 
-            // 根据提供商类型创建相应的实例
-            return when {
-                settings.apiEndpoint.contains("api.openai.com") -> {
-                    OpenAIProvider(
-                        OpenAIConfig(
-                            apiKey = resolvedKey,
-                            model = settings.model,
-                            temperature = settings.modelTemperature / 100.0,
-                            timeoutMs = settings.requestTimeoutMs.toLong(),
-                            maxTokens = 1 // 连接测试用最小Token数
-                        )
-                    )
-                }
-                else -> {
-                    CustomAPIProvider(
-                        CustomAPIConfig(
-                            providerName = "Custom API",
-                            apiUrl = settings.apiEndpoint,
-                            apiKey = resolvedKey,
-                            model = settings.model,
-                            temperature = settings.modelTemperature / 100.0,
-                            timeoutMs = settings.requestTimeoutMs.toLong(),
-                            maxTokens = 1 // 连接测试用最小Token数
-                        )
-                    )
-                }
-            }
+            // 创建Custom API Provider实例
+            return CustomAPIProvider(
+                CustomAPIConfig(
+                    providerName = "Custom API",
+                    apiUrl = settings.apiEndpoint,
+                    apiKey = resolvedKey,
+                    model = settings.model,
+                    temperature = settings.modelTemperature / 100.0,
+                    timeoutMs = settings.requestTimeoutMs.toLong(),
+                    maxTokens = 1 // 连接测试用最小Token数
+                )
+            )
         } catch (e: Exception) {
             NekoamaLogger.error("OverviewTab", "Failed to create AI provider", error = e)
             return null

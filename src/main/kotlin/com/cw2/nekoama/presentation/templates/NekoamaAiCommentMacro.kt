@@ -118,12 +118,28 @@ class NekoamaAiCommentMacro : Macro() {
         val userCommentFormat = settings.commentFormat
         val userNamingStyle = settings.namingStyle
 
-        // 通过应用服务选择 Provider（最小实现：直接构造 OpenAIProvider 或交由未来的 Provider 工厂）
+        // 创建Custom API Provider实例
         // 优先走安全存储，向后兼容读取旧字段与环境变量
         val secureKey = com.cw2.nekoama.data.settings.NekoamaSecureStorage.getApiKeySync()
         val resolvedKey = if (secureKey.isNotBlank()) secureKey else settings.apiKey.ifBlank { System.getenv("OPENAI_API_KEY") ?: "" }
-        val provider = com.cw2.nekoama.ai.provider.openai.OpenAIProvider(
-            com.cw2.nekoama.ai.provider.openai.OpenAIConfig(
+
+        if (resolvedKey.isBlank() || settings.apiEndpoint.isBlank()) {
+            NekoamaLogger.warn("NekoamaCommentMacro", "API key or endpoint not configured")
+            // 替换占位符为错误信息
+            ApplicationManager.getApplication().invokeLater {
+                WriteCommandAction.runWriteCommandAction(project) {
+                    val text = document.text
+                    val newText = text.replace(placeholder, "// AI comment generation failed: API not configured")
+                    document.setText(newText)
+                }
+            }
+            return // 直接返回，不执行后续逻辑
+        }
+
+        val provider = com.cw2.nekoama.ai.provider.custom.CustomAPIProvider(
+            com.cw2.nekoama.ai.provider.custom.CustomAPIConfig(
+                providerName = "Custom API",
+                apiUrl = settings.apiEndpoint,
                 apiKey = resolvedKey,
                 model = settings.model,
                 // 温度从整型百分比转换为 0.0-1.0
