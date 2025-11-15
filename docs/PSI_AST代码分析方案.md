@@ -1560,7 +1560,7 @@ object ASTAnalysisExtensionRegistration {
 
 ## 总结
 
-基于你Nekoama项目的现有架构，这份PSI/AST分析方案提供了：
+基于项目的现有架构，这份PSI/AST分析方案提供了：
 
 ### 🎯 核心能力
 1. **完整的Java PSI分析** - 遍历类、方法、字段的完整方案
