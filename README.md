@@ -136,7 +136,7 @@ cd nekoama
 
 ### 4. Custom Code Generation
 - Select text containing requirement descriptions
-- Right-click and select **Nekoama** → **IDEA of Neko**
+- Right-click and select **Nekoama** → **IDEA for Neko**
 - Supported format: `[your requirement description]` or directly use selected text
 
 ### 5. Analyze Unused Code
