@@ -6,10 +6,16 @@ import com.cw2.nekoama.core.serialization.toJson
 import com.cw2.nekoama.core.network.ProxyDetector
 import com.cw2.nekoama.core.network.ProxyConfig
 import com.cw2.nekoama.core.network.HttpClientProxyConfigurator
+import com.cw2.nekoama.core.network.ProxyType
+import java.net.Authenticator
+import java.net.PasswordAuthentication
+import java.nio.charset.StandardCharsets
+import java.util.Base64
+import java.net.URI
+import java.io.IOException
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
-import java.net.URI
 import java.time.Duration
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManager
@@ -29,7 +35,7 @@ class CustomAPIHttpClient(
     private val httpClient = createHttpClient()
     
     /**
-     * 创建 HTTP 客户端，支持自定义 SSL 设置
+     * 创建 HTTP 客户端，支持自定义 SSL 设置和代理认证
      */
     private fun createHttpClient(): HttpClient {
         // 连接超时设置为总超时的1/4，为AI服务响应留出更多时间
@@ -57,12 +63,77 @@ class CustomAPIHttpClient(
             }
         }
 
-        // 初始化全局代理配置（确保所有HTTP客户端都使用IDEA的代理设置）
+        // 🔧 修复：显式配置代理和认证，解决HTTP 407问题
         val proxyConfig = ProxyDetector.detectSystemProxy(config.buildEndpointUrl())
-        HttpClientProxyConfigurator.configureSystemProxy(proxyConfig)
+
+        if (proxyConfig.type != ProxyType.DIRECT && proxyConfig.isValid()) {
+            try {
+                // 创建代理选择器
+                val javaProxy = proxyConfig.toJavaProxy()
+                val proxySelector = object : java.net.ProxySelector() {
+                    override fun select(uri: URI?): List<java.net.Proxy> {
+                        return listOf(javaProxy)
+                    }
+
+                    override fun connectFailed(uri: URI?, sa: java.net.SocketAddress?, ioe: IOException?) {
+                        NekoamaLogger.warn("CustomAPIHttpClient",
+                            "代理连接失败: ${uri?.host}:${uri?.port} - ${ioe?.message}")
+                    }
+                }
+                builder.proxy(proxySelector)
+
+                // 配置代理认证器（关键修复）
+                if (!proxyConfig.username.isNullOrBlank()) {
+                    val authenticator = object : Authenticator() {
+                        override fun getPasswordAuthentication(): PasswordAuthentication {
+                            return when (requestingHost) {
+                                proxyConfig.host -> {
+                                    NekoamaLogger.debug("CustomAPIHttpClient",
+                                        "使用代理认证: ${proxyConfig.username}@${proxyConfig.host}:${proxyConfig.port}")
+                                    PasswordAuthentication(
+                                        proxyConfig.username,
+                                        proxyConfig.password?.toCharArray() ?: charArrayOf()
+                                    )
+                                }
+                                else -> {
+                                    // 其他请求不使用此认证器
+                                    PasswordAuthentication("", charArrayOf())
+                                }
+                            }
+                        }
+                    }
+                    builder.authenticator(authenticator)
+                    NekoamaLogger.info("CustomAPIHttpClient",
+                        "已配置${proxyConfig.type}代理认证: ${proxyConfig.username}@${proxyConfig.host}:${proxyConfig.port}")
+                } else {
+                    NekoamaLogger.warn("CustomAPIHttpClient",
+                        "代理${proxyConfig.host}:${proxyConfig.port}未配置认证信息，可能导致HTTP 407错误")
+                }
+
+                // 同时配置系统代理作为后备
+                HttpClientProxyConfigurator.configureSystemProxy(proxyConfig)
+
+            } catch (e: Exception) {
+                NekoamaLogger.error("CustomAPIHttpClient",
+                    "代理配置失败，将使用直连: ${e.message}", error = e)
+                // 代理配置失败时回退到直连
+                val directSelector = object : java.net.ProxySelector() {
+                    override fun select(uri: URI?): List<java.net.Proxy> {
+                        return listOf(java.net.Proxy.NO_PROXY)
+                    }
+
+                    override fun connectFailed(uri: URI?, sa: java.net.SocketAddress?, ioe: IOException?) {
+                        // 直连失败，无需处理
+                    }
+                }
+                builder.proxy(directSelector)
+            }
+        } else {
+            NekoamaLogger.debug("CustomAPIHttpClient", "使用直连模式")
+        }
 
         NekoamaLogger.info("CustomAPIHttpClient",
-            "代理配置: ${ProxyDetector.getProxyStatus(proxyConfig)}")
+            "最终代理配置: ${ProxyDetector.getProxyStatus(proxyConfig)}")
 
         return builder.build()
     }

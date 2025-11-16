@@ -82,13 +82,25 @@ abstract class BaseHttpClient {
                 Result.error(error)
             }
             401 -> {
-                val error = NekoamaError.AuthenticationError.InvalidApiKey("认证失败")
+                val error = NekoamaError.AuthenticationError.InvalidApiKey("API认证失败，请检查API密钥")
                 NekoamaLogger.logError(methodName, error)
                 Result.error(error)
             }
             403 -> {
-                val error = NekoamaError.AuthenticationError.InsufficientPermissions("权限不足")
+                val error = NekoamaError.AuthenticationError.InsufficientPermissions("API权限不足，请检查API密钥权限")
                 NekoamaLogger.logError(methodName, error)
+                Result.error(error)
+            }
+            407 -> {
+                // 🔧 修复：添加HTTP 407代理认证错误的专门处理
+                val error = NekoamaError.NetworkError.ProxyAuthenticationRequired(
+                    "代理认证失败：请检查IDEA代理配置中的用户名和密码是否正确"
+                )
+                NekoamaLogger.logError(methodName, error, context = mapOf(
+                    "statusCode" to 407,
+                    "suggestion" to "请检查IDEA的代理设置：File → Settings → HTTP Proxy",
+                    "proxyConfigTip" to "确保代理服务器地址、端口、用户名和密码都正确配置"
+                ))
                 Result.error(error)
             }
             429 -> {

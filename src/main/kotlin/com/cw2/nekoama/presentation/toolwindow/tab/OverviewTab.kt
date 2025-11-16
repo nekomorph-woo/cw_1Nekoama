@@ -79,10 +79,11 @@ class OverviewTab : BaseNekoamaTab() {
 
     init {
         setupUI()
+        // 🔧 修复：移除启动时的自动连接检查，避免HTTP 407错误
         scope.launch {
-            refreshStatus()
+            refreshStatus(skipConnectionCheck = true) // 跳过连接检查
         }
-        NekoamaLogger.debug("OverviewTab", "initialized")
+        NekoamaLogger.debug("OverviewTab", "initialized (connection check deferred)")
     }
 
     /**
@@ -567,7 +568,7 @@ class OverviewTab : BaseNekoamaTab() {
     /**
      * 刷新状态信息（带防抖优化）
      */
-    private fun refreshStatus(forceRefresh: Boolean = false) {
+    private fun refreshStatus(forceRefresh: Boolean = false, skipConnectionCheck: Boolean = false) {
         // 性能优化：防抖机制避免频繁刷新
         val currentTime = System.currentTimeMillis()
         if (!forceRefresh && currentTime - lastRefreshTime < refreshDebounceMs) {
@@ -588,10 +589,19 @@ class OverviewTab : BaseNekoamaTab() {
 
             try {
                 // 在后台线程执行慢操作
-                val connectionResult = withContext(Dispatchers.IO) {
-                    NekoamaLogger.debug("OverviewTab", "Checking connection status in background")
-                    // 检查AI服务连接状态（涉及密码存储访问）
-                    checkConnectionStatusInBackground()
+                val connectionResult = if (skipConnectionCheck) {
+                    // 🔧 修复：启动时跳过连接检查，避免HTTP 407错误
+                    ConnectionStatusResult(
+                        status = ConnectionStatus.UNKNOWN,
+                        message = NekoamaBundle.message("overview.status.click.to.check"),
+                        isWarning = false
+                    )
+                } else {
+                    withContext(Dispatchers.IO) {
+                        NekoamaLogger.debug("OverviewTab", "Checking connection status in background")
+                        // 检查AI服务连接状态（涉及密码存储访问）
+                        checkConnectionStatusInBackground()
+                    }
                 }
 
                 NekoamaLogger.debug("OverviewTab", "Connection status check completed", mapOf(
@@ -760,6 +770,33 @@ class OverviewTab : BaseNekoamaTab() {
             UIManager.getColor("Label.warningForeground")
         } else {
             UIManager.getColor("Label.foreground")
+        }
+
+        // 🔧 修复：当状态为UNKNOWN时，添加点击事件监听器
+        if (result.status == ConnectionStatus.UNKNOWN) {
+            connectionStatusLabel.cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
+            connectionStatusLabel.foreground = UIManager.getColor("Label.linkForeground")
+
+            // 移除旧的监听器（如果有）
+            connectionStatusLabel.mouseListeners.forEach { listener ->
+                connectionStatusLabel.removeMouseListener(listener)
+            }
+
+            // 添加点击事件监听器
+            connectionStatusLabel.addMouseListener(object : java.awt.event.MouseAdapter() {
+                override fun mouseClicked(e: java.awt.event.MouseEvent) {
+                    NekoamaLogger.debug("OverviewTab", "Connection status label clicked, triggering connection check")
+                    scope.launch {
+                        refreshStatus(forceRefresh = true, skipConnectionCheck = false)
+                    }
+                }
+            })
+        } else {
+            // 恢复普通状态
+            connectionStatusLabel.cursor = Cursor.getDefaultCursor()
+            connectionStatusLabel.mouseListeners.forEach { listener ->
+                connectionStatusLabel.removeMouseListener(listener)
+            }
         }
     }
 
@@ -1423,5 +1460,6 @@ enum class ConnectionStatus {
     CONNECTED,
     FAILED,
     NOT_CONFIGURED,
-    ERROR
+    ERROR,
+    UNKNOWN  // 🔧 新增：未知状态，用于启动时不进行检查
 }

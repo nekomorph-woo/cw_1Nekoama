@@ -10,6 +10,23 @@
 
 </div>
 
+## 📖 Table of Contents
+
+- [✨ Core Features](#-core-features)
+- [📊 Advanced Features](#-advanced-features)
+- [🚀 Installation Methods](#-installation-methods)
+- [🔧 Quick Start](#-quick-start)
+- [🎮 User Interface](#-user-interface)
+- [🏗️ Technical Architecture](#-technical-architecture)
+- [🔌 Extension Development](#-extension-development)
+- [🌐 Network Configuration & Proxy Support](#-network-configuration--proxy-support)
+- [❓ FAQ](#-faq-frequently-asked-questions)
+- [🔒 Security & Privacy](#-security--privacy)
+- [⚡ Performance Optimization](#-performance-optimization)
+- [🧪 System Requirements](#-system-requirements)
+- [🔧 Development Environment](#development-environment)
+- [📄 License](#-license)
+
 ## 📖 Overview
 
 **Nekoama** is a powerful IntelliJ IDEA plugin that provides developers with comprehensive intelligent code assistance by integrating advanced large language model technology. The plugin deeply analyzes code context, understands development intent, and delivers precise intelligent suggestions, significantly improving coding efficiency and code quality.
@@ -245,6 +262,87 @@ TabEventSystemSingleton.getInstance().subscribe(
 ### Dependent Services
 - **AI Services**: Need to configure OpenAI API or compatible custom API
 - **Network Connection**: Stable internet connection required for AI functionality
+
+## 🌐 Network Configuration & Proxy Support
+
+### Proxy Configuration
+Nekoama supports enterprise network environments with proxy configurations. The plugin automatically detects and uses IDEA's system proxy settings.
+
+#### HTTP/HTTPS Proxy
+1. Open IDEA: `File` → `Settings` → `System Settings` → `HTTP Proxy`
+2. Select `Manual proxy configuration`
+3. Configure proxy settings:
+   - **HTTP proxy**: Hostname and port for HTTP traffic
+   - **HTTPS proxy**: Hostname and port for HTTPS traffic
+   - **Proxy authentication**: Username and password if required
+4. Click `OK` to apply settings
+
+#### SOCKS Proxy
+1. In the same proxy settings dialog, select SOCKS for proxy type
+2. Enter SOCKS proxy server details
+3. Ensure the proxy server supports SOCKS4/5 protocol
+4. Configure authentication if required
+
+### Proxy Authentication Troubleshooting
+
+#### HTTP 407: Proxy Authentication Required
+**Symptoms**: Error message "Proxy authentication failed" when connecting to AI services
+**Solutions**:
+- Verify proxy username and password in IDEA proxy settings
+- Check if proxy server requires domain authentication (use `DOMAIN\username` format)
+- Test proxy connectivity with a web browser first
+- Contact network administrator for correct proxy credentials
+
+#### Connection Timeouts in Proxy Environment
+**Symptoms**: Requests timeout when using proxy
+**Solutions**:
+- Increase timeout values in Nekoama settings (`File` → `Settings` → `Tools` → `Nekoama`)
+- Check proxy server performance and network stability
+- Verify firewall settings allow proxy connections
+- Try different proxy servers if available
+
+### Network Diagnostic Tools
+
+#### Test Connection
+Use the built-in connection test in Nekoama settings:
+1. Open `File` → `Settings` → `Tools` → **Nekoama**
+2. Configure your API endpoint and API key
+3. Click **Test Connection** to verify network connectivity
+4. Check results for proxy authentication status and response times
+
+#### Error Identification
+**Plugin Errors** (Nekoama-related):
+- Package names start with `com.cw2.nekoama`
+- Appear in Nekoama tool window or settings
+- Related to AI service calls or configuration
+
+**IDE Errors** (IntelliJ IDEA-related):
+- Package names start with `com.intellij`
+- Appear during IDE startup
+- Related to IDEA's built-in features (AI Assistant, etc.)
+
+## ❓ FAQ (Frequently Asked Questions)
+
+### Q: Getting "Proxy Authentication Required" error?
+**A**: This indicates your proxy server requires authentication. Check your IDEA proxy settings (`File` → `Settings` → `System Settings` → `HTTP Proxy`) and ensure correct username and password are configured.
+
+### Q: Plugin shows "Connection failed" but internet works?
+**A**: This might be a proxy configuration issue. Test with browser first, then verify IDEA proxy settings match your system proxy configuration.
+
+### Q: How to verify proxy is working correctly?
+**A**: Use Nekoama's built-in connection test in settings. The test will show proxy status, response time, and any authentication issues.
+
+### Q: Can I use different proxies for different requests?
+**A**: Nekoama respects IDEA's global proxy settings. For different proxy configurations, you'll need to modify IDEA's proxy settings manually.
+
+### Q: Getting SSL certificate errors in proxy environment?
+**A**: Configure your proxy to allow SSL connections or temporarily disable SSL verification in Nekoama settings (not recommended for production).
+
+### Q: How to distinguish Nekoama errors from other plugin errors?
+**A**: Check the error log package names. Nekoama errors start with `com.cw2.nekoama`, while other plugins have different package prefixes.
+
+### Q: Plugin works without proxy but fails with proxy enabled?
+**A**: This usually indicates proxy authentication issues. Verify credentials and ensure the proxy allows HTTPS connections to your AI service endpoint.
 
 ## 🔧 Development Environment
 
