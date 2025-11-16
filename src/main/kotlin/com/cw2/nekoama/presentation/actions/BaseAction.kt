@@ -1,6 +1,5 @@
 package com.cw2.nekoama.presentation.actions
 
-import com.cw2.nekoama.core.metrics.EnhancedMetricsCollector
 import com.cw2.nekoama.core.metrics.ActionType
 import com.cw2.nekoama.presentation.notifications.NekoamaNotifier
 import com.intellij.openapi.actionSystem.AnAction
@@ -10,7 +9,6 @@ import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
-import kotlinx.coroutines.runBlocking
 
 /**
  * 所有 Nekoama 动作的基类
@@ -53,23 +51,8 @@ internal abstract class BaseAction : AnAction(), DumbAware {
             // 错误提示简化处理，避免暴露敏感信息
             NekoamaNotifier.error(com.cw2.nekoama.presentation.messages.NekoamaBundle.message("base.action.failed", t.message ?: com.cw2.nekoama.presentation.messages.NekoamaBundle.message("common.unknownError")))
         } finally {
-            val cost = System.currentTimeMillis() - start
-
-            // 获取文件信息
-            val fileName = getCurrentFileName(project, editor)
-
-            // 使用增强版指标收集器记录详细信息
-            runBlocking {
-                EnhancedMetricsCollector.record(
-                    actionType = getActionType(),
-                    success = success,
-                    latencyMs = cost,
-                    tokensUsed = tokensUsed, // 使用实际的Token使用量
-                    errorMessage = errorMessage,
-                    project = project,
-                    fileName = fileName
-                )
-            }
+            // 注意：统计已移至Provider层，避免重复记录
+            // 这里保留finally块用于可能的清理操作
         }
     }
 

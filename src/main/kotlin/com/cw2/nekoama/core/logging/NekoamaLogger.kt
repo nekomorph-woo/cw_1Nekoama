@@ -188,7 +188,7 @@ object NekoamaLogger {
     }
 
     /**
-     * 记录AI调用（增强版，支持ActionType）
+     * 记录AI调用（增强版，支持ActionType和完整上下文）
      */
     fun logAICallWithActionType(
         provider: String,
@@ -198,7 +198,9 @@ object NekoamaLogger {
         durationMs: Long,
         actionType: String,
         tokenCount: Int? = null,
-        error: NekoamaError? = null
+        error: NekoamaError? = null,
+        project: com.intellij.openapi.project.Project? = null,
+        fileName: String? = null
     ) {
         val context = mutableMapOf<String, Any?>(
             "provider" to provider,
@@ -209,12 +211,14 @@ object NekoamaLogger {
         )
 
         tokenCount?.let { context["tokens"] = it }
+        project?.let { context["project"] = it.name }
+        fileName?.let { context["fileName"] = it }
 
         if (success) {
             info("AI_CALL", "AI 服务调用成功", context)
             logPerformance("AI_CALL", durationMs, context)
 
-            // 记录Token使用统计
+            // 记录完整的操作统计（包含Token使用、耗时、上下文信息）
             tokenCount?.let { tokens ->
                 try {
                     val actionTypeEnum = when (actionType) {
@@ -225,16 +229,50 @@ object NekoamaLogger {
                         else -> com.cw2.nekoama.core.metrics.ActionType.CUSTOM_GENERATE
                     }
 
+                    // 记录完整的操作信息，而不仅仅是Token
                     GlobalScope.launch {
-                        com.cw2.nekoama.core.metrics.EnhancedMetricsCollector.recordTokens(tokens, actionTypeEnum)
+                        com.cw2.nekoama.core.metrics.EnhancedMetricsCollector.record(
+                            actionType = actionTypeEnum,
+                            success = success,
+                            latencyMs = durationMs,
+                            tokensUsed = tokens,
+                            errorMessage = null,
+                            project = project,
+                            fileName = fileName
+                        )
                     }
                 } catch (e: Exception) {
-                    // Token记录失败不应该影响主要功能
-                    System.err.println("Failed to record token usage: ${e.message}")
+                    // 统计记录失败不应该影响主要功能
+                    System.err.println("Failed to record operation metrics: ${e.message}")
                 }
             }
         } else {
             error?.let { logError("AI_CALL", it, context) }
+
+            // 失败情况下也要记录统计信息
+            try {
+                val actionTypeEnum = when (actionType) {
+                    "GENERATE_NAMING" -> com.cw2.nekoama.core.metrics.ActionType.GENERATE_NAMING
+                    "GENERATE_COMMENT" -> com.cw2.nekoama.core.metrics.ActionType.GENERATE_COMMENT
+                    "CUSTOM_GENERATE" -> com.cw2.nekoama.core.metrics.ActionType.CUSTOM_GENERATE
+                    "ANALYZE_UNUSED_CODE" -> com.cw2.nekoama.core.metrics.ActionType.ANALYZE_UNUSED_CODE
+                    else -> com.cw2.nekoama.core.metrics.ActionType.CUSTOM_GENERATE
+                }
+
+                GlobalScope.launch {
+                    com.cw2.nekoama.core.metrics.EnhancedMetricsCollector.record(
+                        actionType = actionTypeEnum,
+                        success = success,
+                        latencyMs = durationMs,
+                        tokensUsed = tokenCount ?: 0,
+                        errorMessage = error?.message,
+                        project = project,
+                        fileName = fileName
+                    )
+                }
+            } catch (e: Exception) {
+                System.err.println("Failed to record error metrics: ${e.message}")
+            }
         }
     }
 

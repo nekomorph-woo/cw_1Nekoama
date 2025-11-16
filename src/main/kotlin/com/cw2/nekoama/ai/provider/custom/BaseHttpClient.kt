@@ -6,6 +6,11 @@ import com.cw2.nekoama.core.result.Result
 import com.cw2.nekoama.core.exception.NekoamaError
 import com.cw2.nekoama.core.logging.NekoamaLogger
 import com.cw2.nekoama.core.serialization.fromJson
+import java.io.IOException
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
+import java.util.concurrent.TimeoutException
 
 /**
  * HTTP客户端基础类
@@ -35,8 +40,16 @@ abstract class BaseHttpClient {
             val duration = System.currentTimeMillis() - startTime
 
             handleHttpResponse(httpResponse, "sendRequest")
-        } catch (e: java.net.http.HttpTimeoutException) {
-            handleTimeoutException("sendRequest", e)
+        } catch (e: TimeoutException) {
+            handleTimeoutException("sendRequest", e, isTimeoutException = true)
+        } catch (e: SocketTimeoutException) {
+            handleTimeoutException("sendRequest", e, isSocketTimeout = true)
+        } catch (e: ConnectException) {
+            handleConnectionException("sendRequest", e)
+        } catch (e: UnknownHostException) {
+            handleHostException("sendRequest", e)
+        } catch (e: IOException) {
+            handleIOException("sendRequest", e)
         } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
             handleTimeoutException("sendRequest", e)
         } catch (e: Exception) {
@@ -54,8 +67,16 @@ abstract class BaseHttpClient {
             val duration = System.currentTimeMillis() - startTime
 
             handleHttpResponse(httpResponse, "sendRequestSync")
-        } catch (e: java.net.http.HttpTimeoutException) {
-            handleTimeoutException("sendRequestSync", e)
+        } catch (e: TimeoutException) {
+            handleTimeoutException("sendRequestSync", e, isTimeoutException = true)
+        } catch (e: SocketTimeoutException) {
+            handleTimeoutException("sendRequestSync", e, isSocketTimeout = true)
+        } catch (e: ConnectException) {
+            handleConnectionException("sendRequestSync", e)
+        } catch (e: UnknownHostException) {
+            handleHostException("sendRequestSync", e)
+        } catch (e: IOException) {
+            handleIOException("sendRequestSync", e)
         } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
             handleTimeoutException("sendRequestSync", e)
         } catch (e: Exception) {
@@ -82,13 +103,25 @@ abstract class BaseHttpClient {
                 Result.error(error)
             }
             401 -> {
-                val error = NekoamaError.AuthenticationError.InvalidApiKey("认证失败")
+                val error = NekoamaError.AuthenticationError.InvalidApiKey("API认证失败，请检查API密钥")
                 NekoamaLogger.logError(methodName, error)
                 Result.error(error)
             }
             403 -> {
-                val error = NekoamaError.AuthenticationError.InsufficientPermissions("权限不足")
+                val error = NekoamaError.AuthenticationError.InsufficientPermissions("API权限不足，请检查API密钥权限")
                 NekoamaLogger.logError(methodName, error)
+                Result.error(error)
+            }
+            407 -> {
+                // 🔧 修复：添加HTTP 407代理认证错误的专门处理
+                val error = NekoamaError.NetworkError.ProxyAuthenticationRequired(
+                    "代理认证失败：请检查IDEA代理配置中的用户名和密码是否正确"
+                )
+                NekoamaLogger.logError(methodName, error, context = mapOf(
+                    "statusCode" to 407,
+                    "suggestion" to "请检查IDEA的代理设置：File → Settings → HTTP Proxy",
+                    "proxyConfigTip" to "确保代理服务器地址、端口、用户名和密码都正确配置"
+                ))
                 Result.error(error)
             }
             429 -> {
@@ -113,9 +146,68 @@ abstract class BaseHttpClient {
     /**
      * 统一的超时异常处理
      */
-    private fun handleTimeoutException(methodName: String, e: Exception): Result<OpenAIResponse> {
-        val error = NekoamaError.NetworkError.ReadTimeout("请求超时")
-        NekoamaLogger.logError(methodName, error)
+    private fun handleTimeoutException(
+        methodName: String,
+        e: Exception,
+        isTimeoutException: Boolean = false,
+        isSocketTimeout: Boolean = false
+    ): Result<OpenAIResponse> {
+        val error = when {
+            isTimeoutException -> NekoamaError.TimeoutError.RequestTimeout("请求超时")
+            isSocketTimeout -> NekoamaError.NetworkError.ReadTimeout("Socket读取超时")
+            e is kotlinx.coroutines.TimeoutCancellationException -> NekoamaError.TimeoutError.OperationTimeout("协程操作超时")
+            else -> NekoamaError.NetworkError.ReadTimeout("请求超时")
+        }
+        NekoamaLogger.logError(methodName, error, context = mapOf(
+            "exceptionType" to e::class.simpleName,
+            "exceptionMessage" to e.message
+        ))
+        return Result.error(error)
+    }
+
+    /**
+     * 连接异常处理
+     */
+    private fun handleConnectionException(methodName: String, e: ConnectException): Result<OpenAIResponse> {
+        val error = NekoamaError.NetworkError.ConnectionTimeout("连接失败: ${e.message}")
+        NekoamaLogger.logError(methodName, error, context = mapOf(
+            "exceptionType" to "ConnectException",
+            "exceptionMessage" to e.message
+        ))
+        return Result.error(error)
+    }
+
+    /**
+     * 主机异常处理
+     */
+    private fun handleHostException(methodName: String, e: UnknownHostException): Result<OpenAIResponse> {
+        val error = NekoamaError.NetworkError.NetworkUnreachable("主机名解析失败: ${e.message}")
+        NekoamaLogger.logError(methodName, error, context = mapOf(
+            "exceptionType" to "UnknownHostException",
+            "exceptionMessage" to e.message
+        ))
+        return Result.error(error)
+    }
+
+    /**
+     * IO异常处理
+     */
+    private fun handleIOException(methodName: String, e: IOException): Result<OpenAIResponse> {
+        val error = if (e.message?.contains("407") == true) {
+            NekoamaError.NetworkError.ProxyAuthenticationRequired("代理认证失败")
+        } else if (e.message?.contains("401") == true) {
+            NekoamaError.AuthenticationError.InvalidApiKey("API认证失败")
+        } else if (e.message?.contains("403") == true) {
+            NekoamaError.AuthenticationError.InsufficientPermissions("API权限不足")
+        } else if (e.message?.contains("429") == true) {
+            NekoamaError.RateLimitError.TooManyRequests()
+        } else {
+            NekoamaError.NetworkError.Generic("网络IO错误: ${e.message}")
+        }
+        NekoamaLogger.logError(methodName, error, context = mapOf(
+            "exceptionType" to "IOException",
+            "exceptionMessage" to e.message
+        ))
         return Result.error(error)
     }
 
@@ -124,7 +216,10 @@ abstract class BaseHttpClient {
      */
     private fun handleGenericException(methodName: String, e: Exception): Result<OpenAIResponse> {
         val error = NekoamaError.NetworkError.Generic("网络请求失败: ${e.message}")
-        NekoamaLogger.logError(methodName, error, context = mapOf("exception" to e.message))
+        NekoamaLogger.logError(methodName, error, context = mapOf(
+            "exceptionType" to e::class.simpleName,
+            "exceptionMessage" to e.message
+        ))
         return Result.error(error)
     }
 

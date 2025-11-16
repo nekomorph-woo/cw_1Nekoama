@@ -2,6 +2,7 @@ package com.cw2.nekoama.platform.lifecycle
 
 import com.cw2.nekoama.core.logging.NekoamaLogger
 import com.cw2.nekoama.integrations.editor.NekoamaTypedActionHandler
+import com.cw2.nekoama.core.network.ProxyInitializationManager
 import com.intellij.openapi.editor.actionSystem.EditorActionManager
 import com.intellij.openapi.editor.actionSystem.TypedAction
 import com.intellij.openapi.editor.actionSystem.TypedActionHandler
@@ -18,6 +19,9 @@ import com.intellij.openapi.startup.StartupActivity
 internal class NekoamaStartupActivity : StartupActivity {
     override fun runActivity(project: Project) {
         try {
+            // 初始化全局代理配置
+            ProxyInitializationManager.initialize()
+
             val actionManager: EditorActionManager = EditorActionManager.getInstance()
             val typedAction: TypedAction = actionManager.typedAction
             val original: TypedActionHandler? = typedAction.handler

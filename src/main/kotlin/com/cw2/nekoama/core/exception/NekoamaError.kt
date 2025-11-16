@@ -46,6 +46,14 @@ sealed class NekoamaError(
         ) : NetworkError(message, cause)
 
         /**
+         * 代理认证失败错误 - Proxy authentication required error
+         */
+        data class ProxyAuthenticationRequired(
+            override val message: String = "代理认证失败",
+            override val cause: Throwable? = null
+        ) : NetworkError(message, cause)
+
+        /**
          * 通用网络错误 - Generic network error
          */
         data class Generic(
@@ -301,6 +309,7 @@ sealed class NekoamaError(
         is NetworkError.ConnectionTimeout -> NekoamaBundle.message("error.user.connection.timeout")
         is NetworkError.ReadTimeout -> NekoamaBundle.message("error.user.read.timeout")
         is NetworkError.NetworkUnreachable -> NekoamaBundle.message("error.user.network.unreachable")
+        is NetworkError.ProxyAuthenticationRequired -> NekoamaBundle.message("error.user.proxy.authentication.required")
         is AuthenticationError.InvalidApiKey -> NekoamaBundle.message("error.user.invalid.api.key")
         is AuthenticationError.ApiKeyNotConfigured -> NekoamaBundle.message("error.user.api.key.not.configured")
         is RateLimitError.TooManyRequests -> NekoamaBundle.message("error.user.too.many.requests")
@@ -323,6 +332,7 @@ sealed class NekoamaError(
         is NetworkError.ConnectionTimeout -> "Network connection timeout"
         is NetworkError.ReadTimeout -> "Service response timeout"
         is NetworkError.NetworkUnreachable -> "Unable to connect to AI service"
+        is NetworkError.ProxyAuthenticationRequired -> "Proxy authentication required"
         is NetworkError.Generic -> "Network request failed"
         is AuthenticationError.InvalidApiKey -> "Invalid API key"
         is AuthenticationError.ApiKeyNotConfigured -> "API key not configured"

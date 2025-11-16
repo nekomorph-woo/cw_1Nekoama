@@ -18,7 +18,9 @@
       "WebSearch",
       "WebFetch(domain:plugins.jetbrains.com)",
       "Bash(./gradlew.bat compileKotlin:*)",
-      "Bash(./gradlew.bat:*)"
+      "Bash(./gradlew.bat:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []
