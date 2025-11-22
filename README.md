@@ -194,7 +194,7 @@ class MyCustomExtension : AbstractTabExtension() {
     override val extensionId = "com.example.myplugin"
     override val displayName = "My Feature"
     override val description = "Custom functionality"
-    override val version = "1.0.0"
+    override val version = "1.1.0"
 
     override fun createTab(): NekoamaTab {
         return MyCustomTab()
