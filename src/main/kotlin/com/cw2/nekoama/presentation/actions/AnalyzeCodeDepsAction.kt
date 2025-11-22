@@ -161,7 +161,7 @@ internal class AnalyzeCodeDepsAction : BaseAction() {
             if (e is kotlinx.coroutines.CancellationException) {
                 throw e // 重新抛出取消异常
             }
-            throw RuntimeException("依赖分析执行失败: ${e.message}", e)
+            throw RuntimeException(NekoamaBundle.message("action.analyzeCodeDeps.error.executionFailed", e.message ?: ""), e)
         }
     }
 

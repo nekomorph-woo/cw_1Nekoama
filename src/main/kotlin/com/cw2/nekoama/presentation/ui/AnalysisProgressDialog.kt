@@ -75,7 +75,7 @@ class AnalysisProgressDialog(
 
         // 设置进度条
         progressBar.isStringPainted = true
-        progressBar.string = "0%"
+        progressBar.string = NekoamaBundle.message("progress.progressBar.percent", "0")
 
         // 创建详细信息表格
         setupDetailsTable()
@@ -146,7 +146,7 @@ class AnalysisProgressDialog(
 
         progressPanel.add(progressBar, BorderLayout.CENTER)
 
-        val progressLabel = JBLabel("0 / 0 classes processed")
+        val progressLabel = JBLabel(NekoamaBundle.message("progress.classes.processed", "0", "0"))
         progressLabel.font = progressLabel.font.deriveFont(progressLabel.font.size - 1f)
         progressLabel.foreground = UIUtil.getLabelForeground().darker()
         progressPanel.add(progressLabel, BorderLayout.EAST)
@@ -164,7 +164,7 @@ class AnalysisProgressDialog(
 
         progressPanel.add(progressBar, BorderLayout.CENTER)
 
-        val progressLabel = JBLabel("0 / 0 classes processed")
+        val progressLabel = JBLabel(NekoamaBundle.message("progress.classes.processed", "0", "0"))
         progressLabel.font = progressLabel.font.deriveFont(progressLabel.font.size - 1f)
         progressLabel.foreground = UIUtil.getLabelForeground().darker()
         progressPanel.add(progressLabel, BorderLayout.EAST)
@@ -177,7 +177,10 @@ class AnalysisProgressDialog(
      */
     private fun setupDetailsTable() {
         val tableModel = DefaultTableModel(
-            arrayOf("Metric", "Value"),
+            arrayOf(
+                NekoamaBundle.message("progress.table.column.metric"),
+                NekoamaBundle.message("progress.table.column.value")
+            ),
             0
         )
         detailsTable.model = tableModel
@@ -285,7 +288,7 @@ class AnalysisProgressDialog(
                 }
             } catch (e: Exception) {
                 SwingUtilities.invokeLater {
-                    showError(e.message ?: "Unknown error")
+                    showError(e.message ?: NekoamaBundle.message("progress.error.unknown"))
                 }
             }
         }.start()
@@ -303,7 +306,7 @@ class AnalysisProgressDialog(
                 batchProcessor.executeBatchAnalysis(analysisConfig, com.intellij.openapi.progress.EmptyProgressIndicator())
             }
         } catch (e: Exception) {
-            throw RuntimeException("分析失败: ${e.message}", e)
+            throw RuntimeException(NekoamaBundle.message("progress.analysis.failed", e.message ?: ""), e)
         }
     }
 
@@ -319,7 +322,7 @@ class AnalysisProgressDialog(
         // 更新进度条
         val progressPercent = (status.progress * 100).toInt()
         progressBar.value = progressPercent
-        progressBar.string = "$progressPercent%"
+        progressBar.string = NekoamaBundle.message("progress.progressBar.percent", progressPercent.toString())
 
         // 更新状态文本
         if (status.progress < 1.0) {
@@ -349,19 +352,20 @@ class AnalysisProgressDialog(
 
         if (elapsedMs > 0 && processedCount > 0) {
             val classesPerSecond = (processedCount * 1000.0) / elapsedMs
-            speedLabel.text = String.format("%.1f classes/sec", classesPerSecond)
+            speedLabel.text = NekoamaBundle.message("progress.speed.format", String.format("%.1f", classesPerSecond))
 
             val remainingMs = status.estimatedRemainingTimeMs
             if (remainingMs > 0) {
                 val remainingMinutes = remainingMs / 60000
                 val remainingSeconds = (remainingMs % 60000) / 1000
-                timeLabel.text = String.format("Remaining: %02d:%02d", remainingMinutes, remainingSeconds)
+                val timeString = String.format("%02d:%02d", remainingMinutes, remainingSeconds)
+                timeLabel.text = NekoamaBundle.message("progress.time.remaining", timeString)
             } else {
-                timeLabel.text = "Calculating..."
+                timeLabel.text = NekoamaBundle.message("progress.calculating")
             }
         } else {
-            speedLabel.text = "Initializing..."
-            timeLabel.text = "Calculating..."
+            speedLabel.text = NekoamaBundle.message("progress.initializing")
+            timeLabel.text = NekoamaBundle.message("progress.calculating")
         }
     }
 
@@ -402,7 +406,7 @@ class AnalysisProgressDialog(
     private fun completeAnalysis() {
         statusLabel.text = NekoamaBundle.message("progress.analysis.success")
         statusLabel.foreground = JBLabel().foreground // 使用默认的成功颜色
-        progressBar.string = "100%"
+        progressBar.string = NekoamaBundle.message("progress.progressBar.percent", "100")
         currentFileLabel.text = NekoamaBundle.message("progress.analysis.complete")
         cancelButton.text = NekoamaBundle.message("button.close")
         cancelButton.isEnabled = true

@@ -330,7 +330,7 @@ class ReportViewer private constructor(
 
         } catch (e: Exception) {
             NekoamaLogger.logError("ReportViewer", "加载报告失败", error = e)
-            Messages.showErrorDialog(project, NekoamaBundle.message("reportViewer.error.loadFailed", e.message), "Error")
+            Messages.showErrorDialog(project, NekoamaBundle.message("reportViewer.error.loadFailed", e.message), NekoamaBundle.message("reportViewer.dialog.error"))
         }
     }
 
@@ -350,7 +350,7 @@ class ReportViewer private constructor(
             BrowserUtil.browse(htmlReportFile)
         } catch (e: Exception) {
             NekoamaLogger.logError("ReportViewer", "在浏览器中打开报告失败", error = e)
-            Messages.showErrorDialog(project, NekoamaBundle.message("reportViewer.error.openBrowserFailed", e.message), "Error")
+            Messages.showErrorDialog(project, NekoamaBundle.message("reportViewer.error.openBrowserFailed", e.message), NekoamaBundle.message("reportViewer.dialog.error"))
         }
     }
 
@@ -407,7 +407,7 @@ class ReportViewer private constructor(
 
         } catch (e: Exception) {
             NekoamaLogger.logError("ReportViewer", "导出报告失败", error = e)
-            Messages.showErrorDialog(project, NekoamaBundle.message("reportViewer.export.failed", e.message), "Error")
+            Messages.showErrorDialog(project, NekoamaBundle.message("reportViewer.export.failed", e.message), NekoamaBundle.message("reportViewer.dialog.error"))
         }
     }
 
@@ -451,7 +451,7 @@ class ReportViewer private constructor(
         val targetFile = File(reportsDir, "$baseFileName.pdf")
         // 这里可以使用第三方库如Flying Saucer或wkhtmltopdf
         // 目前只是一个占位符实现
-        targetFile.writeText("PDF export not yet implemented")
+        targetFile.writeText(NekoamaBundle.message("progress.pdf.not.implemented"))
     }
 
     /**
@@ -478,9 +478,9 @@ class ReportViewer private constructor(
 
         if (content.contains(query, ignoreCase = true)) {
             // 简化的搜索实现
-            Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.found", query), "Search")
+            Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.found", query), NekoamaBundle.message("reportViewer.search.title"))
         } else {
-            Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.notFound", query), "Search")
+            Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.notFound", query), NekoamaBundle.message("reportViewer.search.title"))
         }
     }
 
@@ -489,7 +489,7 @@ class ReportViewer private constructor(
      */
     private fun searchInSummary(query: String) {
         // 简化实现
-        Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.summary"), "Search")
+        Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.summary"), NekoamaBundle.message("reportViewer.search.title"))
     }
 
     /**
@@ -500,9 +500,9 @@ class ReportViewer private constructor(
         val content = markdownPane.text
 
         if (content.contains(query, ignoreCase = true)) {
-            Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.found", query), "Search")
+            Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.found", query), NekoamaBundle.message("reportViewer.search.title"))
         } else {
-            Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.notFound", query), "Search")
+            Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.notFound", query), NekoamaBundle.message("reportViewer.search.title"))
         }
     }
 
@@ -514,9 +514,9 @@ class ReportViewer private constructor(
         val content = jsonPane.text
 
         if (content.contains(query, ignoreCase = true)) {
-            Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.found", query), "Search")
+            Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.found", query), NekoamaBundle.message("reportViewer.search.title"))
         } else {
-            Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.notFound", query), "Search")
+            Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.notFound", query), NekoamaBundle.message("reportViewer.search.title"))
         }
     }
 
