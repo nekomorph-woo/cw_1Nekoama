@@ -23,7 +23,10 @@
       "Bash(git checkout:*)",
       "Bash(.gradle:*)",
       "Bash(gradlew.bat build)",
-      "Bash(cmd:*)"
+      "Bash(cmd:*)",
+      "Bash(for dir in ai core data integrations platform presentation)",
+      "Bash(done)",
+      "Bash(for:*)"
     ],
     "deny": [],
     "ask": []
