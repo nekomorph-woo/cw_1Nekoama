@@ -24,7 +24,7 @@ class DemoTabExtension : AbstractTabExtension() {
     override val extensionId: String = "com.cw2.nekoama.demo"
     override val displayName: String = "演示扩展"
     override val description: String = "这是一个演示扩展，展示Tab扩展系统的功能"
-    override val version: String = "1.0.0"
+    override val version: String = "1.1.0"
     override val icon: javax.swing.Icon? = AllIcons.General.Information
     override val priority: Int = 200
 

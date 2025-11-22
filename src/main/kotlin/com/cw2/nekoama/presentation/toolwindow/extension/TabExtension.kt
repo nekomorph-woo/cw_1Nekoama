@@ -150,7 +150,7 @@ class SimpleTabExtension(
     override val extensionId: String,
     override val displayName: String,
     override val description: String,
-    override val version: String = "1.0.0",
+    override val version: String = "1.1.0",
     private val tabFactory: () -> NekoamaTab,
     override val priority: Int = 100
 ) : AbstractTabExtension() {

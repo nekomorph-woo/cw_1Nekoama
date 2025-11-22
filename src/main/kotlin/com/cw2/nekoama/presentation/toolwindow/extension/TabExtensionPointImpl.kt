@@ -221,10 +221,10 @@ class TabExtensionPointImpl : TabExtensionPoint {
         try {
             // 这里应该从实际的位置获取版本号
             // 例如：从插件配置、build.gradle等
-            return "1.0.0" // 临时返回，应该从实际源获取
+            return "1.1.0" // 临时返回，应该从实际源获取
         } catch (e: Exception) {
             logger.error("TabExtensionPoint", "Failed to get plugin version", error = e)
-            return "1.0.0"
+            return "1.1.0"
         }
     }
 

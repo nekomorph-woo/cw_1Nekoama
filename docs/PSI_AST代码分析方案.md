@@ -1519,7 +1519,7 @@ class ASTAnalysisTabExtension : AbstractTabExtension() {
     override val extensionId = "nekoama.ast.analysis"
     override val displayName = "AST分析"
     override val description = "分析代码的AST结构、调用关系和代码质量"
-    override val version = "1.0.0"
+    override val version = "1.1.0"
     override val minCoreVersion = "1.0.0"
 
     override fun isApplicable(context: TabContext): Boolean {

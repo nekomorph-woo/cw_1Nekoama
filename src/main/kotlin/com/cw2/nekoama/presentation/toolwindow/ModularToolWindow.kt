@@ -394,7 +394,7 @@ class ModularToolWindow {
                     }
                     appendLine()
                     appendLine(NekoamaBundle.message("extension.info.system.title"))
-                    appendLine("  ${NekoamaBundle.message("extension.info.system.version", "1.0.0")}")
+                    appendLine("  ${NekoamaBundle.message("extension.info.system.version", "1.1.0")}")
                     appendLine("  ${NekoamaBundle.message("extension.info.system.features")}")
                 }
 
