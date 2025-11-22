@@ -20,7 +20,10 @@
       "Bash(./gradlew.bat compileKotlin:*)",
       "Bash(./gradlew.bat:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(.gradle:*)",
+      "Bash(gradlew.bat build)",
+      "Bash(cmd:*)"
     ],
     "deny": [],
     "ask": []

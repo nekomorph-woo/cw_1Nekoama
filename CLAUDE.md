@@ -31,6 +31,9 @@
 src/main/kotlin/com/cw2/nekoama/
 ├── ai/                          # AI 服务层
 │   ├── model/                  # 核心数据模型 (CodeContext, Suggestion, 等)
+│   │   └── dependency/         # 代码依赖分析数据模型
+│   │       ├── DependencyData.kt      # 依赖关系核心数据模型
+│   │       └── AnalysisMetrics.kt     # 分析指标统计模型
 │   └── provider/               # AI 提供商实现
 │       ├── openai/            # OpenAI 提供商 (OpenAIProvider, HttpClient, ResponseParser)
 │       └── custom/             # 自定义 API 提供商 (CustomAPIProvider, HttpClient)
@@ -45,6 +48,14 @@ src/main/kotlin/com/cw2/nekoama/
 ├── integrations/              # IntelliJ 平台集成
 │   ├── editor/               # 编辑器相关工具 (NekoamaTypedActionHandler, SymbolTypedHandler)
 │   └── psi/                  # PSI 工具 (UniversalCodeAnalyzer, CodeAnalyzer, JavaCodeAnalyzer, KotlinCodeAnalyzer)
+│       ├── DependencyCodeAnalyzer.kt           # 代码依赖关系分析器
+│       ├── JavaDependencyExtractor.kt          # Java依赖提取器
+│       ├── ComplexityCalculator.kt              # 复杂度计算器
+│       ├── CodeSmellDetector.kt                # 代码坏味道检测器
+│       ├── BoundaryEntryPointDetector.kt        # 业务边界入口检测器
+│       ├── CrossBoundaryAnalyzer.kt             # 跨边界使用分析器
+│       ├── AnalysisScopeController.kt           # 分析范围控制器
+│       └── BatchAnalysisProcessor.kt            # 批量分析处理器
 ├── platform/                  # 平台特定代码
 │   ├── lifecycle/            # 生命周期管理 (NekoamaProjectActivity, NekoamaStartupActivity)
 │   └── task/                 # 任务管理 (AITaskManager)
@@ -90,6 +101,8 @@ src/main/kotlin/com/cw2/nekoama/
 6. **安全优先设计**: API 密钥存储在 IntelliJ Password Safe 中，敏感数据永不记录日志。
 
 7. **模块化 AI 流水线**: 上下文提取 → 提示生成 → 提供商调用 → 响应解析 → 建议应用。
+
+8. **代码依赖分析系统**: 基于PSI的深度代码分析，支持依赖关系提取、复杂度计算、业务场景识别和代码坏味道检测。
 
 ### 核心组件
 
@@ -327,7 +340,10 @@ TabEventSystemSingleton.getInstance().subscribe(
 
 ## 用户-AI协作开发规则（**强制**）
 1. **响应要求**：请全程使用简体中文，涵盖聊天、方案、文档及代码注释，所有专业术语（如Spring Boot, Kubernetes）保持原样，无需翻译，对于 `properties` 类型（或其它配置文件），请严格使用英文
-2. **核心开发原则**：专注于实现当前明确的需求，避免为臆想的未来需求进行过度设计。除非收到显式要求，否则不应编写兼容代码
+2. **核心开发原则**：
+   - 专注于实现当前明确的需求，避免为臆想的未来需求进行过度设计。除非收到显式要求，否则不应编写兼容代码
+   - **禁止使用简化代码，必须按照要求实现编码**;
+   - **制定编码的Todos时，请在最后步骤中添加 `确认可能的编译异常，然后修复它` 的任务，避免遗留问题**
 3. **代码注释的核心原则**：代码注释应旨在阐明复杂的业务意图与实现逻辑，而非记录如时间、计划等元信息
 4. **规范维护职责**：
    - 您应负责根据项目特性（如编程语言、应用框架），审慎地更新 `./CLAUDE.md` 中的编码规范，以确保其始终适用且精准
@@ -459,4 +475,4 @@ TabEventSystemSingleton.getInstance().subscribe(
    - 执行阶段：
      - 仅将当前子功能的相关任务纳入你的TODO列表
      - 完成一个子功能后，立即输出其任务总结
-     - 依据总结更新 `项目根目录/TASK_PLAN.md` 文档，然后清空你当前TODO列表，等待用户输入
+     - 依据总结更新 `项目根目录/TASK_PLAN.md` 文档对应子功能的检查点，然后清空你当前TODO列表，等待用户输入

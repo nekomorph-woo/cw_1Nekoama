@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>__TITLE__</title>
+
+    <!-- AntV G6 CDN -->
+    <script src="https://unpkg.com/@antv/g6@4.8.24/dist/g6.min.js"></script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="static/css/dependency-analysis.css">
+
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>正在加载分析数据...</p>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="title">__TITLE__</h1>
+                <div class="header-actions">
+                    <button id="export-btn" class="btn btn-secondary">
+                        <i class="fas fa-download"></i> 导出报告
+                    </button>
+                    <button id="refresh-btn" class="btn btn-secondary">
+                        <i class="fas fa-sync-alt"></i> 刷新数据
+                    </button>
+                </div>
+            </div>
+            <div class="report-info">
+                <div class="info-item">
+                    <i class="fas fa-clock"></i>
+                    <span>生成时间: __GENERATION_TIME__</span>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-file-code"></i>
+                    <span>分析项目: <span id="project-name"></span></span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Metadata Section -->
+        <section class="metadata-section">
+            <h2><i class="fas fa-info-circle"></i> 分析概览</h2>
+            <div class="metadata-content">
+                <pre id="metadata-text">__METADATA__</pre>
+            </div>
+        </section>
+
+        <!-- Statistics Cards -->
+        <section class="stats-section">
+            <h2><i class="fas fa-chart-bar"></i> 统计概览</h2>
+            <div class="stats-grid" id="stats-grid">
+                <!-- 动态生成统计卡片 -->
+            </div>
+        </section>
+
+        <!-- Visualization Tabs -->
+        <section class="visualization-section">
+            <div class="tab-header">
+                <h2><i class="fas fa-project-diagram"></i> 依赖可视化</h2>
+                <div class="tab-controls">
+                    <button class="tab-btn active" data-tab="package-view">
+                        <i class="fas fa-folder"></i> 包级视图
+                    </button>
+                    <button class="tab-btn" data-tab="class-view">
+                        <i class="fas fa-cube"></i> 类级视图
+                    </button>
+                    <button class="tab-btn" data-tab="method-view">
+                        <i class="fas fa-code"></i> 方法热力图
+                    </button>
+                    <button class="tab-btn" data-tab="scene-view">
+                        <i class="fas fa-route"></i> 场景分析
+                    </button>
+                </div>
+                <div class="view-controls">
+                    <select id="layout-select" class="control-select">
+                        <option value="dagre">分层布局</option>
+                        <option value="force">力导向布局</option>
+                        <option value="circular">环形布局</option>
+                        <option value="grid">网格布局</option>
+                    </select>
+                    <button id="zoom-in-btn" class="btn btn-icon" title="放大">
+                        <i class="fas fa-search-plus"></i>
+                    </button>
+                    <button id="zoom-out-btn" class="btn btn-icon" title="缩小">
+                        <i class="fas fa-search-minus"></i>
+                    </button>
+                    <button id="fit-view-btn" class="btn btn-icon" title="适应视图">
+                        <i class="fas fa-compress"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="tab-content">
+                <!-- Package View -->
+                <div class="tab-pane active" id="package-view">
+                    <div class="graph-container">
+                        <div id="package-graph" class="graph-canvas"></div>
+                        <div class="graph-sidebar">
+                            <div class="sidebar-section">
+                                <h4>节点筛选</h4>
+                                <div class="filter-controls">
+                                    <label>
+                                        <input type="checkbox" id="filter-high-complexity" checked>
+                                        高复杂度节点
+                                    </label>
+                                    <label>
+                                        <input type="checkbox" id="filter-cycles" checked>
+                                        循环依赖
+                                    </label>
+                                    <label>
+                                        <input type="number" id="min-dependencies" min="1" value="3" placeholder="最小依赖数">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sidebar-section">
+                                <h4>节点详情</h4>
+                                <div id="package-details" class="node-details">
+                                    <p class="placeholder">点击节点查看详情</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Class View -->
+                <div class="tab-pane" id="class-view">
+                    <div class="graph-container">
+                        <div id="class-graph" class="graph-canvas"></div>
+                        <div class="graph-sidebar">
+                            <div class="sidebar-section">
+                                <h4>类类型筛选</h4>
+                                <div class="filter-controls">
+                                    <label>
+                                        <input type="checkbox" id="filter-controllers" checked>
+                                        控制器类
+                                    </label>
+                                    <label>
+                                        <input type="checkbox" id="filter-services" checked>
+                                        服务类
+                                    </label>
+                                    <label>
+                                        <input type="checkbox" id="filter-pojos" checked>
+                                        POJO类
+                                    </label>
+                                    <label>
+                                        <input type="checkbox" id="filter-interfaces" checked>
+                                        接口
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="sidebar-section">
+                                <h4>类详情</h4>
+                                <div id="class-details" class="node-details">
+                                    <p class="placeholder">点击类节点查看详情</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Method View -->
+                <div class="tab-pane" id="method-view">
+                    <div class="heatmap-container">
+                        <div class="heatmap-controls">
+                            <select id="heatmap-metric" class="control-select">
+                                <option value="cyclomatic">圈复杂度</option>
+                                <option value="cognitive">认知复杂度</option>
+                                <option value="lines">代码行数</option>
+                                <option value="parameters">参数个数</option>
+                            </select>
+                        </div>
+                        <div id="method-heatmap" class="heatmap-canvas"></div>
+                    </div>
+                </div>
+
+                <!-- Scene View -->
+                <div class="tab-pane" id="scene-view">
+                    <div class="scene-container">
+                        <div class="scene-selector">
+                            <select id="scene-select" class="control-select">
+                                <option value="">选择业务场景...</option>
+                            </select>
+                        </div>
+                        <div id="scene-graph" class="graph-canvas"></div>
+                        <div class="scene-details">
+                            <h4>场景信息</h4>
+                            <div id="scene-info" class="node-details">
+                                <p class="placeholder">选择场景查看详情</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Code Smells Section -->
+        <section class="issues-section">
+            <h2><i class="fas fa-exclamation-triangle"></i> 代码问题分析</h2>
+            <div class="issues-tabs">
+                <button class="issues-tab-btn active" data-issues="critical">
+                    <i class="fas fa-fire"></i> 严重问题
+                </button>
+                <button class="issues-tab-btn" data-issues="high">
+                    <i class="fas fa-exclamation-circle"></i> 高优先级
+                </button>
+                <button class="issues-tab-btn" data-issues="medium">
+                    <i class="fas fa-info-circle"></i> 中等优先级
+                </button>
+                <button class="issues-tab-btn" data-issues="all">
+                    <i class="fas fa-list"></i> 全部问题
+                </button>
+            </div>
+            <div class="issues-content" id="issues-content">
+                <!-- 动态生成问题列表 -->
+            </div>
+        </section>
+
+        <!-- POJO Analysis Section -->
+        <section class="pojo-section">
+            <h2><i class="fas fa-database"></i> POJO使用分析</h2>
+            <div class="pojo-stats-grid" id="pojo-stats">
+                <!-- 动态生成POJO统计 -->
+            </div>
+            <div class="pojo-details">
+                <h3>POJO详细列表</h3>
+                <div class="pojo-table-container">
+                    <table class="pojo-table" id="pojo-table">
+                        <thead>
+                            <tr>
+                                <th>POJO名称</th>
+                                <th>类型</th>
+                                <th>使用次数</th>
+                                <th>跨边界使用</th>
+                                <th>推荐</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pojo-tbody">
+                            <!-- 动态生成POJO数据 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-content">
+                <p>由 Nekoama 代码分析工具生成</p>
+                <div class="footer-actions">
+                    <button id="print-btn" class="btn btn-text">
+                        <i class="fas fa-print"></i> 打印报告
+                    </button>
+                    <button id="fullscreen-btn" class="btn btn-text">
+                        <i class="fas fa-expand"></i> 全屏查看
+                    </button>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Hidden Data Container -->
+    <script type="application/json" id="analysis-data">
+        __DATA_PLACEHOLDER__
+    </script>
+
+    <!-- Custom JavaScript -->
+    <script src="static/js/g6-visualizer.js"></script>
+</body>
+</html>
