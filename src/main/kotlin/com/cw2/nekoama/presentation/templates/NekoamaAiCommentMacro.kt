@@ -4,6 +4,7 @@ import com.cw2.nekoama.ai.model.CodeContext
 import com.cw2.nekoama.core.logging.NekoamaLogger
 import com.cw2.nekoama.data.settings.NekoamaSettings
 import com.cw2.nekoama.integrations.psi.UniversalCodeAnalyzer
+import com.cw2.nekoama.presentation.messages.NekoamaBundle
 import com.intellij.codeInsight.template.Expression
 import com.intellij.codeInsight.template.ExpressionContext
 import com.intellij.codeInsight.template.Macro
@@ -47,7 +48,7 @@ class NekoamaAiCommentMacro : Macro() {
                 throw pc
             } catch (t: Throwable) {
                 // 失败时仅记录日志，不阻塞 UI
-                NekoamaLogger.error("NekoamaCommentMacro", "异步注释生成失败", mapOf("exception" to (t.message ?: "unknown")), t)
+                NekoamaLogger.error("NekoamaCommentMacro", NekoamaBundle.message("aiCommentMacro.asyncGenerationFailed"), mapOf("exception" to (t.message ?: "unknown")), t)
             }
         }
 
@@ -156,14 +157,14 @@ class NekoamaAiCommentMacro : Macro() {
                 provider.generateComment(codeContext)
             }
         } catch (t: Throwable) {
-            NekoamaLogger.error("NekoamaCommentMacro", "调用 AI 失败", mapOf("exception" to (t.message ?: "unknown")), t)
+            NekoamaLogger.error("NekoamaCommentMacro", NekoamaBundle.message("aiCommentMacro.aiCallFailed"), mapOf("exception" to (t.message ?: "unknown")), t)
             null
         }
 
         val finalText = when {
             result == null -> null
             result.isSuccess -> {
-                val text = result.getOrNull()?.content ?: "生成失败"
+                val text = result.getOrNull()?.content ?: NekoamaBundle.message("aiCommentMacro.generationFailed")
                 // 简单根据用户偏好调整格式（示例）：
                 when (userCommentFormat) {
                     CommentFormat.JAVADOC.name -> "/**\n * $text\n */"

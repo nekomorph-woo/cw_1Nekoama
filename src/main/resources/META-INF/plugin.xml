@@ -96,6 +96,11 @@
             <add-to-group group-id="ToolsMenu" anchor="last"/>
         </action>
 
+        <!-- 代码依赖分析 Action -->
+        <action id="Nekoama.AnalyzeCodeDeps" class="com.cw2.nekoama.presentation.actions.AnalyzeCodeDepsAction" text="Analyze Code Dependencies" description="Analyze code dependencies and generate comprehensive reports" icon="AllIcons.Actions.DependencyViewer">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+
         <!-- 右键菜单集成 -->
         <action id="Nekoama.CustomGenerate.Popup" class="com.cw2.nekoama.presentation.actions.CustomGenerateAction" text="IDEA for Neko" icon="AllIcons.Actions.EnableNewUi">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
@@ -104,6 +109,9 @@
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
         </action>
         <action id="Nekoama.GenerateComment.Popup" class="com.cw2.nekoama.presentation.actions.GenerateCommentAction" text="Comment for Me" icon="AllIcons.Actions.Lightning">
+            <add-to-group group-id="EditorPopupMenu" anchor="first"/>
+        </action>
+        <action id="Nekoama.AnalyzeCodeDeps.Popup" class="com.cw2.nekoama.presentation.actions.AnalyzeCodeDepsAction" text="Analyze Code Dependencies" icon="AllIcons.Actions.DependencyViewer">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
         </action>
     </actions>

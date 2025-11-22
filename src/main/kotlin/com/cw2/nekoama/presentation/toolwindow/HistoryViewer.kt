@@ -40,8 +40,8 @@ class HistoryViewer {
     private val endDatePicker = JDatePicker()
     private val groupByCombo = JComboBox<GroupBy>()
     private val actionTypeCheckboxes = mutableMapOf<ActionType, JCheckBox>()
-    private val showSuccessCheckBox = JCheckBox("成功操作")
-    private val showErrorsCheckBox = JCheckBox("失败操作")
+    private val showSuccessCheckBox = JCheckBox(NekoamaBundle.message("historyViewer.successOperations"))
+    private val showErrorsCheckBox = JCheckBox(NekoamaBundle.message("historyViewer.failedOperations"))
 
     // 结果表格
     private val tableModel = DefaultTableModel()
@@ -81,24 +81,24 @@ class HistoryViewer {
 
         // 日期范围
         gbc.gridy = 0; gbc.gridx = 0
-        panel.add(JLabel("开始日期:"), gbc)
+        panel.add(JLabel(NekoamaBundle.message("historyViewer.startDate")), gbc)
         gbc.gridx = 1
         panel.add(startDatePicker, gbc)
 
         gbc.gridy = 1; gbc.gridx = 0
-        panel.add(JLabel("结束日期:"), gbc)
+        panel.add(JLabel(NekoamaBundle.message("historyViewer.endDate")), gbc)
         gbc.gridx = 1
         panel.add(endDatePicker, gbc)
 
         // 分组方式
         gbc.gridy = 2; gbc.gridx = 0
-        panel.add(JLabel("分组方式:"), gbc)
+        panel.add(JLabel(NekoamaBundle.message("historyViewer.groupBy")), gbc)
         gbc.gridx = 1
         panel.add(groupByCombo, gbc)
 
         // 操作类型
         gbc.gridy = 3; gbc.gridx = 0
-        panel.add(JLabel("操作类型:"), gbc)
+        panel.add(JLabel(NekoamaBundle.message("historyViewer.operationType")), gbc)
         gbc.gridx = 1
 
         val actionTypesPanel = JPanel()
@@ -111,7 +111,7 @@ class HistoryViewer {
 
         // 成功/失败过滤
         gbc.gridy = 4; gbc.gridx = 0
-        panel.add(JLabel("状态过滤:"), gbc)
+        panel.add(JLabel(NekoamaBundle.message("historyViewer.statusFilter")), gbc)
         gbc.gridx = 1
 
         val statusPanel = JPanel()
@@ -123,7 +123,7 @@ class HistoryViewer {
 
         // 查询按钮
         gbc.gridy = 5; gbc.gridx = 0; gbc.gridwidth = 2
-        val queryButton = JButton("查询历史数据")
+        val queryButton = JButton(NekoamaBundle.message("historyViewer.queryHistory"))
         queryButton.addActionListener { executeQuery() }
         panel.add(queryButton, gbc)
 
@@ -144,13 +144,13 @@ class HistoryViewer {
     }
 
     private fun setupTableColumns() {
-        tableModel.addColumn("时间周期")
-        tableModel.addColumn("请求数")
-        tableModel.addColumn("成功数")
-        tableModel.addColumn("成功率")
-        tableModel.addColumn("平均延迟(ms)")
-        tableModel.addColumn("Token使用")
-        tableModel.addColumn("详细分布")
+        tableModel.addColumn(NekoamaBundle.message("historyViewer.column.operationTime"))
+        tableModel.addColumn(NekoamaBundle.message("historyViewer.column.operationType"))
+        tableModel.addColumn(NekoamaBundle.message("historyViewer.column.filePath"))
+        tableModel.addColumn(NekoamaBundle.message("historyViewer.column.tokenConsumption"))
+        tableModel.addColumn(NekoamaBundle.message("historyViewer.column.duration"))
+        tableModel.addColumn(NekoamaBundle.message("historyViewer.column.status"))
+        tableModel.addColumn(NekoamaBundle.message("historyViewer.column.details"))
     }
 
     private fun setupEventListeners() {
@@ -193,7 +193,7 @@ class HistoryViewer {
                 updateResultsTable(results)
 
             } catch (e: Exception) {
-                showError("查询失败: ${e.message}")
+                showError(NekoamaBundle.message("historyViewer.queryFailed", e.message ?: ""))
             }
         }
     }
@@ -216,14 +216,14 @@ class HistoryViewer {
 
     private fun showLoadingState() {
         tableModel.rowCount = 0
-        tableModel.addRow(arrayOf("正在查询...", "", "", "", "", "", ""))
+        tableModel.addRow(arrayOf(NekoamaBundle.message("common.querying"), "", "", "", "", "", ""))
     }
 
     private fun updateResultsTable(results: List<com.cw2.nekoama.core.metrics.AggregatedMetrics>) {
         tableModel.rowCount = 0
 
         if (results.isEmpty()) {
-            tableModel.addRow(arrayOf("无数据", "", "", "", "", "", ""))
+            tableModel.addRow(arrayOf(NekoamaBundle.message("common.noData"), "", "", "", "", "", ""))
             return
         }
 
@@ -243,16 +243,17 @@ class HistoryViewer {
 
     private fun showError(message: String) {
         SwingUtilities.invokeLater {
-            JOptionPane.showMessageDialog(mainPanel, message, "错误", JOptionPane.ERROR_MESSAGE)
+            JOptionPane.showMessageDialog(mainPanel, message, NekoamaBundle.message("historyViewer.errorDialog"), JOptionPane.ERROR_MESSAGE)
         }
     }
 
     private fun formatActionType(actionType: ActionType): String {
         return when (actionType) {
-            ActionType.GENERATE_NAMING -> "命名生成"
-            ActionType.GENERATE_COMMENT -> "注释生成"
-            ActionType.CUSTOM_GENERATE -> "自定义生成"
-            ActionType.ANALYZE_UNUSED_CODE -> "代码分析"
+            ActionType.GENERATE_NAMING -> NekoamaBundle.message("action.type.naming")
+            ActionType.GENERATE_COMMENT -> NekoamaBundle.message("action.type.comment")
+            ActionType.CUSTOM_GENERATE -> NekoamaBundle.message("action.type.custom")
+            ActionType.ANALYZE_UNUSED_CODE -> NekoamaBundle.message("action.type.analyze")
+            ActionType.ANALYZE_CODE_DEPS -> NekoamaBundle.message("action.type.analyze")
         }
     }
 

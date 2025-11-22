@@ -333,20 +333,21 @@ class FullFeaturedToolWindow : MetricsUpdateListener {
 
     private fun formatActionType(actionType: com.cw2.nekoama.core.metrics.ActionType): String {
         return when (actionType) {
-            com.cw2.nekoama.core.metrics.ActionType.GENERATE_NAMING -> "命名生成"
-            com.cw2.nekoama.core.metrics.ActionType.GENERATE_COMMENT -> "注释生成"
-            com.cw2.nekoama.core.metrics.ActionType.CUSTOM_GENERATE -> "自定义生成"
-            com.cw2.nekoama.core.metrics.ActionType.ANALYZE_UNUSED_CODE -> "代码分析"
+            com.cw2.nekoama.core.metrics.ActionType.GENERATE_NAMING -> NekoamaBundle.message("action.type.naming")
+            com.cw2.nekoama.core.metrics.ActionType.GENERATE_COMMENT -> NekoamaBundle.message("action.type.comment")
+            com.cw2.nekoama.core.metrics.ActionType.CUSTOM_GENERATE -> NekoamaBundle.message("action.type.custom")
+            com.cw2.nekoama.core.metrics.ActionType.ANALYZE_UNUSED_CODE -> NekoamaBundle.message("action.type.analyze")
+            com.cw2.nekoama.core.metrics.ActionType.ANALYZE_CODE_DEPS -> NekoamaBundle.message("action.type.analyze")
         }
     }
 
     private fun formatErrorType(errorType: com.cw2.nekoama.core.metrics.ErrorType): String {
         return when (errorType) {
-            com.cw2.nekoama.core.metrics.ErrorType.NETWORK_ERROR -> "网络错误"
-            com.cw2.nekoama.core.metrics.ErrorType.API_ERROR -> "API错误"
-            com.cw2.nekoama.core.metrics.ErrorType.TIMEOUT_ERROR -> "超时错误"
-            com.cw2.nekoama.core.metrics.ErrorType.PARSING_ERROR -> "解析错误"
-            com.cw2.nekoama.core.metrics.ErrorType.UNKNOWN_ERROR -> "未知错误"
+            com.cw2.nekoama.core.metrics.ErrorType.NETWORK_ERROR -> NekoamaBundle.message("error.type.network")
+            com.cw2.nekoama.core.metrics.ErrorType.API_ERROR -> "API Error"
+            com.cw2.nekoama.core.metrics.ErrorType.TIMEOUT_ERROR -> NekoamaBundle.message("error.type.timeout")
+            com.cw2.nekoama.core.metrics.ErrorType.PARSING_ERROR -> NekoamaBundle.message("error.type.parsing")
+            com.cw2.nekoama.core.metrics.ErrorType.UNKNOWN_ERROR -> NekoamaBundle.message("error.type.unknown")
         }
     }
 

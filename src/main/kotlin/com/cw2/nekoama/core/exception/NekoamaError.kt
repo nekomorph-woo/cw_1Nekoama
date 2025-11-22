@@ -200,6 +200,14 @@ sealed class NekoamaError(
             override val message: String = "配置格式不正确",
             override val cause: Throwable? = null
         ) : ParseError(message, cause)
+
+        /**
+         * 文件格式错误 - File format error
+         */
+        data class InvalidFileFormat(
+            override val message: String = "文件格式不正确",
+            override val cause: Throwable? = null
+        ) : ParseError(message, cause)
     }
     
     /**
@@ -301,6 +309,72 @@ sealed class NekoamaError(
         override val message: String = "未知错误",
         override val cause: Throwable? = null
     ) : NekoamaError(message, cause)
+
+    /**
+     * UI相关错误 - UI related errors
+     */
+    sealed class UIError(
+        override val message: String,
+        override val cause: Throwable? = null
+    ) : NekoamaError(message, cause) {
+
+        data class DialogError(
+            override val message: String,
+            override val cause: Throwable? = null
+        ) : UIError(message, cause)
+    }
+
+    /**
+     * 文件相关错误 - File related errors
+     */
+    sealed class FileError(
+        override val message: String,
+        override val cause: Throwable? = null
+    ) : NekoamaError(message, cause) {
+
+        data class FileNotFoundError(
+            override val message: String,
+            override val cause: Throwable? = null
+        ) : FileError(message, cause)
+    }
+
+    /**
+     * 分析相关错误 - Analysis related errors
+     */
+    sealed class AnalysisError(
+        override val message: String,
+        override val cause: Throwable? = null
+    ) : NekoamaError(message, cause) {
+
+        data class DependencyAnalysisError(
+            override val message: String,
+            override val cause: Throwable? = null
+        ) : AnalysisError(message, cause)
+    }
+
+    /**
+     * 导出相关错误 - Export related errors
+     */
+    sealed class ExportError(
+        override val message: String,
+        override val cause: Throwable? = null
+    ) : NekoamaError(message, cause) {
+
+        data class HtmlExportError(
+            override val message: String,
+            override val cause: Throwable? = null
+        ) : ExportError(message, cause)
+
+        data class JsonExportError(
+            override val message: String,
+            override val cause: Throwable? = null
+        ) : ExportError(message, cause)
+
+        data class MarkdownExportError(
+            override val message: String,
+            override val cause: Throwable? = null
+        ) : ExportError(message, cause)
+    }
     
     /**
      * 获取友好的用户显示消息 - Get user-friendly display message

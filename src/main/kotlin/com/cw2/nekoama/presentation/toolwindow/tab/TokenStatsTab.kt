@@ -508,6 +508,7 @@ class TokenStatsTab : BaseNekoamaTab() {
             ActionType.GENERATE_COMMENT -> NekoamaBundle.message("tokenstats.action.type.comment")
             ActionType.CUSTOM_GENERATE -> NekoamaBundle.message("tokenstats.action.type.custom")
             ActionType.ANALYZE_UNUSED_CODE -> NekoamaBundle.message("tokenstats.action.type.analyze")
+            ActionType.ANALYZE_CODE_DEPS -> NekoamaBundle.message("tokenstats.action.type.analyze")
         }
     }
 

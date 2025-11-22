@@ -375,7 +375,7 @@ class OverviewTab : BaseNekoamaTab() {
 
                     // 在EDT显示错误信息
                     withContext(Dispatchers.Main) {
-                        val errorLabel = JBLabel("刷新失败: ${e.message}")
+                        val errorLabel = JBLabel(NekoamaBundle.message("overview.dataLoadFailed", e.message ?: ""))
                         errorLabel.foreground = UIManager.getColor("Label.errorForeground")
                         activityPanel.add(errorLabel)
                         activityPanel.revalidate()

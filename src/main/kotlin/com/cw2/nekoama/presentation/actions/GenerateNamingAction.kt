@@ -831,7 +831,7 @@ internal class GenerateNamingAction : BaseAction() {
         } catch (t: Throwable) {
             NekoamaLogger.logError(
                 "buildCodeContext",
-                com.cw2.nekoama.core.exception.NekoamaError.ParseError.InvalidConfiguration("构建代码上下文失败: ${t.message}"),
+                com.cw2.nekoama.core.exception.NekoamaError.ParseError.InvalidConfiguration(NekoamaBundle.message("action.build.context.failed", t.message ?: "")),
                 mapOf("exception" to (t.message ?: "unknown"))
             )
             null

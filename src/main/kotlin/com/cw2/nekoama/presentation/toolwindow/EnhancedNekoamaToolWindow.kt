@@ -346,6 +346,7 @@ class EnhancedNekoamaToolWindow : MetricsUpdateListener {
             com.cw2.nekoama.core.metrics.ActionType.GENERATE_COMMENT -> NekoamaBundle.message("enhanced.action.type.comment")
             com.cw2.nekoama.core.metrics.ActionType.CUSTOM_GENERATE -> NekoamaBundle.message("enhanced.action.type.custom")
             com.cw2.nekoama.core.metrics.ActionType.ANALYZE_UNUSED_CODE -> NekoamaBundle.message("enhanced.action.type.analyze")
+            com.cw2.nekoama.core.metrics.ActionType.ANALYZE_CODE_DEPS -> "Code Analysis"
         }
     }
 

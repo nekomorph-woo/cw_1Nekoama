@@ -3,6 +3,7 @@ package com.cw2.nekoama.presentation.toolwindow.extension.example
 import com.cw2.nekoama.core.logging.NekoamaLogger
 import com.cw2.nekoama.presentation.toolwindow.extension.AbstractTabExtension
 import com.cw2.nekoama.presentation.toolwindow.tab.NekoamaTab
+import com.cw2.nekoama.presentation.messages.NekoamaBundle
 import com.intellij.icons.AllIcons
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPanel
@@ -22,8 +23,8 @@ import javax.swing.*
 class DemoTabExtension : AbstractTabExtension() {
 
     override val extensionId: String = "com.cw2.nekoama.demo"
-    override val displayName: String = "演示扩展"
-    override val description: String = "这是一个演示扩展，展示Tab扩展系统的功能"
+    override val displayName: String = NekoamaBundle.message("demo.extension.name")
+    override val description: String = NekoamaBundle.message("demo.extension.description")
     override val version: String = "1.0.0"
     override val icon: javax.swing.Icon? = AllIcons.General.Information
     override val priority: Int = 200
@@ -50,7 +51,7 @@ class DemoTabExtension : AbstractTabExtension() {
         return mapOf(
             "initialized" to isInitialized,
             "creationTime" to System.currentTimeMillis(),
-            "features" to listOf("状态显示", "交互功能", "配置示例")
+            "features" to NekoamaBundle.message("demo.config.features.status").split(", ").map { it.trim() }
         )
     }
 
@@ -60,10 +61,10 @@ class DemoTabExtension : AbstractTabExtension() {
     inner class DemoTab : NekoamaTab {
 
         private val mainPanel = JBPanel<JBPanel<*>>(BorderLayout())
-        private val statusLabel = JBLabel("扩展状态: 运行中")
+        private val statusLabel = JBLabel(NekoamaBundle.message("demo.status.running"))
         private val infoLabel = JBLabel()
-        private val actionButton = JButton("点击测试")
-        private val refreshButton = JButton("刷新信息")
+        private val actionButton = JButton(NekoamaBundle.message("demo.button.clickTest"))
+        private val refreshButton = JButton(NekoamaBundle.message("demo.button.refresh"))
         private var clickCount = 0
 
         init {
@@ -74,11 +75,11 @@ class DemoTabExtension : AbstractTabExtension() {
         private fun setupUI() {
             // 创建信息面板
             val infoPanel = FormBuilder.createFormBuilder()
-                .addComponent(JBLabel("扩展信息:"))
-                .addLabeledComponent(JBLabel("扩展ID:"), JBLabel(extensionId))
-                .addLabeledComponent(JBLabel("版本:"), JBLabel(version))
-                .addLabeledComponent(JBLabel("描述:"), JBLabel(description))
-                .addComponent(JBLabel("交互功能:"))
+                .addComponent(JBLabel(NekoamaBundle.message("demo.label.extensionInfo")))
+                .addLabeledComponent(JBLabel(NekoamaBundle.message("demo.label.extensionId")), JBLabel(extensionId))
+                .addLabeledComponent(JBLabel(NekoamaBundle.message("demo.label.version")), JBLabel(version))
+                .addLabeledComponent(JBLabel(NekoamaBundle.message("demo.label.description")), JBLabel(description))
+                .addComponent(JBLabel(NekoamaBundle.message("demo.label.interactiveFeatures")))
                 .addComponent(actionButton, 1)
                 .addComponent(refreshButton, 1)
                 .addComponent(statusLabel)
@@ -88,8 +89,8 @@ class DemoTabExtension : AbstractTabExtension() {
             // 设置按钮事件
             actionButton.addActionListener {
                 clickCount++
-                statusLabel.text = "点击次数: $clickCount"
-                infoLabel.text = "最后操作: 点击测试按钮 - ${getCurrentTime()}"
+                statusLabel.text = NekoamaBundle.message("demo.clickCount", clickCount)
+                infoLabel.text = NekoamaBundle.message("demo.lastOperation", NekoamaBundle.message("demo.button.clickTest"), getCurrentTime())
                 NekoamaLogger.debug("DemoTab", "Button clicked, count: $clickCount")
             }
 
@@ -102,35 +103,35 @@ class DemoTabExtension : AbstractTabExtension() {
 
             // 添加底部状态栏
             val statusPanel = JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.LEFT))
-            statusPanel.border = BorderFactory.createTitledBorder("状态信息")
+            statusPanel.border = BorderFactory.createTitledBorder(NekoamaBundle.message("demo.label.statusInfo"))
             statusPanel.add(statusLabel)
             mainPanel.add(statusPanel, BorderLayout.SOUTH)
         }
 
-        override val tabId: String = "demo_tab"
-        override val displayName: String = "演示"
+        override val tabId: String = NekoamaBundle.message("demo.tab.id.demo")
+        override val displayName: String = NekoamaBundle.message("demo.tab.displayName")
         override val icon: javax.swing.Icon? = this@DemoTabExtension.icon
-        override val tooltip: String? = "演示扩展功能展示"
+        override val tooltip: String? = NekoamaBundle.message("demo.tab.tooltip")
         override val isCloseable: Boolean = false
 
         override fun getComponent(): JComponent = mainPanel
 
         override fun onTabActivated() {
             super.onTabActivated()
-            statusLabel.text = "扩展状态: 已激活 (点击次数: $clickCount)"
-            infoLabel.text = "激活时间: ${getCurrentTime()}"
+            statusLabel.text = NekoamaBundle.message("demo.status.activated") + " (click count: $clickCount)"
+            infoLabel.text = NekoamaBundle.message("demo.activationTime", getCurrentTime())
             NekoamaLogger.debug("DemoTab", "Demo tab activated")
         }
 
         override fun onTabDeactivated() {
             super.onTabDeactivated()
-            statusLabel.text = "扩展状态: 已停用"
+            statusLabel.text = NekoamaBundle.message("demo.status.deactivated")
             NekoamaLogger.debug("DemoTab", "Demo tab deactivated")
         }
 
         override fun refresh() {
             super.refresh()
-            infoLabel.text = "刷新时间: ${getCurrentTime()}"
+            infoLabel.text = NekoamaBundle.message("demo.refreshTime", getCurrentTime())
             NekoamaLogger.debug("DemoTab", "Demo tab refreshed")
         }
 
