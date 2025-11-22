@@ -993,6 +993,13 @@ class BatchAnalysisProcessor(private val project: Project) {
     }
 
     /**
+     * 进度监听器接口
+     */
+    interface ProgressListener {
+        fun onProgress(status: AnalysisStatus)
+    }
+
+    /**
      * 分析状态跟踪
      */
     class AnalysisStatusTracker {
@@ -1001,20 +1008,32 @@ class BatchAnalysisProcessor(private val project: Project) {
         private val currentBatch = AtomicInteger(0)
         private val totalBatches = AtomicInteger(0)
         private val startTime = System.currentTimeMillis()
+        private var progressListener: ProgressListener? = null
+
+        fun setProgressListener(listener: ProgressListener) {
+            this.progressListener = listener
+        }
 
         fun initialize(totalClasses: Int, totalBatches: Int) {
             this.totalClasses.set(totalClasses)
             this.totalBatches.set(totalBatches)
             this.processedClasses.set(0)
             this.currentBatch.set(0)
+            notifyProgress()
         }
 
         fun updateBatch(batchIndex: Int) {
             currentBatch.set(batchIndex + 1)
+            notifyProgress()
         }
 
         fun updateProcessedClasses(count: Int) {
             processedClasses.addAndGet(count)
+            notifyProgress()
+        }
+
+        private fun notifyProgress() {
+            progressListener?.onProgress(getStatus())
         }
 
         fun getStatus(): AnalysisStatus {
