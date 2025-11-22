@@ -9,6 +9,7 @@ import com.cw2.nekoama.ai.provider.custom.interceptor.HeadersInterceptor
 import com.cw2.nekoama.ai.provider.custom.interceptor.LoggingInterceptor
 import com.cw2.nekoama.ai.provider.custom.interceptor.RetryInterceptor
 import com.cw2.nekoama.ai.provider.custom.interceptor.MonitoringInterceptor
+import com.cw2.nekoama.ai.provider.custom.interceptor.ProxyAuthenticatorFactory
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -196,43 +197,62 @@ class CustomAPIHttpClient(
 
         if (proxyConfig.type != ProxyType.DIRECT && proxyConfig.isValid()) {
             try {
+                // 验证代理认证配置
+                val validationResult = ProxyAuthenticatorFactory.validateProxyAuthentication(proxyConfig)
+                if (!validationResult.isValid) {
+                    NekoamaLogger.error("CustomAPIHttpClient",
+                        "代理认证配置无效: ${validationResult.message}，将使用直连")
+                    builder.proxy(Proxy.NO_PROXY)
+                    return
+                }
+
                 // 创建 OkHttp 代理对象
                 val okHttpProxy = when (proxyConfig.type) {
                     ProxyType.HTTP -> Proxy(Proxy.Type.HTTP, InetSocketAddress(proxyConfig.host, proxyConfig.port ?: 8080))
+                    ProxyType.HTTPS -> Proxy(Proxy.Type.HTTP, InetSocketAddress(proxyConfig.host, proxyConfig.port ?: 8080))
                     ProxyType.SOCKS -> Proxy(Proxy.Type.SOCKS, InetSocketAddress(proxyConfig.host, proxyConfig.port ?: 1080))
                     else -> Proxy.NO_PROXY
                 }
                 builder.proxy(okHttpProxy)
 
-                // 配置代理认证器
-                if (!proxyConfig.username.isNullOrBlank()) {
-                    val authenticator = okhttp3.Authenticator { _, response ->
-                        val credential = Credentials.basic(proxyConfig.username, proxyConfig.password ?: "")
-                        response.request.newBuilder()
-                            .header("Proxy-Authorization", credential)
-                            .build()
+                // 根据代理类型配置认证
+                when (proxyConfig.type) {
+                    ProxyType.HTTP, ProxyType.HTTPS -> {
+                        // HTTP/HTTPS代理认证
+                        val httpAuthenticator = ProxyAuthenticatorFactory.createHttpAuthenticator(proxyConfig)
+                        if (httpAuthenticator != null) {
+                            builder.proxyAuthenticator(httpAuthenticator)
+                            NekoamaLogger.info("CustomAPIHttpClient",
+                                "已配置HTTP代理认证: ${ProxyAuthenticatorFactory.getAuthenticationStatus(proxyConfig)}")
+                        } else {
+                            NekoamaLogger.info("CustomAPIHttpClient", "HTTP代理无认证模式")
+                        }
                     }
-                    builder.proxyAuthenticator(authenticator)
-
-                    NekoamaLogger.info("CustomAPIHttpClient",
-                        "已配置${proxyConfig.type}代理认证: ${proxyConfig.username}@${proxyConfig.host}:${proxyConfig.port}")
-                } else {
-                    NekoamaLogger.warn("CustomAPIHttpClient",
-                        "代理${proxyConfig.host}:${proxyConfig.port}未配置认证信息，可能导致HTTP 407错误")
+                    ProxyType.SOCKS -> {
+                        // SOCKS代理认证 - 使用系统级认证
+                        ProxyAuthenticatorFactory.configureSocksAuthentication(proxyConfig)
+                        NekoamaLogger.info("CustomAPIHttpClient",
+                            "已配置SOCKS代理认证: ${ProxyAuthenticatorFactory.getAuthenticationStatus(proxyConfig)}")
+                    }
+                    else -> {
+                        NekoamaLogger.info("CustomAPIHttpClient", "代理类型无需认证")
+                    }
                 }
+
+                NekoamaLogger.info("CustomAPIHttpClient",
+                    "代理配置完成: ${ProxyDetector.getProxyStatus(proxyConfig)}")
 
             } catch (e: Exception) {
                 NekoamaLogger.error("CustomAPIHttpClient",
                     "代理配置失败，将使用直连: ${e.message}", error = e)
                 // 代理配置失败时回退到直连
                 builder.proxy(Proxy.NO_PROXY)
+                // 清理可能已配置的认证设置
+                ProxyAuthenticatorFactory.clearAllAuthentication()
             }
         } else {
             NekoamaLogger.debug("CustomAPIHttpClient", "使用直连模式")
         }
-
-        NekoamaLogger.info("CustomAPIHttpClient",
-            "最终代理配置: ${ProxyDetector.getProxyStatus(proxyConfig)}")
     }
 
     /**
@@ -276,8 +296,11 @@ class CustomAPIHttpClient(
                 headers = response.headers.toMultimap()
             )
         } catch (e: IOException) {
-            NekoamaLogger.error("CustomAPIHttpClient",
-                "异步请求失败: ${e.message}", error = e)
+            // 提供详细的代理诊断信息
+            val proxyConfig = ProxyDetector.detectSystemProxy(config.buildEndpointUrl())
+            val errorMessage = generateDetailedErrorMessage(e, proxyConfig, config.buildEndpointUrl())
+
+            NekoamaLogger.error("CustomAPIHttpClient", errorMessage, error = e)
             throw e
         }
     }
@@ -296,8 +319,11 @@ class CustomAPIHttpClient(
                 headers = response.headers.toMultimap()
             )
         } catch (e: IOException) {
-            NekoamaLogger.error("CustomAPIHttpClient",
-                "同步请求失败: ${e.message}", error = e)
+            // 提供详细的代理诊断信息
+            val proxyConfig = ProxyDetector.detectSystemProxy(config.buildEndpointUrl())
+            val errorMessage = generateDetailedErrorMessage(e, proxyConfig, config.buildEndpointUrl())
+
+            NekoamaLogger.error("CustomAPIHttpClient", errorMessage, error = e)
             throw e
         }
     }
@@ -321,13 +347,161 @@ class CustomAPIHttpClient(
     }
 
     /**
+     * 生成详细的错误信息，包含代理诊断
+     */
+    private fun generateDetailedErrorMessage(
+        e: IOException,
+        proxyConfig: com.cw2.nekoama.core.network.ProxyConfig,
+        targetUrl: String
+    ): String {
+        val sb = StringBuilder()
+        sb.append("HTTP请求失败: ${e.message}\n")
+
+        // 分析错误类型（区分HTTP和SOCKS代理）
+        val errorAnalysis = when {
+            e.message?.contains("unexpected end of stream", ignoreCase = true) == true -> {
+                when (proxyConfig.type) {
+                    com.cw2.nekoama.core.network.ProxyType.SOCKS -> {
+                        "SOCKS连接意外断开 - 可能原因：SOCKS代理服务器不稳定、认证失败、协议不匹配"
+                    }
+                    else -> {
+                        "连接意外断开 - 可能原因：HTTP代理服务器不稳定、网络超时、代理类型不匹配"
+                    }
+                }
+            }
+            e.message?.contains("Connection refused", ignoreCase = true) == true -> {
+                when (proxyConfig.type) {
+                    com.cw2.nekoama.core.network.ProxyType.SOCKS -> {
+                        "SOCKS连接被拒绝 - 可能原因：SOCKS代理服务器未启动、端口错误、防火墙阻止SOCKS协议"
+                    }
+                    else -> {
+                        "HTTP代理连接被拒绝 - 可能原因：HTTP代理服务器未启动、端口错误、防火墙阻止"
+                    }
+                }
+            }
+            e.message?.contains("timeout", ignoreCase = true) == true -> {
+                when (proxyConfig.type) {
+                    com.cw2.nekoama.core.network.ProxyType.SOCKS -> {
+                        "SOCKS连接超时 - 可能原因：SOCKS代理服务器响应慢、认证握手超时、网络延迟高"
+                    }
+                    else -> {
+                        "HTTP代理连接超时 - 可能原因：HTTP代理服务器响应慢、网络延迟高、超时设置过短"
+                    }
+                }
+            }
+            e.message?.contains("407", ignoreCase = true) == true -> {
+                "HTTP代理认证失败（407错误） - 可能原因：用户名密码错误、认证方式不支持"
+            }
+            e.message?.contains("authentication", ignoreCase = true) == true -> {
+                when (proxyConfig.type) {
+                    com.cw2.nekoama.core.network.ProxyType.SOCKS -> {
+                        "SOCKS认证错误 - 可能原因：用户名密码错误、SOCKS服务器不支持认证、认证协议不匹配"
+                    }
+                    else -> {
+                        "HTTP代理认证错误 - 可能原因：用户名密码错误、认证头格式错误"
+                    }
+                }
+            }
+            e.message?.contains("SOCKS", ignoreCase = true) == true -> {
+                "SOCKS协议错误 - 可能原因：SOCKS版本不兼容、服务器不支持SOCKS5、连接建立失败"
+            }
+            e.message?.contains("proxy", ignoreCase = true) == true -> {
+                when (proxyConfig.type) {
+                    com.cw2.nekoama.core.network.ProxyType.SOCKS -> {
+                        "SOCKS代理相关错误 - 可能原因：SOCKS配置错误、认证失败、协议不匹配"
+                    }
+                    else -> {
+                        "HTTP代理相关错误 - 可能原因：HTTP代理配置错误、认证失败、格式错误"
+                    }
+                }
+            }
+            else -> {
+                when (proxyConfig.type) {
+                    com.cw2.nekoama.core.network.ProxyType.SOCKS -> {
+                        "SOCKS连接未知错误 - 可能原因：网络异常、协议冲突、服务器错误"
+                    }
+                    else -> {
+                        "HTTP代理连接未知错误 - 可能原因：网络异常、服务器错误、配置问题"
+                    }
+                }
+            }
+        }
+
+        sb.append("错误分析: $errorAnalysis\n")
+
+        // 添加代理配置信息
+        sb.append("代理配置: ${ProxyDetector.getProxyStatus(proxyConfig)}\n")
+
+        // 添加建议
+        val suggestions = when (proxyConfig.type) {
+            com.cw2.nekoama.core.network.ProxyType.DIRECT -> {
+                listOf(
+                    "当前使用直连模式，如果需要代理，请在IDEA设置中配置代理",
+                    "检查网络连接是否正常",
+                    "尝试访问其他网站确认网络状态"
+                )
+            }
+            com.cw2.nekoama.core.network.ProxyType.SOCKS -> {
+                when {
+                    e.message?.contains("authentication", ignoreCase = true) == true ||
+                    e.message?.contains("auth", ignoreCase = true) == true -> {
+                        listOf(
+                            "SOCKS代理认证失败，请检查用户名和密码是否正确",
+                            "确认SOCKS代理服务器支持用户名密码认证",
+                            "检查代理服务器是否启用了认证功能"
+                        )
+                    }
+                    else -> {
+                        listOf(
+                            "SOCKS代理连接失败，确认代理服务器地址和端口是否正确",
+                            "如果使用无认证模式，请移除用户名和密码配置",
+                            "检查防火墙是否阻止了SOCKS连接",
+                            "确认代理服务器是否支持SOCKS5协议"
+                        )
+                    }
+                }
+            }
+            else -> {
+                when {
+                    e.message?.contains("407", ignoreCase = true) == true -> {
+                        listOf(
+                            "HTTP代理认证失败（407错误），请检查用户名和密码",
+                            "确认代理服务器支持用户名密码认证",
+                            "检查是否需要域用户名格式（如：DOMAIN\\username）"
+                        )
+                    }
+                    else -> {
+                        listOf(
+                            "HTTP代理连接失败，确认代理服务器地址和端口是否正确",
+                            "如果实际使用的是SOCKS代理，请检查代理端口是否在SOCKS典型范围内",
+                            "检查代理服务器是否支持HTTPS协议",
+                            "验证代理服务器是否可达"
+                        )
+                    }
+                }
+            }
+        }
+
+        sb.append("建议操作:\n")
+        suggestions.forEachIndexed { index, suggestion ->
+            sb.append("  ${index + 1}. $suggestion\n")
+        }
+
+        sb.append("目标URL: $targetUrl")
+        return sb.toString()
+    }
+
+    /**
      * 关闭HTTP客户端，释放资源
      */
     fun close() {
         try {
+            // 清理代理认证设置
+            ProxyAuthenticatorFactory.clearAllAuthentication()
+
             httpClient.dispatcher.executorService.shutdown()
             httpClient.connectionPool.evictAll()
-            NekoamaLogger.info("CustomAPIHttpClient", "HTTP客户端已关闭")
+            NekoamaLogger.info("CustomAPIHttpClient", "HTTP客户端已关闭，代理认证设置已清理")
         } catch (e: Exception) {
             NekoamaLogger.warn("CustomAPIHttpClient", "关闭HTTP客户端时出现异常: ${e.message}")
         }
