@@ -378,13 +378,13 @@ class AnalysisProgressDialog(
 
         val dateFormat = SimpleDateFormat("HH:mm:ss")
 
-        tableModel.addRow(arrayOf("Total Classes", totalClasses.toString()))
-        tableModel.addRow(arrayOf("Processed Classes", processedClasses.toString()))
-        tableModel.addRow(arrayOf("Current Batch", "$currentBatch/$totalBatches"))
-        tableModel.addRow(arrayOf("Progress", "${progressBar.value}%"))
-        tableModel.addRow(arrayOf("Start Time", if (analysisStartTime > 0) dateFormat.format(Date(analysisStartTime)) else "Not started"))
-        tableModel.addRow(arrayOf("Entry Points", confirmedEntryPoints.size.toString()))
-        tableModel.addRow(arrayOf("Analysis Mode", if (isRunningInBackground) "Background" else "Foreground"))
+        tableModel.addRow(arrayOf(NekoamaBundle.message("progress.details.totalClasses"), totalClasses.toString()))
+        tableModel.addRow(arrayOf(NekoamaBundle.message("progress.details.processedClasses"), processedClasses.toString()))
+        tableModel.addRow(arrayOf(NekoamaBundle.message("progress.details.currentBatch"), "$currentBatch/$totalBatches"))
+        tableModel.addRow(arrayOf(NekoamaBundle.message("progress.details.progress"), "${progressBar.value}%"))
+        tableModel.addRow(arrayOf(NekoamaBundle.message("progress.details.startTime"), if (analysisStartTime > 0) dateFormat.format(Date(analysisStartTime)) else NekoamaBundle.message("progress.details.notStarted")))
+        tableModel.addRow(arrayOf(NekoamaBundle.message("progress.details.entryPoints"), confirmedEntryPoints.size.toString()))
+        tableModel.addRow(arrayOf(NekoamaBundle.message("progress.details.analysisMode"), if (isRunningInBackground) NekoamaBundle.message("progress.details.mode.background") else NekoamaBundle.message("progress.details.mode.foreground")))
     }
 
     /**
@@ -394,7 +394,7 @@ class AnalysisProgressDialog(
         // 这里可以根据status中的信息显示当前处理的类或文件
         // 简化实现，可以根据需要扩展
         currentFileLabel.text = if (status.progress < 1.0) {
-            NekoamaBundle.message("progress.current.file", "Processing class ${status.processedClasses + 1}")
+            NekoamaBundle.message("progress.current.file", status.processedClasses + 1)
         } else {
             NekoamaBundle.message("progress.analysis.complete")
         }
@@ -435,7 +435,7 @@ class AnalysisProgressDialog(
      * 显示错误
      */
     private fun showError(errorMessage: String) {
-        statusLabel.text = NekoamaBundle.message("progress.analysis.failed")
+        statusLabel.text = NekoamaBundle.message("progress.analysis.failed", errorMessage)
         statusLabel.foreground = UIUtil.getErrorForeground()
         currentFileLabel.text = "Error: $errorMessage"
         cancelButton.text = NekoamaBundle.message("button.close")

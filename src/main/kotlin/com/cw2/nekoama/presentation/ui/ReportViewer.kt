@@ -1,6 +1,7 @@
 package com.cw2.nekoama.presentation.ui
 
 import com.cw2.nekoama.ai.model.dependency.DependencyAnalysisResult
+import com.cw2.nekoama.core.exception.NekoamaError
 import com.cw2.nekoama.core.logging.NekoamaLogger
 import com.cw2.nekoama.core.reporting.DependencyReportGenerator
 import com.cw2.nekoama.core.reporting.MarkdownReportGenerator
@@ -129,7 +130,7 @@ class ReportViewer private constructor(
         toolbar.add(searchLabel, gbc)
 
         val searchField = JTextField(20)
-        searchField.placeholderText = NekoamaBundle.message("reportViewer.searchPlaceholder")
+        searchField.toolTipText = NekoamaBundle.message("reportViewer.searchPlaceholder")
         gbc.gridx = 4
         gbc.gridy = 0
         gbc.weightx = 1.0
@@ -151,7 +152,7 @@ class ReportViewer private constructor(
         // 右侧：文件信息
         val fileLabel = JBLabel(NekoamaBundle.message("reportViewer.fileInfo", htmlReportFile.name))
         fileLabel.font = fileLabel.font.deriveFont(fileLabel.font.size - 1f)
-        fileLabel.foreground = UIUtil.getSecondaryTextForeground()
+        fileLabel.foreground = UIUtil.getLabelForeground().darker()
 
         gbc.gridx = 6
         gbc.gridy = 0
@@ -201,7 +202,8 @@ class ReportViewer private constructor(
         val jsonPane = JTextPane()
         jsonPane.contentType = "text/plain"
         jsonPane.isEditable = false
-        jsonPane.font = JBUI.Fonts.monospaced()
+        // 使用IntelliJ平台的标准等宽字体
+        jsonPane.font = JBUI.Fonts.create("JetBrains Mono", 14)
 
         val scrollPane = JBScrollPane(jsonPane)
         scrollPane.preferredSize = JBUI.size(800, 600)
@@ -288,7 +290,7 @@ class ReportViewer private constructor(
         val topIssues = analysisResult.codeSmells.take(10)
         if (topIssues.isEmpty()) {
             val noIssuesLabel = JBLabel(NekoamaBundle.message("reportViewer.summary.noIssues"))
-            noIssuesLabel.foreground = UIUtil.getSecondaryTextForeground()
+            noIssuesLabel.foreground = UIUtil.getLabelForeground().darker()
             issuesPanel.add(noIssuesLabel, BorderLayout.CENTER)
         } else {
             val issuesTableModel = IssuesTableModel(topIssues)
@@ -317,20 +319,36 @@ class ReportViewer private constructor(
             // 生成并加载Markdown报告
             runBlocking {
                 val markdownGenerator = MarkdownReportGenerator()
-                val markdownContent = markdownGenerator.generateReport(analysisResult)
-                (markdownViewer.getComponent(0) as JTextPane).text = markdownContent
+                val tempMarkdownFile = File.createTempFile("analysis-report", ".md")
+                val result = markdownGenerator.generateReport(analysisResult, tempMarkdownFile.toPath())
+                if (result.success) {
+                    (markdownViewer.getComponent(0) as JTextPane).text = tempMarkdownFile.readText()
+                } else {
+                    throw Exception(NekoamaBundle.message("error.markdown.generation.failed", result.message))
+                }
+                tempMarkdownFile.delete()
             }
 
             // 生成并加载JSON报告
             runBlocking {
                 val jsonSerializer = DependencyJsonSerializer()
-                val jsonContent = jsonSerializer.serialize(analysisResult, true) // 美化格式
-                (jsonViewer.getComponent(0) as JTextPane).text = jsonContent
+                val tempJsonFile = File.createTempFile("analysis-report", ".json")
+                val result = jsonSerializer.exportPrettyJson(analysisResult, tempJsonFile.toPath())
+                if (result.success) {
+                    (jsonViewer.getComponent(0) as JTextPane).text = tempJsonFile.readText()
+                } else {
+                    throw Exception(NekoamaBundle.message("error.json.generation.failed", result.message))
+                }
+                tempJsonFile.delete()
             }
 
         } catch (e: Exception) {
-            NekoamaLogger.logError("ReportViewer", "加载报告失败", error = e)
-            Messages.showErrorDialog(project, NekoamaBundle.message("reportViewer.error.loadFailed", e.message), NekoamaBundle.message("reportViewer.dialog.error"))
+            NekoamaLogger.logError(
+                "ReportViewer",
+                NekoamaError.UIError.DialogError(NekoamaBundle.message("error.reports.load.failed", e.message ?: "")),
+                mapOf("exception" to (e.message ?: "unknown") as Any)
+            )
+            Messages.showErrorDialog(project, NekoamaBundle.message("reportViewer.error.loadFailed", e.message ?: ""), NekoamaBundle.message("reportViewer.dialog.error"))
         }
     }
 
@@ -339,7 +357,7 @@ class ReportViewer private constructor(
      */
     private fun refreshReports() {
         loadReports()
-        NekoamaLogger.info("ReportViewer", "报告已刷新")
+        NekoamaLogger.info("ReportViewer", "Reports refreshed")
     }
 
     /**
@@ -349,8 +367,12 @@ class ReportViewer private constructor(
         try {
             BrowserUtil.browse(htmlReportFile)
         } catch (e: Exception) {
-            NekoamaLogger.logError("ReportViewer", "在浏览器中打开报告失败", error = e)
-            Messages.showErrorDialog(project, NekoamaBundle.message("reportViewer.error.openBrowserFailed", e.message), NekoamaBundle.message("reportViewer.dialog.error"))
+            NekoamaLogger.logError(
+                "ReportViewer",
+                NekoamaError.UIError.DialogError(NekoamaBundle.message("error.browser.open.failed", e.message ?: "")),
+                mapOf("exception" to (e.message ?: "unknown") as Any)
+            )
+            Messages.showErrorDialog(project, NekoamaBundle.message("reportViewer.error.openBrowserFailed", e.message ?: ""), NekoamaBundle.message("reportViewer.dialog.error"))
         }
     }
 
@@ -384,7 +406,7 @@ class ReportViewer private constructor(
      */
     private fun exportReport(formatIndex: Int) {
         try {
-            val reportsDir = File(project.basePath, "reports", "dependency-analysis")
+            val reportsDir = File(File(project.basePath), "reports/dependency-analysis")
             if (!reportsDir.exists()) {
                 reportsDir.mkdirs()
             }
@@ -406,8 +428,12 @@ class ReportViewer private constructor(
             )
 
         } catch (e: Exception) {
-            NekoamaLogger.logError("ReportViewer", "导出报告失败", error = e)
-            Messages.showErrorDialog(project, NekoamaBundle.message("reportViewer.export.failed", e.message), NekoamaBundle.message("reportViewer.dialog.error"))
+            NekoamaLogger.logError(
+                "ReportViewer",
+                NekoamaError.ExportError.JsonExportError(NekoamaBundle.message("error.export.failed"), e),
+                mapOf("exception" to (e.message ?: "unknown") as Any)
+            )
+            Messages.showErrorDialog(project, NekoamaBundle.message("reportViewer.export.failed", e.message ?: ""), NekoamaBundle.message("reportViewer.dialog.error"))
         }
     }
 
@@ -425,9 +451,13 @@ class ReportViewer private constructor(
     private fun exportMarkdownReport(reportsDir: File, baseFileName: String) {
         runBlocking {
             val markdownGenerator = MarkdownReportGenerator()
-            val markdownContent = markdownGenerator.generateReport(analysisResult)
-            val targetFile = File(reportsDir, "$baseFileName.md")
-            targetFile.writeText(markdownContent)
+            val result = markdownGenerator.generateReport(
+                analysisResult,
+                File(reportsDir, "$baseFileName.md").toPath()
+            )
+            if (!result.success) {
+                throw Exception(NekoamaBundle.message("error.markdown.generation.failed", result.message))
+            }
         }
     }
 
@@ -437,9 +467,13 @@ class ReportViewer private constructor(
     private fun exportJSONReport(reportsDir: File, baseFileName: String) {
         runBlocking {
             val jsonSerializer = DependencyJsonSerializer()
-            val jsonContent = jsonSerializer.serialize(analysisResult, true)
-            val targetFile = File(reportsDir, "$baseFileName.json")
-            targetFile.writeText(jsonContent)
+            val result = jsonSerializer.exportPrettyJson(
+                analysisResult,
+                File(reportsDir, "$baseFileName.json").toPath()
+            )
+            if (!result.success) {
+                throw Exception(NekoamaBundle.message("error.json.generation.failed", result.message))
+            }
         }
     }
 
@@ -568,7 +602,7 @@ class ReportViewer private constructor(
             } catch (t: Throwable) {
                 NekoamaLogger.logError(
                     "showReports",
-                    com.cw2.nekoama.core.exception.NekoamaError.UIError.DialogError(NekoamaBundle.message("reportViewer.startFailed", t.message ?: "")),
+                    NekoamaError.UIError.DialogError(NekoamaBundle.message("reportViewer.startFailed", t.message ?: "")),
                     mapOf("exception" to (t.message ?: "unknown"))
                 )
             }
@@ -588,7 +622,7 @@ class ReportViewer private constructor(
             } catch (t: Throwable) {
                 NekoamaLogger.logError(
                     "showReports",
-                    com.cw2.nekoama.core.exception.NekoamaError.UIError.DialogError(NekoamaBundle.message("reportViewer.startFailed", t.message ?: "")),
+                    NekoamaError.UIError.DialogError(NekoamaBundle.message("reportViewer.startFailed", t.message ?: "")),
                     mapOf("exception" to (t.message ?: "unknown"))
                 )
             }

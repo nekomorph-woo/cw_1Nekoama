@@ -14,6 +14,7 @@ import java.awt.BorderLayout
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.event.ActionEvent
+import java.util.*
 import javax.swing.*
 import javax.swing.table.DefaultTableModel
 import javax.swing.table.TableRowSorter
@@ -73,7 +74,7 @@ class EntryPointConfirmationDialog(
         val topPanel = createTopPanel()
 
         // 创建中部面板（表格和详情）
-        val centerPanel = createCenterPanel()
+        val centerPanel = createMainCenterPanel()
 
         // 创建底部面板（操作和摘要）
         val bottomPanel = createBottomPanel()
@@ -103,7 +104,7 @@ class EntryPointConfirmationDialog(
         gbc.anchor = GridBagConstraints.WEST
         topPanel.add(searchLabel, gbc)
 
-        searchField.placeholderText = NekoamaBundle.message("entryPoint.searchPlaceholder")
+        searchField.toolTipText = NekoamaBundle.message("entryPoint.searchPlaceholder")
         gbc.gridx = 1
         gbc.gridy = 0
         gbc.weightx = 1.0
@@ -155,7 +156,7 @@ class EntryPointConfirmationDialog(
     /**
      * 创建中部面板（表格和详情）
      */
-    private fun createCenterPanel(): JPanel {
+    private fun createMainCenterPanel(): JPanel {
         val centerPanel = JPanel(BorderLayout())
         centerPanel.background = UIUtil.getPanelBackground()
 
@@ -294,9 +295,9 @@ class EntryPointConfirmationDialog(
         selectedLabel.font = selectedLabel.font.deriveFont(selectedLabel.font.size - 1f)
         filteredLabel.font = filteredLabel.font.deriveFont(filteredLabel.font.size - 1f)
 
-        totalLabel.foreground = UIUtil.getSecondaryTextForeground()
-        selectedLabel.foreground = UIUtil.getSecondaryTextForeground()
-        filteredLabel.foreground = UIUtil.getSecondaryTextForeground()
+        totalLabel.foreground = UIUtil.getLabelForeground().darker()
+        selectedLabel.foreground = UIUtil.getLabelForeground().darker()
+        filteredLabel.foreground = UIUtil.getLabelForeground().darker()
 
         statsPanel.add(totalLabel)
         statsPanel.add(selectedLabel)
@@ -350,7 +351,7 @@ class EntryPointConfirmationDialog(
                 cellHasFocus: Boolean
             ): java.awt.Component {
                 super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus)
-                text = value ?: NekoamaBundle.message("entryPoint.allScenarios")
+                text = (value as? String) ?: NekoamaBundle.message("entryPoint.allScenarios")
                 return this
             }
         }
@@ -431,7 +432,7 @@ class EntryPointConfirmationDialog(
 
         // 更新全选框状态
         selectAllCheckBox.isSelected = filteredEntryPoints.isNotEmpty() &&
-            filteredEntryPoints.all { it.selected }
+            tableModel.entryPoints.all { it.selected }
     }
 
     /**
@@ -482,7 +483,7 @@ class EntryPointConfirmationDialog(
             EntryType.EVENT_LISTENER -> NekoamaBundle.message("entryPoint.type.eventListener")
             EntryType.MESSAGE_CONSUMER -> NekoamaBundle.message("entryPoint.type.messageConsumer")
             EntryType.MAIN -> NekoamaBundle.message("entryPoint.type.main")
-            EntryType.API -> NekoamaBundle.message("entryPoint.type.api")
+            // API类型已从枚举中移除，不需要处理
         }
     }
 
@@ -492,7 +493,7 @@ class EntryPointConfirmationDialog(
     fun getConfirmedEntryPoints(): List<String> {
         return tableModel.entryPoints
             .filter { it.selected }
-            .map { "${it.className}.${it.methodName}" }
+            .map { "${it.entryPoint.className}.${it.entryPoint.methodName}" }
     }
 
     override fun createCenterPanel(): JComponent = mainPanel
@@ -504,14 +505,14 @@ class EntryPointConfirmationDialog(
         private val entryPointsList = mutableListOf<EntryPointWrapper>()
 
         init {
-            columnIdentifiers = arrayOf(
+            columnIdentifiers = Vector<Any>(listOf(
                 NekoamaBundle.message("entryPoint.column.select"),
                 NekoamaBundle.message("entryPoint.column.className"),
                 NekoamaBundle.message("entryPoint.column.methodName"),
                 NekoamaBundle.message("entryPoint.column.type"),
                 NekoamaBundle.message("entryPoint.column.scenario"),
                 NekoamaBundle.message("entryPoint.column.httpMapping")
-            )
+            ))
         }
 
         fun setEntryPoints(entryPoints: List<BusinessEntryPoint>) {
