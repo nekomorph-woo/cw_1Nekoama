@@ -348,7 +348,7 @@ class ReportViewer private constructor(
                 NekoamaError.UIError.DialogError(NekoamaBundle.message("error.reports.load.failed", e.message ?: "")),
                 mapOf("exception" to (e.message ?: "unknown") as Any)
             )
-            Messages.showErrorDialog(project, NekoamaBundle.message("reportViewer.error.loadFailed", e.message ?: ""), NekoamaBundle.message("reportViewer.dialog.error"))
+            Messages.showErrorDialog(project, NekoamaBundle.message("reportViewer.error.loadFailed", e.message ?: ""), NekoamaBundle.message("common.dialog.error"))
         }
     }
 
@@ -372,7 +372,7 @@ class ReportViewer private constructor(
                 NekoamaError.UIError.DialogError(NekoamaBundle.message("error.browser.open.failed", e.message ?: "")),
                 mapOf("exception" to (e.message ?: "unknown") as Any)
             )
-            Messages.showErrorDialog(project, NekoamaBundle.message("reportViewer.error.openBrowserFailed", e.message ?: ""), NekoamaBundle.message("reportViewer.dialog.error"))
+            Messages.showErrorDialog(project, NekoamaBundle.message("reportViewer.error.openBrowserFailed", e.message ?: ""), NekoamaBundle.message("common.dialog.error"))
         }
     }
 
@@ -433,7 +433,7 @@ class ReportViewer private constructor(
                 NekoamaError.ExportError.JsonExportError(NekoamaBundle.message("error.export.failed"), e),
                 mapOf("exception" to (e.message ?: "unknown") as Any)
             )
-            Messages.showErrorDialog(project, NekoamaBundle.message("reportViewer.export.failed", e.message ?: ""), NekoamaBundle.message("reportViewer.dialog.error"))
+            Messages.showErrorDialog(project, NekoamaBundle.message("reportViewer.export.failed", e.message ?: ""), NekoamaBundle.message("common.dialog.error"))
         }
     }
 

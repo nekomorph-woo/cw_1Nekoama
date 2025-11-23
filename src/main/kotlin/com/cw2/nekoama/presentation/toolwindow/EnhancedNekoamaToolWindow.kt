@@ -342,30 +342,30 @@ class EnhancedNekoamaToolWindow : MetricsUpdateListener {
 
     private fun formatActionType(actionType: com.cw2.nekoama.core.metrics.ActionType): String {
         return when (actionType) {
-            com.cw2.nekoama.core.metrics.ActionType.GENERATE_NAMING -> NekoamaBundle.message("enhanced.action.type.naming")
-            com.cw2.nekoama.core.metrics.ActionType.GENERATE_COMMENT -> NekoamaBundle.message("enhanced.action.type.comment")
-            com.cw2.nekoama.core.metrics.ActionType.CUSTOM_GENERATE -> NekoamaBundle.message("enhanced.action.type.custom")
-            com.cw2.nekoama.core.metrics.ActionType.ANALYZE_UNUSED_CODE -> NekoamaBundle.message("enhanced.action.type.analyze")
-            com.cw2.nekoama.core.metrics.ActionType.ANALYZE_CODE_DEPS -> "Code Analysis"
+            com.cw2.nekoama.core.metrics.ActionType.GENERATE_NAMING -> NekoamaBundle.message("action.type.naming")
+            com.cw2.nekoama.core.metrics.ActionType.GENERATE_COMMENT -> NekoamaBundle.message("action.type.comment")
+            com.cw2.nekoama.core.metrics.ActionType.CUSTOM_GENERATE -> NekoamaBundle.message("action.type.custom")
+            com.cw2.nekoama.core.metrics.ActionType.ANALYZE_UNUSED_CODE -> NekoamaBundle.message("action.type.analysis")
+            com.cw2.nekoama.core.metrics.ActionType.ANALYZE_CODE_DEPS -> NekoamaBundle.message("action.type.analysis")
         }
     }
 
     private fun formatErrorType(errorType: com.cw2.nekoama.core.metrics.ErrorType): String {
         return when (errorType) {
-            com.cw2.nekoama.core.metrics.ErrorType.NETWORK_ERROR -> NekoamaBundle.message("enhanced.error.type.network")
-            com.cw2.nekoama.core.metrics.ErrorType.API_ERROR -> NekoamaBundle.message("enhanced.error.type.api")
-            com.cw2.nekoama.core.metrics.ErrorType.TIMEOUT_ERROR -> NekoamaBundle.message("enhanced.error.type.timeout")
-            com.cw2.nekoama.core.metrics.ErrorType.PARSING_ERROR -> NekoamaBundle.message("enhanced.error.type.parsing")
-            com.cw2.nekoama.core.metrics.ErrorType.UNKNOWN_ERROR -> NekoamaBundle.message("enhanced.error.type.unknown")
+            com.cw2.nekoama.core.metrics.ErrorType.NETWORK_ERROR -> NekoamaBundle.message("error.type.network")
+            com.cw2.nekoama.core.metrics.ErrorType.API_ERROR -> NekoamaBundle.message("error.type.api")
+            com.cw2.nekoama.core.metrics.ErrorType.TIMEOUT_ERROR -> NekoamaBundle.message("error.type.timeout")
+            com.cw2.nekoama.core.metrics.ErrorType.PARSING_ERROR -> NekoamaBundle.message("error.type.parsing")
+            com.cw2.nekoama.core.metrics.ErrorType.UNKNOWN_ERROR -> NekoamaBundle.message("error.type.unknown")
         }
     }
 
     private fun showError(message: String) {
-        JOptionPane.showMessageDialog(mainPanel, message, NekoamaBundle.message("enhanced.dialog.error"), JOptionPane.ERROR_MESSAGE)
+        JOptionPane.showMessageDialog(mainPanel, message, NekoamaBundle.message("common.dialog.error"), JOptionPane.ERROR_MESSAGE)
     }
 
     private fun showInfo(message: String) {
-        JOptionPane.showMessageDialog(mainPanel, message, NekoamaBundle.message("enhanced.dialog.info"), JOptionPane.INFORMATION_MESSAGE)
+        JOptionPane.showMessageDialog(mainPanel, message, NekoamaBundle.message("common.dialog.info"), JOptionPane.INFORMATION_MESSAGE)
     }
 
     override fun onMetricsUpdated(record: com.cw2.nekoama.core.metrics.ActionRecord) {

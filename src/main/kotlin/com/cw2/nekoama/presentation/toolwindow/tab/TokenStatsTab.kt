@@ -514,11 +514,11 @@ class TokenStatsTab : BaseNekoamaTab() {
 
     private fun formatErrorType(errorType: ErrorType): String {
         return when (errorType) {
-            ErrorType.NETWORK_ERROR -> NekoamaBundle.message("tokenstats.error.type.network")
-            ErrorType.API_ERROR -> NekoamaBundle.message("tokenstats.error.type.api")
-            ErrorType.TIMEOUT_ERROR -> NekoamaBundle.message("tokenstats.error.type.timeout")
-            ErrorType.PARSING_ERROR -> NekoamaBundle.message("tokenstats.error.type.parsing")
-            ErrorType.UNKNOWN_ERROR -> NekoamaBundle.message("tokenstats.error.type.unknown")
+            ErrorType.NETWORK_ERROR -> NekoamaBundle.message("error.type.network")
+            ErrorType.API_ERROR -> NekoamaBundle.message("error.type.api")
+            ErrorType.TIMEOUT_ERROR -> NekoamaBundle.message("error.type.timeout")
+            ErrorType.PARSING_ERROR -> NekoamaBundle.message("error.type.parsing")
+            ErrorType.UNKNOWN_ERROR -> NekoamaBundle.message("error.type.unknown")
         }
     }
 
