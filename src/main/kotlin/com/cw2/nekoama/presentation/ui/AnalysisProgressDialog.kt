@@ -405,7 +405,7 @@ class AnalysisProgressDialog(
      */
     private fun completeAnalysis() {
         statusLabel.text = NekoamaBundle.message("progress.analysis.success")
-        statusLabel.foreground = JBLabel().foreground // 使用默认的成功颜色
+        statusLabel.foreground = UIUtil.getLabelForeground() // 使用主题感知的前景色
         progressBar.string = NekoamaBundle.message("progress.progressBar.percent", "100")
         currentFileLabel.text = NekoamaBundle.message("progress.analysis.complete")
         cancelButton.text = NekoamaBundle.message("button.close")
