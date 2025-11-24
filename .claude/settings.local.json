@@ -27,7 +27,8 @@
       "Bash(for dir in ai core data integrations platform presentation)",
       "Bash(done)",
       "Bash(for:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(gradlew compileKotlin:*)"
     ],
     "deny": [],
     "ask": []

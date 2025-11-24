@@ -1,14 +1,15 @@
 package com.cw2.nekoama.integrations.psi
 
-import com.cw2.nekoama.ai.model.dependency.*
+import com.cw2.nekoama.ai.model.dependency.BusinessEntryPoint
+import com.cw2.nekoama.ai.model.dependency.EntryPointComplexity
+import com.cw2.nekoama.ai.model.dependency.EntryType
+import com.cw2.nekoama.ai.model.dependency.ParameterInfo
 import com.cw2.nekoama.core.logging.NekoamaLogger
+import com.intellij.openapi.progress.ProgressManager
+import com.intellij.openapi.project.Project
 import com.intellij.psi.*
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.searches.AnnotatedElementsSearch
-import com.intellij.util.Query
-import com.intellij.openapi.project.Project
-import com.intellij.openapi.roots.ProjectFileIndex
-import com.intellij.openapi.progress.ProgressManager
 
 /**
  * 业务边界入口点检测器
@@ -26,34 +27,43 @@ class BoundaryEntryPointDetector(private val project: Project) {
         val entryPoints = mutableListOf<BusinessEntryPoint>()
 
         try {
-            // 0. 检查项目索引状态
-            checkProjectIndexStatus()
+            // 在ReadAction中执行所有索引和PSI操作
+            com.intellij.openapi.application.ReadAction.run<RuntimeException> {
+                ProgressManager.checkCanceled()
 
-            // 1. 检测HTTP Controller入口
-            entryPoints.addAll(detectControllerEntryPoints())
+                // 0. 检查项目索引状态
+                checkProjectIndexStatus()
 
-            // 2. 检测Service入口
-            entryPoints.addAll(detectServiceEntryPoints())
+                // 1. 检测HTTP Controller入口
+                entryPoints.addAll(detectControllerEntryPoints())
 
-            // 3. 检测定时任务入口
-            entryPoints.addAll(detectScheduledEntryPoints())
+                // 2. 检测Service入口
+                entryPoints.addAll(detectServiceEntryPoints())
 
-            // 4. 检测事件监听器入口
-            entryPoints.addAll(detectEventListenerEntryPoints())
+                // 3. 检测定时任务入口
+                entryPoints.addAll(detectScheduledEntryPoints())
 
-            // 5. 检测消息消费者入口
-            entryPoints.addAll(detectMessageConsumerEntryPoints())
+                // 4. 检测事件监听器入口
+                entryPoints.addAll(detectEventListenerEntryPoints())
 
-            // 6. 检测Main方法入口
-            entryPoints.addAll(detectMainEntryPoints())
+                // 5. 检测消息消费者入口
+                entryPoints.addAll(detectMessageConsumerEntryPoints())
 
-            // 7. 检测批处理入口
-            entryPoints.addAll(detectBatchJobEntryPoints())
+                // 6. 检测Main方法入口
+                entryPoints.addAll(detectMainEntryPoints())
+
+                // 7. 检测批处理入口
+                entryPoints.addAll(detectBatchJobEntryPoints())
+            }
 
             logger.info("BoundaryEntryPointDetector", "检测到 ${entryPoints.size} 个业务入口点")
 
+        } catch (e: com.intellij.openapi.progress.ProcessCanceledException) {
+            // 重新抛出取消异常
+            throw e
         } catch (e: Exception) {
             logger.error("BoundaryEntryPointDetector", "检测业务入口点失败", error = e)
+            throw e
         }
 
         return entryPoints.distinctBy { "${it.className}.${it.methodName}" }
@@ -107,20 +117,29 @@ class BoundaryEntryPointDetector(private val project: Project) {
 
         // 主要搜索：使用allScope查找Spring注解
         var controllerAnnotation = javaPsiFacade.findClass("org.springframework.stereotype.Controller", allScope)
-        var restControllerAnnotation = javaPsiFacade.findClass("org.springframework.web.bind.annotation.RestController", allScope)
+        var restControllerAnnotation =
+            javaPsiFacade.findClass("org.springframework.web.bind.annotation.RestController", allScope)
 
         // 详细的依赖诊断日志
-        logger.info("BoundaryEntryPointDetector", "Spring Controller注解查找结果 (allScope): " +
-                "Controller=${controllerAnnotation != null}, RestController=${restControllerAnnotation != null}")
+        logger.info(
+            "BoundaryEntryPointDetector", "Spring Controller注解查找结果 (allScope): " +
+                    "Controller=${controllerAnnotation != null}, RestController=${restControllerAnnotation != null}"
+        )
 
         // 如果在allScope中未找到，尝试在projectScope中查找
         if (controllerAnnotation == null || restControllerAnnotation == null) {
             logger.info("BoundaryEntryPointDetector", "在allScope中未找到所有注解，尝试projectScope搜索")
-            controllerAnnotation = controllerAnnotation ?: javaPsiFacade.findClass("org.springframework.stereotype.Controller", projectScope)
-            restControllerAnnotation = restControllerAnnotation ?: javaPsiFacade.findClass("org.springframework.web.bind.annotation.RestController", projectScope)
+            controllerAnnotation = controllerAnnotation ?: javaPsiFacade.findClass(
+                "org.springframework.stereotype.Controller",
+                projectScope
+            )
+            restControllerAnnotation = restControllerAnnotation
+                ?: javaPsiFacade.findClass("org.springframework.web.bind.annotation.RestController", projectScope)
 
-            logger.info("BoundaryEntryPointDetector", "Spring Controller注解查找结果 (projectScope): " +
-                    "Controller=${controllerAnnotation != null}, RestController=${restControllerAnnotation != null}")
+            logger.info(
+                "BoundaryEntryPointDetector", "Spring Controller注解查找结果 (projectScope): " +
+                        "Controller=${controllerAnnotation != null}, RestController=${restControllerAnnotation != null}"
+            )
         }
 
         // 检查Spring依赖状态
@@ -149,7 +168,8 @@ class BoundaryEntryPointDetector(private val project: Project) {
         }
 
         if (restControllerAnnotation != null) {
-            val restControllerClasses = AnnotatedElementsSearch.searchPsiClasses(restControllerAnnotation, effectiveScope)
+            val restControllerClasses =
+                AnnotatedElementsSearch.searchPsiClasses(restControllerAnnotation, effectiveScope)
             val restControllerCount = restControllerClasses.count()
             logger.info("BoundaryEntryPointDetector", "找到 $restControllerCount 个带@RestController注解的类")
 
@@ -203,32 +223,45 @@ class BoundaryEntryPointDetector(private val project: Project) {
      * 提取HTTP映射信息
      */
     private fun extractHttpMapping(method: PsiMethod): String? {
-        val mappingAnnotations = mapOf(
-            "org.springframework.web.bind.annotation.RequestMapping" to "ANY",
-            "org.springframework.web.bind.annotation.GetMapping" to "GET",
-            "org.springframework.web.bind.annotation.PostMapping" to "POST",
-            "org.springframework.web.bind.annotation.PutMapping" to "PUT",
-            "org.springframework.web.bind.annotation.DeleteMapping" to "DELETE",
-            "org.springframework.web.bind.annotation.PatchMapping" to "PATCH",
-            // JAX-RS annotations
-            "javax.ws.rs.GET" to "GET",
-            "javax.ws.rs.POST" to "POST",
-            "javax.ws.rs.PUT" to "PUT",
-            "javax.ws.rs.DELETE" to "DELETE",
-            "javax.ws.rs.PATCH" to "PATCH",
-            "javax.ws.rs.Path" to "ANY"
-        )
+        return try {
+            com.intellij.openapi.application.ReadAction.compute<String?, Throwable> {
+                ProgressManager.checkCanceled()
 
-        method.annotations.forEach { annotation ->
-            val annotationName = annotation.qualifiedName
-            if (annotationName != null && mappingAnnotations.containsKey(annotationName)) {
-                val httpMethod = mappingAnnotations[annotationName] ?: "ANY"
-                val path = extractAnnotationValue(annotation, "value", "path")
-                return "$httpMethod ${path ?: "/"}"
+                val mappingAnnotations = mapOf(
+                    "org.springframework.web.bind.annotation.RequestMapping" to "ANY",
+                    "org.springframework.web.bind.annotation.GetMapping" to "GET",
+                    "org.springframework.web.bind.annotation.PostMapping" to "POST",
+                    "org.springframework.web.bind.annotation.PutMapping" to "PUT",
+                    "org.springframework.web.bind.annotation.DeleteMapping" to "DELETE",
+                    "org.springframework.web.bind.annotation.PatchMapping" to "PATCH",
+                    // JAX-RS annotations
+                    "javax.ws.rs.GET" to "GET",
+                    "javax.ws.rs.POST" to "POST",
+                    "javax.ws.rs.PUT" to "PUT",
+                    "javax.ws.rs.DELETE" to "DELETE",
+                    "javax.ws.rs.PATCH" to "PATCH",
+                    "javax.ws.rs.Path" to "ANY"
+                )
+
+                method.annotations.forEach { annotation ->
+                    ProgressManager.checkCanceled()
+                    val annotationName = annotation.qualifiedName
+                    if (annotationName != null && mappingAnnotations.containsKey(annotationName)) {
+                        val httpMethod = mappingAnnotations[annotationName] ?: "ANY"
+                        val path = extractAnnotationValue(annotation, "value", "path")
+                        return@compute "$httpMethod ${path ?: "/"}"
+                    }
+                }
+
+                return@compute null
             }
+        } catch (e: com.intellij.openapi.progress.ProcessCanceledException) {
+            // 重新抛出取消异常
+            throw e
+        } catch (e: Exception) {
+            logger.debug("BoundaryEntryPointDetector", "提取HTTP映射信息失败", mapOf("error" to e.message))
+            null
         }
-
-        return null
     }
 
     /**
@@ -238,22 +271,35 @@ class BoundaryEntryPointDetector(private val project: Project) {
         annotation: PsiAnnotation,
         vararg attributeNames: String
     ): String? {
-        for (attrName in attributeNames) {
-            val attribute = annotation.findAttributeValue(attrName)
-            if (attribute != null) {
-                return when (attribute) {
-                    is PsiLiteralValue -> attribute.value?.toString()
-                    is PsiArrayInitializerMemberValue -> {
-                        attribute.initializers
-                            .filterIsInstance<PsiLiteralValue>()
-                            .mapNotNull { it.value?.toString() }
-                            .firstOrNull()
+        return try {
+            com.intellij.openapi.application.ReadAction.compute<String?, Throwable> {
+                ProgressManager.checkCanceled()
+                for (attrName in attributeNames) {
+                    ProgressManager.checkCanceled()
+                    val attribute = annotation.findAttributeValue(attrName)
+                    if (attribute != null) {
+                        return@compute when (attribute) {
+                            is PsiLiteralValue -> attribute.value?.toString()
+                            is PsiArrayInitializerMemberValue -> {
+                                attribute.initializers
+                                    .filterIsInstance<PsiLiteralValue>()
+                                    .mapNotNull { it.value?.toString() }
+                                    .firstOrNull()
+                            }
+
+                            else -> attribute.text?.removeSurrounding("\"")
+                        }
                     }
-                    else -> attribute.text?.removeSurrounding("\"")
                 }
+                return@compute null
             }
+        } catch (e: com.intellij.openapi.progress.ProcessCanceledException) {
+            // 重新抛出取消异常
+            throw e
+        } catch (e: Exception) {
+            logger.debug("BoundaryEntryPointDetector", "提取注解属性值失败", mapOf("error" to e.message))
+            null
         }
-        return null
     }
 
     /**
@@ -347,7 +393,10 @@ class BoundaryEntryPointDetector(private val project: Project) {
                 val annotatedElements = AnnotatedElementsSearch.searchPsiClasses(annotationClass, effectiveScope)
                 val elementCount = annotatedElements.count()
 
-                logger.info("BoundaryEntryPointDetector", "找到 $elementCount 个带${annotationName.substringAfterLast(".")}注解的类 (使用$usedScope)")
+                logger.info(
+                    "BoundaryEntryPointDetector",
+                    "找到 $elementCount 个带${annotationName.substringAfterLast(".")}注解的类 (使用$usedScope)"
+                )
 
                 annotatedElements.forEach { psiClass ->
                     entryPoints.addAll(extractServiceEntryPoints(psiClass))
@@ -371,7 +420,8 @@ class BoundaryEntryPointDetector(private val project: Project) {
             // 只处理public方法，排除getter/setter和private方法
             if (method.hasModifierProperty(PsiModifier.PUBLIC) &&
                 !isAccessorMethod(method) &&
-                !method.hasModifierProperty(PsiModifier.STATIC)) {
+                !method.hasModifierProperty(PsiModifier.STATIC)
+            ) {
 
                 val annotations = method.annotations.mapNotNull { it.qualifiedName }
 
@@ -395,9 +445,20 @@ class BoundaryEntryPointDetector(private val project: Project) {
      * 判断是否为访问器方法（getter/setter）
      */
     private fun isAccessorMethod(method: PsiMethod): Boolean {
-        val methodName = method.name
-        return (methodName.startsWith("get") || methodName.startsWith("set") || methodName.startsWith("is")) &&
-                method.parameterList.parametersCount <= 1
+        return try {
+            com.intellij.openapi.application.ReadAction.compute<Boolean, Throwable> {
+                ProgressManager.checkCanceled()
+                val methodName = method.name
+                (methodName.startsWith("get") || methodName.startsWith("set") || methodName.startsWith("is")) &&
+                        method.parameterList.parametersCount <= 1
+            }
+        } catch (e: com.intellij.openapi.progress.ProcessCanceledException) {
+            // 重新抛出取消异常
+            throw e
+        } catch (e: Exception) {
+            logger.debug("BoundaryEntryPointDetector", "判断访问器方法失败", mapOf("error" to e.message))
+            false
+        }
     }
 
     /**
@@ -599,34 +660,45 @@ class BoundaryEntryPointDetector(private val project: Project) {
      */
     private fun detectMainEntryPoints(): List<BusinessEntryPoint> {
         val entryPoints = mutableListOf<BusinessEntryPoint>()
-        val scope = GlobalSearchScope.projectScope(project)
 
-        // 搜索包含main方法的类
-        val mainMethodCandidates = javaPsiFacade.findClasses("*", scope)
-        mainMethodCandidates.forEach { psiClass ->
-            psiClass.methods.forEach { method ->
-                if (method.name == "main" &&
-                    method.hasModifierProperty(PsiModifier.PUBLIC) &&
-                    method.hasModifierProperty(PsiModifier.STATIC) &&
-                    method.parameterList.parametersCount == 1) {
+        try {
+            ProgressManager.checkCanceled()
+            val scope = GlobalSearchScope.projectScope(project)
 
-                    val paramType = method.parameterList.parameters[0].type
-                    if (paramType is PsiArrayType &&
-                        paramType.componentType?.canonicalText == "java.lang.String") {
+            // 搜索包含main方法的类
+            val mainMethodCandidates = javaPsiFacade.findClasses("*", scope)
+            mainMethodCandidates.forEach { psiClass ->
+                ProgressManager.checkCanceled()
+                psiClass.methods.forEach { method ->
+                    if (method.name == "main" &&
+                        method.hasModifierProperty(PsiModifier.PUBLIC) &&
+                        method.hasModifierProperty(PsiModifier.STATIC) &&
+                        method.parameterList.parametersCount == 1
+                    ) {
 
-                        entryPoints.add(
-                            BusinessEntryPoint(
-                                className = psiClass.qualifiedName ?: "",
-                                methodName = "main",
-                                entryType = EntryType.MAIN,
-                                annotations = emptyList(),
-                                businessScenario = determineMainScenario(psiClass),
-                                parameters = extractParameterInfo(method)
+                        val paramType = method.parameterList.parameters[0].type
+                        if (paramType is PsiArrayType &&
+                            paramType.componentType?.canonicalText == "java.lang.String"
+                        ) {
+
+                            entryPoints.add(
+                                BusinessEntryPoint(
+                                    className = psiClass.qualifiedName ?: "",
+                                    methodName = "main",
+                                    entryType = EntryType.MAIN,
+                                    annotations = emptyList(),
+                                    businessScenario = determineMainScenario(psiClass),
+                                    parameters = extractParameterInfo(method)
+                                )
                             )
-                        )
+                        }
                     }
                 }
             }
+
+        } catch (e: Exception) {
+            logger.warn("BoundaryEntryPointDetector", "Main方法入口点检测失败", mapOf("error" to e.message))
+            throw e
         }
 
         return entryPoints
@@ -752,7 +824,10 @@ class BoundaryEntryPointDetector(private val project: Project) {
 
         if (allScopeMissing == springClasses.size && projectScopeMissing == springClasses.size) {
             logger.warn("BoundaryEntryPointDetector", "所有Spring依赖均未找到，可能存在问题")
-            logger.info("BoundaryEntryPointDetector", "建议检查: 1) 项目是否包含Spring依赖 2) 依赖是否正确解析 3) IDEA索引是否构建完成")
+            logger.info(
+                "BoundaryEntryPointDetector",
+                "建议检查: 1) 项目是否包含Spring依赖 2) 依赖是否正确解析 3) IDEA索引是否构建完成"
+            )
         } else {
             logger.info("BoundaryEntryPointDetector", "Spring依赖检查完成，发现可用依赖")
         }
@@ -766,33 +841,39 @@ class BoundaryEntryPointDetector(private val project: Project) {
 
         try {
             logger.info("BoundaryEntryPointDetector", "开始通过命名模式检测Controller类")
+            ProgressManager.checkCanceled()
 
             // 搜索所有Java类
             val allClasses = javaPsiFacade.findClasses("*", scope)
             val controllerCandidates = allClasses.filter { psiClass ->
+                ProgressManager.checkCanceled()
                 val className = psiClass.name?.lowercase() ?: ""
                 val qualifiedName = psiClass.qualifiedName?.lowercase() ?: ""
 
                 // 命名模式：以Controller结尾或在controller包中
                 className.endsWith("controller") ||
-                qualifiedName.contains("controller") ||
-                qualifiedName.contains("web") ||
-                qualifiedName.contains("rest")
+                        qualifiedName.contains("controller") ||
+                        qualifiedName.contains("web") ||
+                        qualifiedName.contains("rest")
             }
 
-            logger.info("BoundaryEntryPointDetector", "通过命名模式找到 ${controllerCandidates.size} 个候选Controller类")
+            logger.info(
+                "BoundaryEntryPointDetector",
+                "通过命名模式找到 ${controllerCandidates.size} 个候选Controller类"
+            )
 
             controllerCandidates.forEach { psiClass ->
+                ProgressManager.checkCanceled()
                 // 检查类中是否有类似HTTP mapping的方法
                 val httpMethods = psiClass.methods.filter { method ->
                     val methodName = method.name.lowercase()
                     methodName in listOf("get", "post", "put", "delete", "patch") ||
-                    method.annotations.any { annotation ->
-                        val annotationName = annotation.qualifiedName?.lowercase() ?: ""
-                        annotationName.contains("mapping") ||
-                        annotationName.contains("request") ||
-                        annotationName.contains("path")
-                    }
+                            method.annotations.any { annotation ->
+                                val annotationName = annotation.qualifiedName?.lowercase() ?: ""
+                                annotationName.contains("mapping") ||
+                                        annotationName.contains("request") ||
+                                        annotationName.contains("path")
+                            }
                 }
 
                 if (httpMethods.isNotEmpty()) {
@@ -816,21 +897,34 @@ class BoundaryEntryPointDetector(private val project: Project) {
 
         } catch (e: Exception) {
             logger.error("BoundaryEntryPointDetector", "命名模式检测失败", error = e)
+            throw e
         }
 
         return entryPoints
     }
 
-  /**
+    /**
      * 提取参数信息
      */
     private fun extractParameterInfo(method: PsiMethod): List<ParameterInfo> {
-        return method.parameterList.parameters.map { parameter ->
-            ParameterInfo(
-                name = parameter.name ?: "param",
-                type = parameter.type.canonicalText,
-                annotations = parameter.annotations.mapNotNull { it.qualifiedName }
-            )
+        return try {
+            com.intellij.openapi.application.ReadAction.compute<List<ParameterInfo>, Throwable> {
+                ProgressManager.checkCanceled()
+                method.parameterList.parameters.map { parameter ->
+                    ProgressManager.checkCanceled()
+                    ParameterInfo(
+                        name = parameter.name ?: "param",
+                        type = parameter.type.canonicalText,
+                        annotations = parameter.annotations.mapNotNull { it.qualifiedName }
+                    )
+                }
+            }
+        } catch (e: com.intellij.openapi.progress.ProcessCanceledException) {
+            // 重新抛出取消异常
+            throw e
+        } catch (e: Exception) {
+            logger.debug("BoundaryEntryPointDetector", "提取参数信息失败", mapOf("error" to e.message))
+            emptyList()
         }
     }
 
@@ -880,4 +974,4 @@ class BoundaryEntryPointDetector(private val project: Project) {
                 annotationName.contains("Secured")
     }
 
-  }
+}

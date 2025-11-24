@@ -8,6 +8,8 @@ import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.psi.*
 import com.intellij.psi.search.FileTypeIndex
+import com.intellij.openapi.fileTypes.FileTypeManager
+import com.intellij.openapi.fileTypes.StdFileTypes
 import com.intellij.psi.search.GlobalSearchScope
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
@@ -92,59 +94,82 @@ class BatchAnalysisProcessor(private val project: Project) {
      */
     private suspend fun collectPsiFiles(config: AnalysisConfig): List<PsiJavaFile> = withContext(Dispatchers.IO) {
         val scope = scopeController.createSearchScope(config)
-        val files = mutableListOf<PsiJavaFile>()
 
-        // 并行收集文件
-        val deferredList = mutableListOf<Deferred<List<PsiJavaFile>>>()
+        // 在ReadAction中收集PSI文件，确保线程安全
+        return@withContext com.intellij.openapi.application.ReadAction.compute<List<PsiJavaFile>, com.intellij.openapi.progress.ProcessCanceledException> {
+            ProgressManager.checkCanceled()
 
-        // 收集Java文件
-        deferredList.add(async {
-            val javaFiles = mutableListOf<PsiJavaFile>()
+            val files = mutableListOf<PsiJavaFile>()
+            val psiManager = PsiManager.getInstance(project)
+
+            // 使用FileTypeIndex搜索Java文件
+            val javaFileType = StdFileTypes.JAVA
             FileTypeIndex.processFiles(
-                com.intellij.openapi.fileTypes.StdFileTypes.JAVA,
+                javaFileType,
                 { virtualFile ->
-                    val psiFile = PsiManager.getInstance(project).findFile(virtualFile)
+                    ProgressManager.checkCanceled()
+                    val psiFile = psiManager.findFile(virtualFile)
                     if (psiFile is PsiJavaFile && scopeController.shouldIncludePackage(psiFile.packageName, config)) {
-                        javaFiles.add(psiFile)
+                        files.add(psiFile)
                     }
                     true
                 },
                 scope
             )
-            javaFiles
-        })
 
-        // 等待所有文件收集完成
-        deferredList.awaitAll().forEach { files.addAll(it) }
-
-        return@withContext files.distinctBy { it.virtualFile.path }
+            files.distinctBy { it.virtualFile.path }
+        }
     }
 
     /**
      * 创建批处理计划
      */
     private fun createBatchPlan(psiFiles: List<PsiJavaFile>, config: AnalysisConfig): BatchPlan {
-        val allClasses = psiFiles.flatMap { it.classes.toList() }
-        val filteredClasses = scopeController.filterClassesForAnalysis(allClasses, config)
+        return try {
+            com.intellij.openapi.application.ReadAction.compute<BatchPlan, com.intellij.openapi.progress.ProcessCanceledException> {
+                ProgressManager.checkCanceled()
 
-        // 根据项目大小确定批次大小
-        val batchSize = determineBatchSize(filteredClasses.size, config)
-        val batches = filteredClasses.chunked(batchSize)
+                val allClasses = psiFiles.flatMap { psiFile ->
+                    ProgressManager.checkCanceled()
+                    psiFile.classes.toList()
+                }
 
-        return BatchPlan(
-            totalFiles = psiFiles.size,
-            totalClasses = allClasses.size,
-            filteredClasses = filteredClasses.size,
-            batchSize = batchSize,
-            batchCount = batches.size,
-            batches = batches.mapIndexed { index, classes ->
-                Batch(
-                    id = index + 1,
-                    classes = classes,
-                    estimatedComplexity = estimateBatchComplexity(classes)
+                val filteredClasses = scopeController.filterClassesForAnalysis(allClasses, config)
+
+                // 根据项目大小确定批次大小
+                val batchSize = determineBatchSize(filteredClasses.size, config)
+                val batches = filteredClasses.chunked(batchSize)
+
+                BatchPlan(
+                    totalFiles = psiFiles.size,
+                    totalClasses = allClasses.size,
+                    filteredClasses = filteredClasses.size,
+                    batchSize = batchSize,
+                    batchCount = batches.size,
+                    batches = batches.mapIndexed { index, classes ->
+                        Batch(
+                            id = index + 1,
+                            classes = classes,
+                            estimatedComplexity = estimateBatchComplexity(classes)
+                        )
+                    }
                 )
             }
-        )
+        } catch (e: com.intellij.openapi.progress.ProcessCanceledException) {
+            // 重新抛出取消异常
+            throw e
+        } catch (e: Exception) {
+            logger.warn("BatchAnalysisProcessor", "创建批处理计划失败", mapOf("error" to e.message))
+            // 返回空的批处理计划
+            BatchPlan(
+                totalFiles = psiFiles.size,
+                totalClasses = 0,
+                filteredClasses = 0,
+                batchSize = 1,
+                batchCount = 0,
+                batches = emptyList()
+            )
+        }
     }
 
     /**
@@ -178,57 +203,66 @@ class BatchAnalysisProcessor(private val project: Project) {
      */
     private suspend fun analyzeClass(psiClass: PsiClass, config: AnalysisConfig): Map<String, Any> = withContext(Dispatchers.Default) {
         try {
-            // 1. 基础复杂度分析
-            val complexityMetrics = complexityCalculator.calculateClassComplexityMetrics(psiClass)
+            // 在ReadAction中执行所有PSI访问操作
+            return@withContext com.intellij.openapi.application.ReadAction.compute<Map<String, Any>, com.intellij.openapi.progress.ProcessCanceledException> {
+                ProgressManager.checkCanceled()
 
-            // 2. 依赖关系分析
-            val dependencies = javaDependencyExtractor.extractClassDependencies(psiClass)
+                // 1. 基础复杂度分析
+                val complexityMetrics = complexityCalculator.calculateClassComplexityMetrics(psiClass)
 
-            // 3. 方法级详细分析
-            val methodDetailedMetrics = psiClass.methods.mapNotNull { method ->
-                try {
-                    val methodMetrics = MethodMetrics(
-                        linesOfCode = complexityCalculator.countMethodLinesOfCode(method),
-                        cyclomaticComplexity = complexityCalculator.calculateMethodCyclomaticComplexity(method),
-                        cognitiveComplexity = complexityCalculator.calculateMethodCognitiveComplexity(method),
-                        nestingDepth = complexityCalculator.calculateMethodNestingDepth(method),
-                        fanIn = 0, // 需要在全局分析中计算
-                        fanOut = dependencies.count { dep -> dep.referenceType == ReferenceType.ASSOCIATION },
-                        parameterCount = method.parameterList.parametersCount,
-                        maxCallDepth = javaDependencyExtractor.calculateMaxCallDepth(method),
-                        localVariableCount = complexityCalculator.countMethodLocalVariables(method),
-                        magicNumberCount = complexityCalculator.countMethodMagicNumbers(method),
-                        longLineCount = complexityCalculator.countMethodLongLines(method),
-                        returnStatementCount = complexityCalculator.countMethodReturnStatements(method),
-                        booleanParameterCount = complexityCalculator.countMethodBooleanParameters(method),
-                        codeSmells = emptyList(), // 将在全局分析中计算
-                        complexityScore = 0, // 将在全局分析中计算
-                        refactoringPriority = RefactoringPriority("", "", "")
+                // 2. 依赖关系分析
+                val dependencies = javaDependencyExtractor.extractClassDependencies(psiClass)
+
+                // 3. 方法级详细分析
+                val methodDetailedMetrics = psiClass.methods.mapNotNull { method ->
+                    try {
+                        ProgressManager.checkCanceled()
+                        val methodMetrics = MethodMetrics(
+                            linesOfCode = complexityCalculator.countMethodLinesOfCode(method),
+                            cyclomaticComplexity = complexityCalculator.calculateMethodCyclomaticComplexity(method),
+                            cognitiveComplexity = complexityCalculator.calculateMethodCognitiveComplexity(method),
+                            nestingDepth = complexityCalculator.calculateMethodNestingDepth(method),
+                            fanIn = 0, // 需要在全局分析中计算
+                            fanOut = dependencies.count { dep -> dep.referenceType == ReferenceType.ASSOCIATION },
+                            parameterCount = method.parameterList.parametersCount,
+                            maxCallDepth = javaDependencyExtractor.calculateMaxCallDepth(method),
+                            localVariableCount = complexityCalculator.countMethodLocalVariables(method),
+                            magicNumberCount = complexityCalculator.countMethodMagicNumbers(method),
+                            longLineCount = complexityCalculator.countMethodLongLines(method),
+                            returnStatementCount = complexityCalculator.countMethodReturnStatements(method),
+                            booleanParameterCount = complexityCalculator.countMethodBooleanParameters(method),
+                            codeSmells = emptyList(), // 将在全局分析中计算
+                            complexityScore = 0, // 将在全局分析中计算
+                            refactoringPriority = RefactoringPriority("", "", "")
+                        )
+                        method.name to methodMetrics
+                    } catch (e: Exception) {
+                        logger.debug("BatchAnalysisProcessor", "分析方法失败: ${method.name}", mapOf("error" to e.message))
+                        null
+                    }
+                }.toMap()
+
+                mapOf(
+                    Pair("className", psiClass.qualifiedName ?: ""),
+                    "complexity" to complexityMetrics.cyclomaticComplexity,
+                    "dependencyCount" to dependencies.size,
+                    "methodCount" to psiClass.methods.size,
+                    "fieldCount" to psiClass.fields.size,
+                    "complexityMetrics" to complexityMetrics,
+                    "dependencies" to dependencies,
+                    "methodDetailedMetrics" to methodDetailedMetrics,
+                    "isPojo" to pojoUsageAnalyzer.isPojoClass(psiClass),
+                    "packageMetrics" to PackageMetrics(
+                        fanIn = 0, // 将在全局分析中计算
+                        fanOut = dependencies.distinctBy { it.className }.size,
+                        instability = 0.0 // 将在全局分析中计算
                     )
-                    method.name to methodMetrics
-                } catch (e: Exception) {
-                    logger.debug("BatchAnalysisProcessor", "分析方法失败: ${method.name}", mapOf("error" to e.message))
-                    null
-                }
-            }.toMap()
-
-            return@withContext mapOf(
-                Pair("className", psiClass.qualifiedName ?: ""),
-                "complexity" to complexityMetrics.cyclomaticComplexity,
-                "dependencyCount" to dependencies.size,
-                "methodCount" to psiClass.methods.size,
-                "fieldCount" to psiClass.fields.size,
-                "complexityMetrics" to complexityMetrics,
-                "dependencies" to dependencies,
-                "methodDetailedMetrics" to methodDetailedMetrics,
-                "isPojo" to pojoUsageAnalyzer.isPojoClass(psiClass),
-                "packageMetrics" to PackageMetrics(
-                    fanIn = 0, // 将在全局分析中计算
-                    fanOut = dependencies.distinctBy { it.className }.size,
-                    instability = 0.0 // 将在全局分析中计算
                 )
-            )
+            }
 
+        } catch (e: com.intellij.openapi.progress.ProcessCanceledException) {
+            // 重新抛出取消异常
+            throw e
         } catch (e: Exception) {
             logger.warn("BatchAnalysisProcessor", "分析类失败: ${psiClass.qualifiedName}", mapOf("error" to e.message))
             mapOf(
@@ -259,7 +293,9 @@ class BatchAnalysisProcessor(private val project: Project) {
         classResults.forEach { classResult ->
             val className = classResult["className"] as? String
             val metrics = classResult["complexityMetrics"] as? ClassComplexityMetrics
+            @Suppress("UNCHECKED_CAST")
             val dependencies = classResult["dependencies"] as? List<ClassReference>
+            @Suppress("UNCHECKED_CAST")
             val methodDetailedMetrics = classResult["methodDetailedMetrics"] as? Map<String, Any>
             val isPojo = classResult["isPojo"] as? Boolean ?: false
 
@@ -374,14 +410,27 @@ class BatchAnalysisProcessor(private val project: Project) {
      * 提取方法调用
      */
     private fun extractMethodCalls(allClasses: List<PsiClass>, maxDepth: Int): List<MethodCall> {
-        return allClasses.flatMap { psiClass ->
-            psiClass.methods.flatMap { method ->
-                try {
-                    javaDependencyExtractor.extractMethodCallChain(method, maxDepth)
-                } catch (e: Exception) {
-                    emptyList()
+        return try {
+            com.intellij.openapi.application.ReadAction.compute<List<MethodCall>, com.intellij.openapi.progress.ProcessCanceledException> {
+                allClasses.flatMap { psiClass ->
+                    ProgressManager.checkCanceled()
+                    psiClass.methods.flatMap { method ->
+                        ProgressManager.checkCanceled()
+                        try {
+                            javaDependencyExtractor.extractMethodCallChain(method, maxDepth)
+                        } catch (e: Exception) {
+                            logger.debug("BatchAnalysisProcessor", "提取方法调用链失败: ${method.name}", mapOf("error" to e.message))
+                            emptyList()
+                        }
+                    }
                 }
             }
+        } catch (e: com.intellij.openapi.progress.ProcessCanceledException) {
+            // 重新抛出取消异常
+            throw e
+        } catch (e: Exception) {
+            logger.warn("BatchAnalysisProcessor", "提取方法调用失败", mapOf("error" to e.message))
+            emptyList()
         }
     }
 
@@ -389,39 +438,51 @@ class BatchAnalysisProcessor(private val project: Project) {
      * 分析业务入口点
      */
     private fun analyzeBusinessEntryPoints(allClasses: List<PsiClass>): List<BusinessEntryPoint> {
-        return allClasses.flatMap { psiClass ->
-            psiClass.methods.filter { method ->
-                // 检查是否有业务相关注解
-                method.annotations.any { annotation ->
-                    val qualifiedName = annotation.qualifiedName
-                    qualifiedName?.let { name ->
-                        name.contains("Controller") ||
-                        name.contains("Service") ||
-                        name.contains("Scheduled") ||
-                        name.contains("RequestMapping") ||
-                        name.contains("GetMapping") ||
-                        name.contains("PostMapping") ||
-                        name.contains("KafkaListener") ||
-                        name.contains("EventListener")
-                    } ?: false
-                }
-            }.map { method ->
-                BusinessEntryPoint(
-                    className = psiClass.qualifiedName ?: "",
-                    methodName = method.name,
-                    entryType = determineEntryType(method),
-                    annotations = method.annotations.mapNotNull { it.qualifiedName },
-                    businessScenario = determineBusinessScenario(psiClass, method),
-                    parameters = method.parameterList.parameters.map { param ->
-                        ParameterInfo(
-                            name = param.name ?: "",
-                            type = param.type.canonicalText,
-                            annotations = param.annotations.mapNotNull { it.qualifiedName }
+        return try {
+            com.intellij.openapi.application.ReadAction.compute<List<BusinessEntryPoint>, com.intellij.openapi.progress.ProcessCanceledException> {
+                allClasses.flatMap { psiClass ->
+                    ProgressManager.checkCanceled()
+                    psiClass.methods.filter { method ->
+                        ProgressManager.checkCanceled()
+                        // 检查是否有业务相关注解
+                        method.annotations.any { annotation ->
+                            val qualifiedName = annotation.qualifiedName
+                            qualifiedName?.let { name ->
+                                name.contains("Controller") ||
+                                name.contains("Service") ||
+                                name.contains("Scheduled") ||
+                                name.contains("RequestMapping") ||
+                                name.contains("GetMapping") ||
+                                name.contains("PostMapping") ||
+                                name.contains("KafkaListener") ||
+                                name.contains("EventListener")
+                            } ?: false
+                        }
+                    }.map { method ->
+                        BusinessEntryPoint(
+                            className = psiClass.qualifiedName ?: "",
+                            methodName = method.name,
+                            entryType = determineEntryType(method),
+                            annotations = method.annotations.mapNotNull { it.qualifiedName },
+                            businessScenario = determineBusinessScenario(psiClass, method),
+                            parameters = method.parameterList.parameters.map { param ->
+                                ParameterInfo(
+                                    name = param.name ?: "",
+                                    type = param.type.canonicalText,
+                                    annotations = param.annotations.mapNotNull { it.qualifiedName }
+                                )
+                            },
+                            httpMapping = extractHttpMapping(method)
                         )
-                    },
-                    httpMapping = extractHttpMapping(method)
-                )
+                    }
+                }
             }
+        } catch (e: com.intellij.openapi.progress.ProcessCanceledException) {
+            // 重新抛出取消异常
+            throw e
+        } catch (e: Exception) {
+            logger.warn("BatchAnalysisProcessor", "分析业务入口点失败", mapOf("error" to e.message))
+            emptyList()
         }
     }
 
@@ -589,27 +650,46 @@ class BatchAnalysisProcessor(private val project: Project) {
         methodMetricsMap: Map<String, Map<String, MethodMetrics>>,
         pojoUsages: List<PojoUsage>
     ): List<ClassInfo> {
-        return allClasses.map { psiClass ->
-            val className = psiClass.qualifiedName ?: ""
-            val packageName = (psiClass.containingFile as? PsiJavaFile)?.packageName ?: ""
-            val metrics = complexityMetrics[className]
-            val methodMetrics = methodMetricsMap[className] ?: emptyMap()
-            val pojoUsage = pojoUsages.find { it.qualifiedName == className }
+        return try {
+            com.intellij.openapi.application.ReadAction.compute<List<ClassInfo>, com.intellij.openapi.progress.ProcessCanceledException> {
+                allClasses.map { psiClass ->
+                    ProgressManager.checkCanceled()
+                    val className = psiClass.qualifiedName ?: ""
+                    val packageName = (psiClass.containingFile as? PsiJavaFile)?.packageName ?: ""
+                    val metrics = complexityMetrics[className]
+                    val methodMetrics = methodMetricsMap[className] ?: emptyMap()
+                    val pojoUsage = pojoUsages.find { it.qualifiedName == className }
 
-            ClassInfo(
-                id = className,
-                name = psiClass.name ?: "",
-                qualifiedName = className,
-                packageId = packageName,
-                type = determineClassType(psiClass),
-                modifiers = extractModifiers(psiClass),
-                isTest = isTestClass(psiClass),
-                sourceFile = psiClass.containingFile.virtualFile.path,
-                annotations = psiClass.annotations.mapNotNull { it.qualifiedName },
-                superClass = psiClass.superClass?.qualifiedName,
-                interfaces = psiClass.interfaces.mapNotNull { it.qualifiedName },
-                metrics = buildClassDetailedMetrics(metrics, methodMetrics, pojoUsage)
-            )
+                    // 安全获取源文件路径
+                    val sourceFile = try {
+                        psiClass.containingFile.virtualFile.path
+                    } catch (e: Exception) {
+                        logger.debug("BatchAnalysisProcessor", "获取源文件路径失败: ${className}", mapOf("error" to e.message))
+                        ""
+                    }
+
+                    ClassInfo(
+                        id = className,
+                        name = psiClass.name ?: "",
+                        qualifiedName = className,
+                        packageId = packageName,
+                        type = determineClassType(psiClass),
+                        modifiers = extractModifiers(psiClass),
+                        isTest = isTestClass(psiClass),
+                        sourceFile = sourceFile,
+                        annotations = psiClass.annotations.mapNotNull { it.qualifiedName },
+                        superClass = psiClass.superClass?.qualifiedName,
+                        interfaces = psiClass.interfaces.mapNotNull { it.qualifiedName },
+                        metrics = buildClassDetailedMetrics(metrics, methodMetrics, pojoUsage)
+                    )
+                }
+            }
+        } catch (e: com.intellij.openapi.progress.ProcessCanceledException) {
+            // 重新抛出取消异常
+            throw e
+        } catch (e: Exception) {
+            logger.warn("BatchAnalysisProcessor", "构建类信息失败", mapOf("error" to e.message))
+            emptyList()
         }
     }
 
@@ -620,69 +700,103 @@ class BatchAnalysisProcessor(private val project: Project) {
         allClasses: List<PsiClass>,
         methodMetricsMap: Map<String, Map<String, MethodMetrics>>
     ): List<MethodInfo> {
-        return allClasses.flatMap { psiClass ->
-            val className = psiClass.qualifiedName ?: ""
-            val packageName = (psiClass.containingFile as? PsiJavaFile)?.packageName ?: ""
-            val methodMetrics = methodMetricsMap[className] ?: emptyMap()
+        return try {
+            com.intellij.openapi.application.ReadAction.compute<List<MethodInfo>, com.intellij.openapi.progress.ProcessCanceledException> {
+                allClasses.flatMap { psiClass ->
+                    ProgressManager.checkCanceled()
+                    val className = psiClass.qualifiedName ?: ""
+                    val packageName = (psiClass.containingFile as? PsiJavaFile)?.packageName ?: ""
+                    val methodMetrics = methodMetricsMap[className] ?: emptyMap()
 
-            psiClass.methods.map { method ->
-                val methodName = method.name
-                val metrics = methodMetrics[methodName] ?: MethodMetrics(
-                    linesOfCode = 0,
-                    cyclomaticComplexity = 0,
-                    cognitiveComplexity = 0,
-                    nestingDepth = 0,
-                    fanIn = 0,
-                    fanOut = 0,
-                    parameterCount = 0,
-                    maxCallDepth = 0,
-                    localVariableCount = 0,
-                    magicNumberCount = 0,
-                    longLineCount = 0,
-                    returnStatementCount = 0,
-                    booleanParameterCount = 0,
-                    codeSmells = emptyList(),
-                    complexityScore = 0,
-                    refactoringPriority = RefactoringPriority("", "", "")
-                )
-
-                MethodInfo(
-                    id = "$className.$methodName",
-                    name = methodName,
-                    className = psiClass.name ?: "",
-                    classId = className,
-                    packageId = packageName,
-                    signature = buildMethodSignature(method),
-                    qualifiedSignature = "$className.$methodName",
-                    modifiers = extractModifiers(method),
-                    isStatic = method.hasModifierProperty("static"),
-                    isConstructor = method.isConstructor,
-                    isAbstract = method.hasModifierProperty("abstract"),
-                    annotations = method.annotations.mapNotNull { it.qualifiedName },
-                    parameters = method.parameterList.parameters.map { param ->
-                        ParameterDetail(
-                            name = param.name ?: "",
-                            type = param.type.canonicalText,
-                            annotations = param.annotations.mapNotNull { it.qualifiedName }
+                    psiClass.methods.map { method ->
+                        ProgressManager.checkCanceled()
+                        val methodName = method.name
+                        val metrics = methodMetrics[methodName] ?: MethodMetrics(
+                            linesOfCode = 0,
+                            cyclomaticComplexity = 0,
+                            cognitiveComplexity = 0,
+                            nestingDepth = 0,
+                            fanIn = 0,
+                            fanOut = 0,
+                            parameterCount = 0,
+                            maxCallDepth = 0,
+                            localVariableCount = 0,
+                            magicNumberCount = 0,
+                            longLineCount = 0,
+                            returnStatementCount = 0,
+                            booleanParameterCount = 0,
+                            codeSmells = emptyList(),
+                            complexityScore = 0,
+                            refactoringPriority = RefactoringPriority("", "", "")
                         )
-                    },
-                    returnType = method.returnType?.canonicalText ?: "void",
-                    throwsExceptions = emptyList(), // 简化处理
-                    metrics = metrics,
-                    location = SourceLocation(
-                        filePath = psiClass.containingFile.virtualFile.path,
-                        lineNumber = method.containingFile.viewProvider.document.getLineNumber(method.textRange.startOffset) + 1,
-                        columnNumber = method.textRange.startOffset - method.containingFile.viewProvider.document.getLineStartOffset(method.containingFile.viewProvider.document.getLineNumber(method.textRange.startOffset)) + 1
-                    ),
-                    usedTypes = extractUsedTypes(method),
-                    tags = MethodTags(
-                        isEntryPoint = hasEntryPointAnnotation(method),
-                        isPublicApi = method.hasModifierProperty("public"),
-                        isDeprecated = method.annotations.any { it.qualifiedName?.contains("Deprecated") == true },
-                        sceneNames = emptyList() // 简化处理
-                    )
-                )
+
+                        // 安全获取位置信息
+                        val location = try {
+                            val document = method.containingFile.viewProvider.document
+                            if (document != null) {
+                                val lineStart = document.getLineStartOffset(document.getLineNumber(method.textRange.startOffset))
+                                SourceLocation(
+                                    filePath = psiClass.containingFile.virtualFile.path,
+                                    lineNumber = document.getLineNumber(method.textRange.startOffset) + 1,
+                                    columnNumber = method.textRange.startOffset - lineStart + 1
+                                )
+                            } else {
+                                SourceLocation(
+                                    filePath = psiClass.containingFile.virtualFile.path,
+                                    lineNumber = 0,
+                                    columnNumber = 0
+                                )
+                            }
+                        } catch (e: Exception) {
+                            logger.debug("BatchAnalysisProcessor", "获取方法位置信息失败: ${method.name}", mapOf("error" to e.message))
+                            SourceLocation(
+                                filePath = psiClass.containingFile.virtualFile.path,
+                                lineNumber = 0,
+                                columnNumber = 0
+                            )
+                        }
+
+                        MethodInfo(
+                            id = "$className.$methodName",
+                            name = methodName,
+                            className = psiClass.name ?: "",
+                            classId = className,
+                            packageId = packageName,
+                            signature = buildMethodSignature(method),
+                            qualifiedSignature = "$className.$methodName",
+                            modifiers = extractModifiers(method),
+                            isStatic = method.hasModifierProperty("static"),
+                            isConstructor = method.isConstructor,
+                            isAbstract = method.hasModifierProperty("abstract"),
+                            annotations = method.annotations.mapNotNull { it.qualifiedName },
+                            parameters = method.parameterList.parameters.map { param ->
+                                ParameterDetail(
+                                    name = param.name ?: "",
+                                    type = param.type.canonicalText,
+                                    annotations = param.annotations.mapNotNull { it.qualifiedName }
+                                )
+                            },
+                            returnType = method.returnType?.canonicalText ?: "void",
+                            throwsExceptions = emptyList(), // 简化处理
+                            metrics = metrics,
+                            location = location,
+                            usedTypes = extractUsedTypes(method),
+                            tags = MethodTags(
+                                isEntryPoint = hasEntryPointAnnotation(method),
+                                isPublicApi = method.hasModifierProperty("public"),
+                                isDeprecated = method.annotations.any { it.qualifiedName?.contains("Deprecated") == true },
+                                sceneNames = emptyList() // 简化处理
+                            )
+                        )
+                    }
+                }
             }
+        } catch (e: com.intellij.openapi.progress.ProcessCanceledException) {
+            // 重新抛出取消异常
+            throw e
+        } catch (e: Exception) {
+            logger.warn("BatchAnalysisProcessor", "构建方法信息失败", mapOf("error" to e.message))
+            emptyList()
         }
     }
 
@@ -690,22 +804,34 @@ class BatchAnalysisProcessor(private val project: Project) {
      * 构建字段信息
      */
     private fun buildFieldInfos(allClasses: List<PsiClass>): List<FieldInfo> {
-        return allClasses.flatMap { psiClass ->
-            val className = psiClass.qualifiedName ?: ""
+        return try {
+            com.intellij.openapi.application.ReadAction.compute<List<FieldInfo>, com.intellij.openapi.progress.ProcessCanceledException> {
+                allClasses.flatMap { psiClass ->
+                    ProgressManager.checkCanceled()
+                    val className = psiClass.qualifiedName ?: ""
 
-            psiClass.fields.map { field ->
-                FieldInfo(
-                    id = "$className.${field.name}",
-                    name = field.name ?: "",
-                    classId = className,
-                    type = field.type.canonicalText,
-                    modifiers = extractModifiers(field),
-                    isStatic = field.hasModifierProperty("static"),
-                    isFinal = field.hasModifierProperty("final"),
-                    annotations = field.annotations.mapNotNull { it.qualifiedName },
-                    initializer = field.initializer?.text
-                )
+                    psiClass.fields.map { field ->
+                        ProgressManager.checkCanceled()
+                        FieldInfo(
+                            id = "$className.${field.name}",
+                            name = field.name ?: "",
+                            classId = className,
+                            type = field.type.canonicalText,
+                            modifiers = extractModifiers(field),
+                            isStatic = field.hasModifierProperty("static"),
+                            isFinal = field.hasModifierProperty("final"),
+                            annotations = field.annotations.mapNotNull { it.qualifiedName },
+                            initializer = field.initializer?.text
+                        )
+                    }
+                }
             }
+        } catch (e: com.intellij.openapi.progress.ProcessCanceledException) {
+            // 重新抛出取消异常
+            throw e
+        } catch (e: Exception) {
+            logger.warn("BatchAnalysisProcessor", "构建字段信息失败", mapOf("error" to e.message))
+            emptyList()
         }
     }
 
@@ -896,13 +1022,24 @@ class BatchAnalysisProcessor(private val project: Project) {
      * 估算批次复杂度
      */
     private fun estimateBatchComplexity(classes: List<PsiClass>): Int {
-        return classes.sumOf { psiClass ->
-            // 简单的复杂度估算：方法数 * 字段数 * 深度系数
-            val methodCount = psiClass.methods.size
-            val fieldCount = psiClass.fields.size
-            val depthFactor = calculateNestingDepth(psiClass).coerceAtLeast(1)
+        return try {
+            com.intellij.openapi.application.ReadAction.compute<Int, com.intellij.openapi.progress.ProcessCanceledException> {
+                classes.sumOf { psiClass ->
+                    ProgressManager.checkCanceled()
+                    // 简单的复杂度估算：方法数 * 字段数 * 深度系数
+                    val methodCount = psiClass.methods.size
+                    val fieldCount = psiClass.fields.size
+                    val depthFactor = calculateNestingDepth(psiClass).coerceAtLeast(1)
 
-            methodCount * fieldCount * depthFactor
+                    methodCount * fieldCount * depthFactor
+                }
+            }
+        } catch (e: com.intellij.openapi.progress.ProcessCanceledException) {
+            // 重新抛出取消异常
+            throw e
+        } catch (e: Exception) {
+            logger.warn("BatchAnalysisProcessor", "估算批次复杂度失败", mapOf("error" to e.message))
+            1 // 返回最小复杂度
         }
     }
 
@@ -910,19 +1047,30 @@ class BatchAnalysisProcessor(private val project: Project) {
      * 计算嵌套深度（简化版）
      */
     private fun calculateNestingDepth(psiClass: PsiClass): Int {
-        var maxDepth = 0
-        psiClass.methods.forEach { method ->
-            method.accept(object : JavaRecursiveElementVisitor() {
-                var currentDepth = 0
-                override fun visitIfStatement(statement: PsiIfStatement) {
-                    currentDepth++
-                    maxDepth = maxOf(maxDepth, currentDepth)
-                    super.visitIfStatement(statement)
-                    currentDepth--
+        return try {
+            com.intellij.openapi.application.ReadAction.compute<Int, com.intellij.openapi.progress.ProcessCanceledException> {
+                var maxDepth = 0
+                psiClass.methods.forEach { method ->
+                    ProgressManager.checkCanceled()
+                    method.accept(object : JavaRecursiveElementVisitor() {
+                        var currentDepth = 0
+                        override fun visitIfStatement(statement: PsiIfStatement) {
+                            currentDepth++
+                            maxDepth = maxOf(maxDepth, currentDepth)
+                            super.visitIfStatement(statement)
+                            currentDepth--
+                        }
+                    })
                 }
-            })
+                maxDepth
+            }
+        } catch (e: com.intellij.openapi.progress.ProcessCanceledException) {
+            // 重新抛出取消异常
+            throw e
+        } catch (e: Exception) {
+            logger.debug("BatchAnalysisProcessor", "计算嵌套深度失败", mapOf("error" to e.message))
+            1 // 返回最小深度
         }
-        return maxDepth
     }
 
     /**
@@ -973,11 +1121,23 @@ class BatchAnalysisProcessor(private val project: Project) {
             throw IllegalArgumentException("增量分析需要提供有效的基准结果或ProgressIndicator实例")
         }
 
-        // 分析修改的类
-        val modifiedMetrics = mutableMapOf<String, ClassComplexityMetrics>()
-        modifiedClasses.forEach { psiClass ->
-            val metrics = complexityCalculator.calculateClassComplexityMetrics(psiClass)
-            modifiedMetrics[psiClass.qualifiedName ?: ""] = metrics
+        // 在ReadAction中分析修改的类
+        val modifiedMetrics = try {
+            com.intellij.openapi.application.ReadAction.compute<Map<String, ClassComplexityMetrics>, com.intellij.openapi.progress.ProcessCanceledException> {
+                mutableMapOf<String, ClassComplexityMetrics>().apply {
+                    modifiedClasses.forEach { psiClass ->
+                        ProgressManager.checkCanceled()
+                        val metrics = complexityCalculator.calculateClassComplexityMetrics(psiClass)
+                        this[psiClass.qualifiedName ?: ""] = metrics
+                    }
+                }
+            }
+        } catch (e: com.intellij.openapi.progress.ProcessCanceledException) {
+            // 重新抛出取消异常
+            throw e
+        } catch (e: Exception) {
+            logger.warn("BatchAnalysisProcessor", "增量分析PSI操作失败", mapOf("error" to e.message))
+            emptyMap()
         }
 
         // 合并到基线结果
