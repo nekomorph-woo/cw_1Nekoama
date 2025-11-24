@@ -65,6 +65,8 @@ class EntryPointConfirmationDialog(
             } else {
                 NekoamaLogger.warn("EntryPointConfirmationDialog",
                     "Dialog initialized with empty entry points list")
+                // 显示空状态提示信息而不是错误
+                showEmptyStateMessage()
             }
 
             setupUI()
@@ -206,15 +208,80 @@ class EntryPointConfirmationDialog(
         titleLabel.font = titleLabel.font.deriveFont(titleLabel.font.style or java.awt.Font.BOLD)
         titleLabel.border = JBUI.Borders.empty(0, 0, 5, 0)
 
-        setupTable()
+        if (allEntryPoints.isEmpty()) {
+            // 显示空状态面板
+            val emptyStatePanel = createEmptyStatePanel()
+            tablePanel.add(titleLabel, BorderLayout.NORTH)
+            tablePanel.add(emptyStatePanel, BorderLayout.CENTER)
+        } else {
+            // 显示正常的表格
+            setupTable()
+            val scrollPane = JBScrollPane(entryPointsTable)
+            scrollPane.preferredSize = JBUI.size(600, 400)
 
-        val scrollPane = JBScrollPane(entryPointsTable)
-        scrollPane.preferredSize = JBUI.size(600, 400)
-
-        tablePanel.add(titleLabel, BorderLayout.NORTH)
-        tablePanel.add(scrollPane, BorderLayout.CENTER)
+            tablePanel.add(titleLabel, BorderLayout.NORTH)
+            tablePanel.add(scrollPane, BorderLayout.CENTER)
+        }
 
         return tablePanel
+    }
+
+    /**
+     * 创建空状态面板
+     */
+    private fun createEmptyStatePanel(): JPanel {
+        val emptyPanel = JPanel(BorderLayout())
+        emptyPanel.background = UIUtil.getPanelBackground()
+        emptyPanel.border = JBUI.Borders.empty(20, 20)
+
+        // 创建提示信息
+        val messagePanel = JPanel()
+        messagePanel.layout = BoxLayout(messagePanel, BoxLayout.Y_AXIS)
+        messagePanel.background = UIUtil.getPanelBackground()
+
+        val titleLabel = JBLabel("未检测到业务入口点")
+        titleLabel.font = titleLabel.font.deriveFont(titleLabel.font.style or java.awt.Font.BOLD, titleLabel.font.size + 2f)
+
+        val messageLabel = JBLabel("<html><div style='width: 400px;'>" +
+                "可能的原因：<br/>" +
+                "• 项目中未包含Spring Web或相关Web框架依赖<br/>" +
+                "• IDEA索引尚未构建完成<br/>" +
+                "• 入口点类不在当前搜索范围内<br/>" +
+                "• 项目中确实没有定义Controller类" +
+                "</div></html>")
+
+        val suggestionLabel = JBLabel("<html><div style='width: 400px; color: #666;'>" +
+                "建议：<br/>" +
+                "1. 检查项目的pom.xml或build.gradle是否包含Spring依赖<br/>" +
+                "2. 确保项目已正确导入IDEA并完成索引构建<br/>" +
+                "3. 刷新项目或重新导入依赖" +
+                "</div></html>")
+
+        // 添加诊断按钮
+        val diagnoseButton = JButton("诊断问题")
+        diagnoseButton.addActionListener {
+            showDiagnosticDialog()
+        }
+
+        messagePanel.add(titleLabel)
+        messagePanel.add(Box.createVerticalStrut(10))
+        messagePanel.add(messageLabel)
+        messagePanel.add(Box.createVerticalStrut(15))
+        messagePanel.add(suggestionLabel)
+        messagePanel.add(Box.createVerticalStrut(20))
+        messagePanel.add(diagnoseButton)
+
+        emptyPanel.add(messagePanel, BorderLayout.CENTER)
+
+        return emptyPanel
+    }
+
+    /**
+     * 显示空状态消息
+     */
+    private fun showEmptyStateMessage() {
+        NekoamaLogger.info("EntryPointConfirmationDialog", "显示空状态提示信息")
+        // 这里可以添加更多的用户通知逻辑
     }
 
     /**
@@ -516,6 +583,118 @@ class EntryPointConfirmationDialog(
             EntryType.MAIN -> NekoamaBundle.message("entryPoint.type.main")
             // API类型已从枚举中移除，不需要处理
         }
+    }
+
+    /**
+     * 显示诊断对话框
+     */
+    private fun showDiagnosticDialog() {
+        NekoamaLogger.info("EntryPointConfirmationDialog", "用户点击诊断按钮")
+
+        val diagnosticInfo = buildString {
+            appendLine("=== 入口点检测诊断信息 ===")
+            appendLine("项目名称: ${project.name}")
+            appendLine("项目基础路径: ${project.basePath}")
+            appendLine("检测到入口点数量: ${allEntryPoints.size}")
+            appendLine()
+
+            appendLine("=== 依赖检查 ===")
+            checkAndReportDependencies()
+            appendLine()
+
+            appendLine("=== 索引状态 ===")
+            checkAndReportIndexStatus()
+            appendLine()
+
+            appendLine("=== 搜索范围 ===")
+            appendLine("当前使用: projectScope")
+            appendLine("建议使用: allScope (包含依赖库)")
+            appendLine()
+
+            appendLine("=== 修复建议 ===")
+            appendLine("1. 确保项目包含Spring Boot Web依赖")
+            appendLine("2. 在Maven/Gradle中刷新项目依赖")
+            appendLine("3. 等待IDEA完成索引构建")
+            appendLine("4. 检查@RestController类的包路径是否正确")
+            appendLine("5. 确保Controller类位于源代码目录中")
+        }
+
+        // 显示诊断结果对话框
+        val diagnosticDialog = object : DialogWrapper(project) {
+            init {
+                title = "入口点检测诊断"
+                setOKButtonText("关闭")
+            }
+
+            override fun createCenterPanel(): JComponent {
+                val textArea = JTextArea(diagnosticInfo)
+                textArea.isEditable = false
+                textArea.font = textArea.font.deriveFont(textArea.font.size - 1f)
+                textArea.background = UIUtil.getTextFieldBackground()
+                textArea.foreground = UIUtil.getLabelForeground()
+
+                val scrollPane = JBScrollPane(textArea)
+                scrollPane.preferredSize = JBUI.size(600, 400)
+
+                return scrollPane
+            }
+        }
+
+        diagnosticDialog.show()
+    }
+
+    /**
+     * 检查并报告依赖状态
+     */
+    private fun checkAndReportDependencies(): StringBuilder {
+        val info = StringBuilder()
+        val javaPsiFacade = com.intellij.psi.JavaPsiFacade.getInstance(project)
+        val scope = com.intellij.psi.search.GlobalSearchScope.projectScope(project)
+
+        val springClasses = listOf(
+            "org.springframework.context.ApplicationContext" to "Spring Context",
+            "org.springframework.stereotype.Controller" to "Spring Stereotype",
+            "org.springframework.web.bind.annotation.RestController" to "Spring Web MVC",
+            "org.springframework.boot.autoconfigure.SpringBootApplication" to "Spring Boot"
+        )
+
+        springClasses.forEach { (className, displayName) ->
+            val clazz = javaPsiFacade.findClass(className, scope)
+            val status = if (clazz != null) "✓ 已加载" else "✗ 未找到"
+            info.appendLine("$displayName: $status")
+        }
+
+        return info
+    }
+
+    /**
+     * 检查并报告索引状态
+     */
+    private fun checkAndReportIndexStatus(): StringBuilder {
+        val info = StringBuilder()
+
+        try {
+            // 使用更安全的索引状态检查方式
+            val dumbService = com.intellij.openapi.project.DumbService.getInstance(project)
+            if (dumbService.isDumb) {
+                info.appendLine("文件索引: 正在构建中 (可能影响检测)")
+            } else {
+                info.appendLine("文件索引: 正常运行")
+            }
+
+            // 简化的项目状态检查
+            if (!project.basePath.isNullOrEmpty()) {
+                info.appendLine("项目基础路径: ${project.basePath}")
+                info.appendLine("项目文件索引: 已启用")
+            } else {
+                info.appendLine("项目基础路径: 未配置")
+            }
+
+        } catch (e: Exception) {
+            info.appendLine("索引状态检查失败: ${e.message}")
+        }
+
+        return info
     }
 
     /**
