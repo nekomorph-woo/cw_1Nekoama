@@ -2,7 +2,9 @@ package com.cw2.nekoama.presentation.ui
 
 import com.cw2.nekoama.ai.model.dependency.BusinessEntryPoint
 import com.cw2.nekoama.ai.model.dependency.EntryType
+import com.cw2.nekoama.core.logging.NekoamaLogger
 import com.cw2.nekoama.presentation.messages.NekoamaBundle
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.ui.components.JBLabel
@@ -49,18 +51,35 @@ class EntryPointConfirmationDialog(
     private val filteredEntryPoints = mutableListOf<BusinessEntryPoint>()
 
     init {
-        title = NekoamaBundle.message("entryPoint.title")
-        setOKButtonText(NekoamaBundle.message("entryPoint.confirm"))
-        setCancelButtonText(NekoamaBundle.message("common.cancel"))
+        try {
+            title = NekoamaBundle.message("entryPoint.title")
+            setOKButtonText(NekoamaBundle.message("entryPoint.confirm"))
+            setCancelButtonText(NekoamaBundle.message("common.cancel"))
 
-        // 初始化数据
-        allEntryPoints.addAll(entryPoints)
-        filteredEntryPoints.addAll(entryPoints)
+            // 初始化数据
+            if (entryPoints.isNotEmpty()) {
+                allEntryPoints.addAll(entryPoints)
+                filteredEntryPoints.addAll(entryPoints)
+                NekoamaLogger.info("EntryPointConfirmationDialog",
+                    "Dialog initialized with ${entryPoints.size} entry points")
+            } else {
+                NekoamaLogger.warn("EntryPointConfirmationDialog",
+                    "Dialog initialized with empty entry points list")
+            }
 
-        setupUI()
-        setupEventListeners()
-        updateSummary()
-        init()
+            setupUI()
+            setupEventListeners()
+            updateSummary()
+            init()
+
+            NekoamaLogger.info("EntryPointConfirmationDialog", "Dialog successfully initialized")
+        } catch (e: Exception) {
+            NekoamaLogger.logError("EntryPointConfirmationDialog",
+                com.cw2.nekoama.core.exception.NekoamaError.UIError.DialogError(
+                    "Failed to initialize entry point dialog: ${e.message}", e),
+                mapOf("entryPointsCount" to entryPoints.size.toString()))
+            throw e
+        }
     }
 
     /**
@@ -412,7 +431,19 @@ class EntryPointConfirmationDialog(
      * 更新表格数据
      */
     private fun updateTableData() {
-        tableModel.setEntryPoints(filteredEntryPoints)
+        try {
+            tableModel.setEntryPoints(filteredEntryPoints)
+            NekoamaLogger.debug("EntryPointConfirmationDialog",
+                "Table data updated with ${filteredEntryPoints.size} filtered entry points")
+        } catch (e: Exception) {
+            NekoamaLogger.logError("EntryPointConfirmationDialog",
+                com.cw2.nekoama.core.exception.NekoamaError.UIError.DialogError(
+                    "Failed to update table data: ${e.message}", e),
+                mapOf(
+                    "filteredCount" to filteredEntryPoints.size.toString(),
+                    "totalCount" to allEntryPoints.size.toString()
+                ))
+        }
     }
 
     /**
@@ -502,9 +533,12 @@ class EntryPointConfirmationDialog(
      * 入口点表格模型
      */
     private inner class EntryPointTableModel : DefaultTableModel() {
-        private val entryPointsList = mutableListOf<EntryPointWrapper>()
+        private lateinit var entryPointsList: MutableList<EntryPointWrapper>
 
         init {
+            // 明确在init块中初始化，确保初始化顺序正确
+            entryPointsList = mutableListOf()
+
             columnIdentifiers = Vector<Any>(listOf(
                 NekoamaBundle.message("entryPoint.column.select"),
                 NekoamaBundle.message("entryPoint.column.className"),
@@ -516,25 +550,37 @@ class EntryPointConfirmationDialog(
         }
 
         fun setEntryPoints(entryPoints: List<BusinessEntryPoint>) {
+            // 确保entryPointsList已初始化
+            if (!::entryPointsList.isInitialized) {
+                entryPointsList = mutableListOf()
+            }
             entryPointsList.clear()
             entryPointsList.addAll(entryPoints.map { EntryPointWrapper(it) })
             fireTableDataChanged()
         }
 
         fun getEntryPoint(row: Int): BusinessEntryPoint? {
-            return if (row >= 0 && row < entryPointsList.size) {
+            // 添加空安全检查
+            return if (::entryPointsList.isInitialized && row >= 0 && row < entryPointsList.size) {
                 entryPointsList[row].entryPoint
             } else null
         }
 
         val entryPoints: List<EntryPointWrapper>
-            get() = entryPointsList
+            get() = if (::entryPointsList.isInitialized) entryPointsList else emptyList()
 
-        override fun getRowCount(): Int = entryPointsList.size
+        override fun getRowCount(): Int {
+            // 添加空安全检查，防止NPE
+            return if (::entryPointsList.isInitialized) entryPointsList.size else 0
+        }
 
         override fun getColumnCount(): Int = 6
 
         override fun getValueAt(row: Int, col: Int): Any? {
+            // 添加空安全检查
+            if (!::entryPointsList.isInitialized) {
+                return null
+            }
             val wrapper = entryPointsList.getOrNull(row) ?: return null
             return when (col) {
                 0 -> wrapper.selected
@@ -548,7 +594,8 @@ class EntryPointConfirmationDialog(
         }
 
         override fun setValueAt(value: Any?, row: Int, col: Int) {
-            if (col == 0 && row >= 0 && row < entryPointsList.size) {
+            // 添加空安全检查
+            if (::entryPointsList.isInitialized && col == 0 && row >= 0 && row < entryPointsList.size) {
                 entryPointsList[row].selected = value as? Boolean ?: false
                 fireTableCellUpdated(row, col)
                 updateSummary()

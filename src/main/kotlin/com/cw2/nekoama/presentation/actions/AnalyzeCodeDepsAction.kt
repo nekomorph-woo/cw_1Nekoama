@@ -20,10 +20,11 @@ import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
-import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.nio.file.Paths
+import kotlinx.coroutines.runBlocking
 import kotlin.coroutines.CoroutineContext
 
 /**
@@ -40,36 +41,83 @@ internal class AnalyzeCodeDepsAction : BaseAction() {
 
     override fun perform(project: Project, editor: Editor?, e: AnActionEvent): Int {
         try {
+            NekoamaLogger.info("AnalyzeCodeDepsAction", "Starting code dependency analysis action")
+
             // 1. 显示分析配置对话框
             val configDialog = AnalysisConfigDialog(project)
             if (!configDialog.showAndGet()) {
+                NekoamaLogger.info("AnalyzeCodeDepsAction", "User cancelled analysis configuration")
                 return 0 // 用户取消配置
             }
 
             val dialogConfig = configDialog.getConfig()
+            NekoamaLogger.info("AnalyzeCodeDepsAction", "User configured analysis with scope: ${dialogConfig.scopeType}, includeTest: ${dialogConfig.includeTestCode}")
 
             // 转换为AI AnalysisConfig
-            val analysisConfig = convertToAiAnalysisConfig(dialogConfig)
+            val analysisConfig = try {
+                convertToAiAnalysisConfig(dialogConfig)
+            } catch (e: Exception) {
+                NekoamaLogger.logError("AnalyzeCodeDepsAction",
+                    com.cw2.nekoama.core.exception.NekoamaError.AnalysisError.DependencyAnalysisError(
+                        "Failed to convert UI configuration to AI configuration: ${e.message}", e),
+                    mapOf("scopeType" to dialogConfig.scopeType.toString()))
+                NekoamaNotifier.error(NekoamaBundle.message("action.analyzeCodeDeps.error.startFailed", "Configuration conversion failed: ${e.message}"))
+                return 0
+            }
+            NekoamaLogger.info("AnalyzeCodeDepsAction", "Converted to AI config with maxDepth: ${analysisConfig.maxDepth}")
 
             // 2. 检测业务入口点
-            val entryPointDetector = BoundaryEntryPointDetector(project)
-            val allEntryPoints = entryPointDetector.detectBusinessEntryPoints()
+            val confirmedEntryPoints = try {
+                val entryPointDetector = BoundaryEntryPointDetector(project)
+                val allEntryPoints = entryPointDetector.detectBusinessEntryPoints()
+                NekoamaLogger.info("AnalyzeCodeDepsAction", "Detected ${allEntryPoints.size} business entry points")
 
-            // 3. 显示入口点确认对话框
-            val entryPointDialog = EntryPointConfirmationDialog(project, allEntryPoints)
-            val confirmedEntryPoints = if (entryPointDialog.showAndGet()) {
-                entryPointDialog.getConfirmedEntryPoints()
-            } else {
-                emptyList() // 用户取消
-            }
+                // 3. 显示入口点确认对话框（确保EDT线程安全）
+                val entryPointDialog = EntryPointConfirmationDialog(project, allEntryPoints)
+                val confirmed = try {
+                    // 确保在EDT线程中显示对话框
+                    ApplicationManager.getApplication().invokeAndWait {
+                        // 对话框已在EDT线程中安全创建
+                    }
 
-            if (confirmedEntryPoints.isEmpty() && allEntryPoints.isNotEmpty()) {
-                NekoamaNotifier.info(NekoamaBundle.message("action.analyzeCodeDeps.noEntryPointsSelected"))
+                    if (entryPointDialog.showAndGet()) {
+                        entryPointDialog.getConfirmedEntryPoints()
+                    } else {
+                        NekoamaLogger.info("AnalyzeCodeDepsAction", "User cancelled entry point selection")
+                        emptyList() // 用户取消
+                    }
+                } catch (e: ProcessCanceledException) {
+                    // ProcessCanceledException必须重新抛出
+                    NekoamaLogger.info("AnalyzeCodeDepsAction", "Entry point dialog was cancelled by user")
+                    throw e
+                } catch (e: Exception) {
+                    NekoamaLogger.logError("AnalyzeCodeDepsAction",
+                        com.cw2.nekoama.core.exception.NekoamaError.UIError.DialogError(
+                            "Failed to show entry point dialog: ${e.message}", e),
+                        mapOf("entryPointsCount" to allEntryPoints.size.toString()))
+                    emptyList()
+                }
+
+                if (confirmed.isEmpty() && allEntryPoints.isNotEmpty()) {
+                    NekoamaLogger.info("AnalyzeCodeDepsAction", "No entry points selected for analysis")
+                    NekoamaNotifier.info(NekoamaBundle.message("action.analyzeCodeDeps.noEntryPointsSelected"))
+                    return 0
+                }
+
+                NekoamaLogger.info("AnalyzeCodeDepsAction", "User confirmed ${confirmed.size} entry points for analysis")
+                confirmed
+            } catch (e: Exception) {
+                NekoamaLogger.logError("AnalyzeCodeDepsAction",
+                    com.cw2.nekoama.core.exception.NekoamaError.AnalysisError.DependencyAnalysisError(
+                        "Failed to detect or confirm entry points: ${e.message}", e),
+                    mapOf("exception" to (e.message ?: "unknown")))
+                NekoamaNotifier.error(NekoamaBundle.message("action.analyzeCodeDeps.error.startFailed", "Entry point detection failed: ${e.message}"))
                 return 0
             }
 
             // 4. 执行依赖分析
             val title = NekoamaBundle.message("action.analyzeCodeDeps.progress.title")
+            NekoamaLogger.info("AnalyzeCodeDepsAction", "Starting dependency analysis with progress task")
             val analysisResult = runCatching {
                 ProgressManager.getInstance().run(object : Task.WithResult<DependencyAnalysisResult, Exception>(project, title, true) {
                     override fun compute(indicator: ProgressIndicator): DependencyAnalysisResult {
@@ -82,16 +130,18 @@ internal class AnalyzeCodeDepsAction : BaseAction() {
                     com.cw2.nekoama.core.exception.NekoamaError.AnalysisError.DependencyAnalysisError(
                         NekoamaBundle.message("action.analyzeCodeDeps.dependencyAnalysisFailed", exception.message ?: "")
                     ),
-                    mapOf("exception" to (exception.message ?: "unknown"))
+                    mapOf("exception" to (exception.message ?: "unknown"), "entryPointsCount" to confirmedEntryPoints.size.toString())
                 )
                 NekoamaNotifier.error(NekoamaBundle.message("action.analyzeCodeDeps.error.failed", exception.message ?: ""))
                 return 0
             }
 
             // 5. 生成并显示报告
+            NekoamaLogger.info("AnalyzeCodeDepsAction", "Analysis completed successfully, generating reports")
             ApplicationManager.getApplication().invokeLater {
                 try {
                     generateAndShowReports(project, analysisResult)
+                    NekoamaLogger.info("AnalyzeCodeDepsAction", "Reports generated and displayed successfully")
                     NekoamaNotifier.info(NekoamaBundle.message("action.analyzeCodeDeps.success"))
                 } catch (t: Throwable) {
                     NekoamaLogger.logError(
@@ -105,17 +155,18 @@ internal class AnalyzeCodeDepsAction : BaseAction() {
                 }
             }
 
-        } catch (t: Throwable) {
+          } catch (t: Throwable) {
             NekoamaLogger.logError(
                 "AnalyzeCodeDepsAction",
                 com.cw2.nekoama.core.exception.NekoamaError.AnalysisError.DependencyAnalysisError(
                     NekoamaBundle.message("action.analyzeCodeDeps.analysisStartFailed", t.message ?: "")
                 ),
-                mapOf("exception" to (t.message ?: "unknown"))
+                mapOf("exception" to (t.message ?: "unknown"), "exceptionType" to t.javaClass.simpleName)
             )
             NekoamaNotifier.error(NekoamaBundle.message("action.analyzeCodeDeps.error.startFailed", t.message ?: ""))
         }
 
+        NekoamaLogger.info("AnalyzeCodeDepsAction", "Code dependency analysis action completed")
         return 0 // TODO: 计算实际的Token使用量
     }
 
@@ -145,8 +196,12 @@ internal class AnalyzeCodeDepsAction : BaseAction() {
             indicator.text = NekoamaBundle.message("progress.analyze.dependencies")
             indicator.fraction = 0.3
 
-            val analysisResult = runBlocking {
-                batchProcessor.executeBatchAnalysis(config, indicator)
+            val analysisResult = kotlinx.coroutines.runBlocking {
+                try {
+                    batchProcessor.executeBatchAnalysis(config, indicator)
+                } catch (e: Exception) {
+                    throw RuntimeException("Failed to execute batch analysis", e)
+                }
             }
 
             // 阶段4: 分析完成 (100%)
@@ -175,9 +230,13 @@ internal class AnalyzeCodeDepsAction : BaseAction() {
 
         // 生成HTML报告
         val htmlReportPath = reportsDir.resolve("dependency-analysis-$timestamp.html")
-        runBlocking {
-            val reportGenerator = DependencyReportGenerator()
-            reportGenerator.generateReport(analysisResult, htmlReportPath)
+        try {
+            kotlinx.coroutines.runBlocking {
+                val reportGenerator = DependencyReportGenerator()
+                reportGenerator.generateReport(analysisResult, htmlReportPath)
+            }
+        } catch (e: Exception) {
+            throw RuntimeException("Failed to generate HTML report", e)
         }
 
         // 显示报告查看器

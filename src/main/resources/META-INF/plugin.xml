@@ -97,7 +97,7 @@
         </action>
 
         <!-- 代码依赖分析 Action -->
-        <action id="Nekoama.AnalyzeCodeDeps" class="com.cw2.nekoama.presentation.actions.AnalyzeCodeDepsAction" text="Analyze Code Dependencies" description="Analyze code dependencies and generate comprehensive reports" icon="AllIcons.Actions.DependencyViewer">
+        <action id="Nekoama.AnalyzeCodeDeps" class="com.cw2.nekoama.presentation.actions.AnalyzeCodeDepsAction" text="Analyze Code Dependencies" description="Analyze code dependencies and generate comprehensive reports" icon="AllIcons.Actions.Find">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
         </action>
 
@@ -111,7 +111,7 @@
         <action id="Nekoama.GenerateComment.Popup" class="com.cw2.nekoama.presentation.actions.GenerateCommentAction" text="Comment for Me" icon="AllIcons.Actions.Lightning">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
         </action>
-        <action id="Nekoama.AnalyzeCodeDeps.Popup" class="com.cw2.nekoama.presentation.actions.AnalyzeCodeDepsAction" text="Analyze Code Dependencies" icon="AllIcons.Actions.DependencyViewer">
+        <action id="Nekoama.AnalyzeCodeDeps.Popup" class="com.cw2.nekoama.presentation.actions.AnalyzeCodeDepsAction" text="Analyze Code Dependencies" icon="AllIcons.Actions.Find">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
         </action>
     </actions>

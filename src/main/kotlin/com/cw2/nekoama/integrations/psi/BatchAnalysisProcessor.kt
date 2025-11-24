@@ -38,8 +38,11 @@ class BatchAnalysisProcessor(private val project: Project) {
         config: AnalysisConfig,
         progressIndicator: ProgressIndicator
     ): DependencyAnalysisResult = withContext(Dispatchers.IO) {
+        logger.info("BatchAnalysisProcessor", "Starting batch analysis with config: maxDepth=${config.maxDepth}")
+
         // 1. 收集所有需要分析的文件
         val psiFiles = collectPsiFiles(config)
+        logger.info("BatchAnalysisProcessor", "Collected ${psiFiles.size} PSI files for analysis")
         progressIndicator.text = "已收集 ${psiFiles.size} 个文件"
 
         // 2. 创建批处理计划
