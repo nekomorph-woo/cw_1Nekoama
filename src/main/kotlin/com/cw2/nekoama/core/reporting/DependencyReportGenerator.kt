@@ -10,8 +10,10 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import com.cw2.nekoama.ai.model.dependency.Severity
 import java.io.File
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
 
 /**
@@ -169,12 +171,51 @@ class DependencyReportGenerator {
             val resourceStream = this::class.java.classLoader.getResourceAsStream(resourcePath)
             if (resourceStream != null) {
                 Files.createDirectories(targetPath.parent)
-                Files.copy(resourceStream, targetPath)
+                Files.copy(resourceStream, targetPath, StandardCopyOption.REPLACE_EXISTING)
+                logger.debug("ReportGeneration", "资源文件复制成功: $resourcePath -> $targetPath")
             } else {
                 logger.warn("ReportGeneration", "找不到资源文件: $resourcePath")
+                // 创建一个空的占位文件，避免HTML加载失败
+                createFallbackResource(targetPath, resourcePath)
             }
         } catch (e: Exception) {
             logger.warn("ReportGeneration", "复制资源文件失败: $resourcePath", error = e)
+            // 创建一个空的占位文件，避免HTML加载失败
+            createFallbackResource(targetPath, resourcePath)
+        }
+    }
+
+    /**
+     * 创建备用资源文件
+     */
+    private fun createFallbackResource(targetPath: Path, originalPath: String) {
+        try {
+            Files.createDirectories(targetPath.parent)
+            val fallbackContent = when {
+                originalPath.endsWith(".css") -> """
+                    /* 备用CSS文件 - 原文件缺失: $originalPath */
+                    body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+                    .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+                    .error { color: #ff6b6b; text-align: center; padding: 20px; }
+                """.trimIndent()
+                originalPath.endsWith(".js") -> """
+                    // 备用JavaScript文件 - 原文件缺失: $originalPath
+                    console.warn('JavaScript文件缺失: $originalPath');
+
+                    // 提供基本的占位功能
+                    window.DependencyVisualizer = window.DependencyVisualizer || {
+                        init: function() {
+                            console.warn('使用备用可视化器，功能受限');
+                        }
+                    };
+                """.trimIndent()
+                else -> "/* 备用资源文件: $originalPath */"
+            }
+
+            Files.writeString(targetPath, fallbackContent, StandardCharsets.UTF_8)
+            logger.info("ReportGeneration", "创建备用资源文件: $targetPath")
+        } catch (e: Exception) {
+            logger.error("ReportGeneration", "创建备用资源文件失败: $targetPath", error = e)
         }
     }
 

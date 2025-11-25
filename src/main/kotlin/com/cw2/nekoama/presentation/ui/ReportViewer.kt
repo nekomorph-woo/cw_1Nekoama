@@ -308,39 +308,60 @@ class ReportViewer private constructor(
     }
 
     /**
+     * 安全获取JEditorPane组件
+     */
+    private fun getEditorPane(scrollPane: JComponent): JEditorPane? {
+        if (scrollPane !is JBScrollPane) return null
+
+        return try {
+            // 首先尝试通过viewport获取
+            scrollPane.viewport?.view as? JEditorPane
+        } catch (e: Exception) {
+            NekoamaLogger.debug("ReportViewer", "Failed to get editor pane via viewport: ${e.message}")
+            try {
+                // 备用方案：通过组件索引获取
+                scrollPane.getComponent(0) as? JEditorPane
+            } catch (e2: Exception) {
+                NekoamaLogger.debug("ReportViewer", "Failed to get editor pane via component index: ${e2.message}")
+                null
+            }
+        }
+    }
+
+    /**
+     * 安全获取JTextPane组件
+     */
+    private fun getTextPane(scrollPane: JComponent): JTextPane? {
+        if (scrollPane !is JBScrollPane) return null
+
+        return try {
+            // 首先尝试通过viewport获取
+            scrollPane.viewport?.view as? JTextPane
+        } catch (e: Exception) {
+            NekoamaLogger.debug("ReportViewer", "Failed to get text pane via viewport: ${e.message}")
+            try {
+                // 备用方案：通过组件索引获取
+                scrollPane.getComponent(0) as? JTextPane
+            } catch (e2: Exception) {
+                NekoamaLogger.debug("ReportViewer", "Failed to get text pane via component index: ${e2.message}")
+                null
+            }
+        }
+    }
+
+    /**
      * 加载报告
      */
     private fun loadReports() {
         try {
             // 加载HTML报告
-            val htmlContent = htmlReportFile.readText()
-            (htmlViewer.getComponent(0) as JEditorPane).text = htmlContent
+            loadHTMLReport()
 
             // 生成并加载Markdown报告
-            runBlocking {
-                val markdownGenerator = MarkdownReportGenerator()
-                val tempMarkdownFile = File.createTempFile("analysis-report", ".md")
-                val result = markdownGenerator.generateReport(analysisResult, tempMarkdownFile.toPath())
-                if (result.success) {
-                    (markdownViewer.getComponent(0) as JTextPane).text = tempMarkdownFile.readText()
-                } else {
-                    throw Exception(NekoamaBundle.message("error.markdown.generation.failed", result.message))
-                }
-                tempMarkdownFile.delete()
-            }
+            loadMarkdownReport()
 
             // 生成并加载JSON报告
-            runBlocking {
-                val jsonSerializer = DependencyJsonSerializer()
-                val tempJsonFile = File.createTempFile("analysis-report", ".json")
-                val result = jsonSerializer.exportPrettyJson(analysisResult, tempJsonFile.toPath())
-                if (result.success) {
-                    (jsonViewer.getComponent(0) as JTextPane).text = tempJsonFile.readText()
-                } else {
-                    throw Exception(NekoamaBundle.message("error.json.generation.failed", result.message))
-                }
-                tempJsonFile.delete()
-            }
+            loadJSONReport()
 
         } catch (e: Exception) {
             NekoamaLogger.logError(
@@ -349,6 +370,113 @@ class ReportViewer private constructor(
                 mapOf("exception" to (e.message ?: "unknown") as Any)
             )
             Messages.showErrorDialog(project, NekoamaBundle.message("reportViewer.error.loadFailed", e.message ?: ""), NekoamaBundle.message("common.dialog.error"))
+        }
+    }
+
+    /**
+     * 加载HTML报告
+     */
+    private fun loadHTMLReport() {
+        try {
+            val htmlContent = htmlReportFile.readText()
+            val htmlPane = getEditorPane(htmlViewer)
+            if (htmlPane != null) {
+                htmlPane.text = htmlContent
+                htmlPane.caretPosition = 0 // 滚动到顶部
+            } else {
+                throw Exception("无法获取HTML编辑器组件")
+            }
+        } catch (e: Exception) {
+            NekoamaLogger.warn("ReportViewer", "Failed to load HTML report: ${e.message}")
+            // 显示错误信息在HTML视图中
+            val htmlPane = getEditorPane(htmlViewer)
+            htmlPane?.text = """
+                <html>
+                <body style="font-family: Arial, sans-serif; padding: 20px; color: #ff6b6b;">
+                    <h2>HTML报告加载失败</h2>
+                    <p><strong>错误:</strong> ${e.message ?: "未知错误"}</p>
+                    <p>请尝试点击"在浏览器中打开"按钮查看完整报告。</p>
+                </body>
+                </html>
+            """.trimIndent()
+        }
+    }
+
+    /**
+     * 加载Markdown报告
+     */
+    private fun loadMarkdownReport() {
+        try {
+            runBlocking {
+                val markdownGenerator = MarkdownReportGenerator()
+                val tempMarkdownFile = File.createTempFile("analysis-report", ".md")
+                try {
+                    val result = markdownGenerator.generateReport(analysisResult, tempMarkdownFile.toPath())
+                    if (result.success) {
+                        val markdownPane = getTextPane(markdownViewer)
+                        if (markdownPane != null) {
+                            markdownPane.text = tempMarkdownFile.readText()
+                            markdownPane.caretPosition = 0 // 滚动到顶部
+                        } else {
+                            throw Exception("无法获取Markdown编辑器组件")
+                        }
+                    } else {
+                        throw Exception(NekoamaBundle.message("error.markdown.generation.failed", result.message))
+                    }
+                } finally {
+                    tempMarkdownFile.delete()
+                }
+            }
+        } catch (e: Exception) {
+            NekoamaLogger.warn("ReportViewer", "Failed to load Markdown report: ${e.message}")
+            // 显示错误信息在Markdown视图中
+            val markdownPane = getTextPane(markdownViewer)
+            markdownPane?.text = """
+                # Markdown报告加载失败
+
+                **错误**: ${e.message ?: "未知错误"}
+
+                请尝试刷新报告或在浏览器中查看HTML版本。
+            """.trimIndent()
+        }
+    }
+
+    /**
+     * 加载JSON报告
+     */
+    private fun loadJSONReport() {
+        try {
+            runBlocking {
+                val jsonSerializer = DependencyJsonSerializer()
+                val tempJsonFile = File.createTempFile("analysis-report", ".json")
+                try {
+                    val result = jsonSerializer.exportPrettyJson(analysisResult, tempJsonFile.toPath())
+                    if (result.success) {
+                        val jsonPane = getTextPane(jsonViewer)
+                        if (jsonPane != null) {
+                            jsonPane.text = tempJsonFile.readText()
+                            jsonPane.caretPosition = 0 // 滚动到顶部
+                        } else {
+                            throw Exception("无法获取JSON编辑器组件")
+                        }
+                    } else {
+                        throw Exception(NekoamaBundle.message("error.json.generation.failed", result.message))
+                    }
+                } finally {
+                    tempJsonFile.delete()
+                }
+            }
+        } catch (e: Exception) {
+            NekoamaLogger.warn("ReportViewer", "Failed to load JSON report: ${e.message}")
+            // 显示错误信息在JSON视图中
+            val jsonPane = getTextPane(jsonViewer)
+            jsonPane?.text = """
+                {
+                  "error": "JSON报告加载失败",
+                  "message": "${e.message ?: "未知错误"}",
+                  "suggestion": "请尝试刷新报告或在浏览器中查看HTML版本"
+                }
+            """.trimIndent()
         }
     }
 
@@ -507,14 +635,18 @@ class ReportViewer private constructor(
      * 在HTML中搜索
      */
     private fun searchInHTML(query: String) {
-        val htmlPane = (htmlViewer.getComponent(0) as JEditorPane)
-        val content = htmlPane.text
-
-        if (content.contains(query, ignoreCase = true)) {
-            // 简化的搜索实现
-            Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.found", query), NekoamaBundle.message("reportViewer.search.title"))
+        val htmlPane = getEditorPane(htmlViewer)
+        if (htmlPane != null) {
+            val content = htmlPane.text
+            if (content.contains(query, ignoreCase = true)) {
+                // 简化的搜索实现
+                Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.found", query), NekoamaBundle.message("reportViewer.search.title"))
+            } else {
+                Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.notFound", query), NekoamaBundle.message("reportViewer.search.title"))
+            }
         } else {
-            Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.notFound", query), NekoamaBundle.message("reportViewer.search.title"))
+            NekoamaLogger.warn("ReportViewer", "Cannot search in HTML: Editor pane not available")
+            Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.unavailable"), NekoamaBundle.message("reportViewer.search.title"))
         }
     }
 
@@ -530,13 +662,17 @@ class ReportViewer private constructor(
      * 在Markdown中搜索
      */
     private fun searchInMarkdown(query: String) {
-        val markdownPane = (markdownViewer.getComponent(0) as JTextPane)
-        val content = markdownPane.text
-
-        if (content.contains(query, ignoreCase = true)) {
-            Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.found", query), NekoamaBundle.message("reportViewer.search.title"))
+        val markdownPane = getTextPane(markdownViewer)
+        if (markdownPane != null) {
+            val content = markdownPane.text
+            if (content.contains(query, ignoreCase = true)) {
+                Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.found", query), NekoamaBundle.message("reportViewer.search.title"))
+            } else {
+                Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.notFound", query), NekoamaBundle.message("reportViewer.search.title"))
+            }
         } else {
-            Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.notFound", query), NekoamaBundle.message("reportViewer.search.title"))
+            NekoamaLogger.warn("ReportViewer", "Cannot search in Markdown: Text pane not available")
+            Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.unavailable"), NekoamaBundle.message("reportViewer.search.title"))
         }
     }
 
@@ -544,13 +680,17 @@ class ReportViewer private constructor(
      * 在JSON中搜索
      */
     private fun searchInJSON(query: String) {
-        val jsonPane = (jsonViewer.getComponent(0) as JTextPane)
-        val content = jsonPane.text
-
-        if (content.contains(query, ignoreCase = true)) {
-            Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.found", query), NekoamaBundle.message("reportViewer.search.title"))
+        val jsonPane = getTextPane(jsonViewer)
+        if (jsonPane != null) {
+            val content = jsonPane.text
+            if (content.contains(query, ignoreCase = true)) {
+                Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.found", query), NekoamaBundle.message("reportViewer.search.title"))
+            } else {
+                Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.notFound", query), NekoamaBundle.message("reportViewer.search.title"))
+            }
         } else {
-            Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.notFound", query), NekoamaBundle.message("reportViewer.search.title"))
+            NekoamaLogger.warn("ReportViewer", "Cannot search in JSON: Text pane not available")
+            Messages.showInfoMessage(project, NekoamaBundle.message("reportViewer.search.unavailable"), NekoamaBundle.message("reportViewer.search.title"))
         }
     }
 

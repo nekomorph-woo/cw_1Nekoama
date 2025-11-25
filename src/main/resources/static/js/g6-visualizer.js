@@ -53,17 +53,114 @@ class DependencyVisualizer {
                 this.currentData = JSON.parse(dataElement.textContent);
                 console.log('分析数据加载成功:', this.currentData);
 
+                // 验证数据结构
+                if (!this.validateAnalysisData(this.currentData)) {
+                    console.warn('分析数据结构不完整，使用默认值');
+                    this.currentData = this.normalizeAnalysisData(this.currentData);
+                }
+
                 // 更新项目名称
                 const projectNameElement = document.getElementById('project-name');
                 if (projectNameElement && this.currentData.metadata) {
-                    projectNameElement.textContent = this.currentData.metadata.projectName;
+                    projectNameElement.textContent = this.currentData.metadata.projectName || 'Nekoama分析报告';
                 }
             } else {
                 console.error('找不到分析数据元素');
+                this.showDataError('找不到分析数据元素');
             }
         } catch (error) {
             console.error('解析分析数据失败:', error);
+            this.showDataError('解析分析数据失败: ' + error.message);
         }
+    }
+
+    /**
+     * 验证分析数据结构
+     */
+    validateAnalysisData(data) {
+        // 基本结构检查
+        if (!data || typeof data !== 'object') return false;
+        if (!data.metadata) return false;
+
+        // 检查是否有足够的数据进行可视化
+        const hasPackages = data.packages && Array.isArray(data.packages) && data.packages.length > 0;
+        const hasClasses = data.classes && Array.isArray(data.classes) && data.classes.length > 0;
+
+        console.log('数据验证结果:', {
+            hasPackages,
+            hasClasses,
+            packageCount: data.packages?.length || 0,
+            classCount: data.classes?.length || 0
+        });
+
+        return hasPackages || hasClasses;
+    }
+
+    /**
+     * 规范化分析数据
+     */
+    normalizeAnalysisData(data) {
+        const normalized = {
+            metadata: data.metadata || { projectName: 'Nekoama分析报告' },
+            packages: [],
+            classes: [],
+            packageDependencies: [],
+            classDependencies: [],
+            businessEntryPoints: [],
+            codeSmells: []
+        };
+
+        // 处理包数据
+        if (data.packages && Array.isArray(data.packages)) {
+            normalized.packages = data.packages.map(pkg => ({
+                id: pkg.id || pkg.name || 'unknown',
+                name: pkg.name || 'Unknown Package',
+                classCount: pkg.classCount || 0,
+                metrics: pkg.metrics || { fanOut: 0, fanIn: 0, instability: 0 }
+            }));
+        }
+
+        // 处理类数据
+        if (data.classes && Array.isArray(data.classes)) {
+            normalized.classes = data.classes.map(cls => ({
+                id: cls.id || cls.qualifiedName || 'unknown',
+                name: cls.name || 'Unknown Class',
+                type: cls.type || 'CLASS',
+                metrics: cls.metrics || { complexityScore: 0, methodCount: 0 }
+            }));
+        }
+
+        // 处理依赖关系
+        if (data.packageDependencies && Array.isArray(data.packageDependencies)) {
+            normalized.packageDependencies = data.packageDependencies;
+        }
+
+        if (data.classDependencies && Array.isArray(data.classDependencies)) {
+            normalized.classDependencies = data.classDependencies;
+        }
+
+        return normalized;
+    }
+
+    /**
+     * 显示数据错误信息
+     */
+    showDataError(message) {
+        const errorHtml = `
+            <div style="padding: 20px; text-align: center; color: #666;">
+                <h3>数据加载失败</h3>
+                <p>${message}</p>
+                <p>请尝试重新生成报告或检查分析结果。</p>
+            </div>
+        `;
+
+        // 在所有图表容器中显示错误信息
+        ['package-graph', 'class-graph', 'method-heatmap', 'scene-graph'].forEach(id => {
+            const container = document.getElementById(id);
+            if (container) {
+                container.innerHTML = errorHtml;
+            }
+        });
     }
 
     /**
@@ -446,32 +543,56 @@ class DependencyVisualizer {
         const nodes = [];
         const edges = [];
 
-        // 添加包节点
-        analysisData.packages?.forEach(pkg => {
-            const complexity = this.calculatePackageComplexity(pkg, analysisData);
-            nodes.push({
-                id: pkg.id,
-                label: pkg.name,
-                classCount: pkg.classCount,
-                dependencyCount: pkg.metrics?.fanOut || 0,
-                complexity: complexity,
-                style: {
-                    fill: this.getComplexityColor(complexity)
-                }
-            });
-        });
+        console.log('转换包级图数据，包数量:', analysisData.packages?.length || 0);
 
-        // 添加依赖边
-        analysisData.packageDependencies?.forEach(dep => {
-            dep.dependencies.forEach(targetPkg => {
-                edges.push({
-                    source: dep.packageName,
-                    target: targetPkg,
-                    label: `${dep.dependencyCount}`
+        // 添加包节点
+        if (analysisData.packages && Array.isArray(analysisData.packages)) {
+            analysisData.packages.forEach(pkg => {
+                const complexity = this.calculatePackageComplexity(pkg, analysisData);
+                nodes.push({
+                    id: pkg.id || pkg.name || 'unknown',
+                    label: pkg.name || 'Unknown Package',
+                    classCount: pkg.classCount || 0,
+                    dependencyCount: pkg.metrics?.fanOut || 0,
+                    complexity: complexity,
+                    style: {
+                        fill: this.getComplexityColor(complexity)
+                    }
                 });
             });
-        });
+        }
 
+        // 添加依赖边
+        if (analysisData.packageDependencies && Array.isArray(analysisData.packageDependencies)) {
+            analysisData.packageDependencies.forEach(dep => {
+                if (dep.dependencies && Array.isArray(dep.dependencies)) {
+                    dep.dependencies.forEach(targetPkg => {
+                        edges.push({
+                            source: dep.packageName,
+                            target: typeof targetPkg === 'string' ? targetPkg : targetPkg.className,
+                            label: `${dep.dependencyCount || '依赖'}`
+                        });
+                    });
+                }
+            });
+        }
+
+        // 如果没有数据，创建一个占位节点
+        if (nodes.length === 0) {
+            nodes.push({
+                id: 'empty',
+                label: '暂无包数据',
+                classCount: 0,
+                dependencyCount: 0,
+                complexity: 0,
+                style: {
+                    fill: '#f0f0f0',
+                    stroke: '#ccc'
+                }
+            });
+        }
+
+        console.log('包级图数据转换完成:', { nodeCount: nodes.length, edgeCount: edges.length });
         return { nodes, edges };
     }
 
@@ -482,33 +603,57 @@ class DependencyVisualizer {
         const nodes = [];
         const edges = [];
 
-        // 添加类节点
-        analysisData.classes?.forEach(cls => {
-            const complexity = cls.metrics?.complexityScore || 0;
-            nodes.push({
-                id: cls.id,
-                label: cls.name,
-                type: cls.type?.toString(),
-                complexity: complexity,
-                methodCount: cls.metrics?.methodCount || 0,
-                style: {
-                    fill: this.getClassTypeColor(cls),
-                    stroke: this.getComplexityBorderColor(complexity)
-                }
-            });
-        });
+        console.log('转换类级图数据，类数量:', analysisData.classes?.length || 0);
 
-        // 添加依赖边
-        analysisData.classDependencies?.forEach(dep => {
-            dep.dependencies.forEach(ref => {
-                edges.push({
-                    source: dep.className,
-                    target: ref.className,
-                    label: ref.referenceType?.toString()
+        // 添加类节点
+        if (analysisData.classes && Array.isArray(analysisData.classes)) {
+            analysisData.classes.forEach(cls => {
+                const complexity = cls.metrics?.complexityScore || 0;
+                nodes.push({
+                    id: cls.id || cls.qualifiedName || 'unknown',
+                    label: cls.name || 'Unknown Class',
+                    type: cls.type?.toString() || 'CLASS',
+                    complexity: complexity,
+                    methodCount: cls.metrics?.methodCount || 0,
+                    style: {
+                        fill: this.getClassTypeColor(cls),
+                        stroke: this.getComplexityBorderColor(complexity)
+                    }
                 });
             });
-        });
+        }
 
+        // 添加依赖边
+        if (analysisData.classDependencies && Array.isArray(analysisData.classDependencies)) {
+            analysisData.classDependencies.forEach(dep => {
+                if (dep.dependencies && Array.isArray(dep.dependencies)) {
+                    dep.dependencies.forEach(ref => {
+                        edges.push({
+                            source: dep.className || dep.classId,
+                            target: ref.className || ref.qualifiedName || ref.classId,
+                            label: ref.referenceType?.toString() || '依赖'
+                        });
+                    });
+                }
+            });
+        }
+
+        // 如果没有数据，创建一个占位节点
+        if (nodes.length === 0) {
+            nodes.push({
+                id: 'empty',
+                label: '暂无类数据',
+                type: 'CLASS',
+                complexity: 0,
+                methodCount: 0,
+                style: {
+                    fill: '#f0f0f0',
+                    stroke: '#ccc'
+                }
+            });
+        }
+
+        console.log('类级图数据转换完成:', { nodeCount: nodes.length, edgeCount: edges.length });
         return { nodes, edges };
     }
 
