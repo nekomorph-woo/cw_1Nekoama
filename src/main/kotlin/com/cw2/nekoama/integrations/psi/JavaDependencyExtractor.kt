@@ -3,6 +3,7 @@ package com.cw2.nekoama.integrations.psi
 import com.cw2.nekoama.ai.model.dependency.*
 import com.cw2.nekoama.core.logging.NekoamaLogger
 import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.psi.*
 import com.intellij.psi.impl.source.PsiClassReferenceType
 
@@ -853,35 +854,58 @@ class JavaDependencyExtractor {
         allClasses: List<PsiClass>,
         dependencies: Map<String, List<ClassReference>>
     ): PackageDependencyGraph {
-        val packageDependencies = mutableMapOf<String, MutableSet<String>>()
-        val packages = allClasses.mapNotNull { (it.containingFile as? PsiJavaFile)?.packageName }.distinct()
+        return try {
+            com.intellij.openapi.application.ReadAction.compute<PackageDependencyGraph, com.intellij.openapi.progress.ProcessCanceledException> {
+                ProgressManager.checkCanceled()
 
-        packages.forEach { packageName ->
-            packageDependencies[packageName] = mutableSetOf()
-        }
+                val packageDependencies = mutableMapOf<String, MutableSet<String>>()
+                val packages = allClasses.mapNotNull {
+                    ProgressManager.checkCanceled()
+                    (it.containingFile as? PsiJavaFile)?.packageName
+                }.distinct()
 
-        dependencies.forEach { (sourceClass, classDeps) ->
-            val sourcePackage = getPackageName(sourceClass)
-            if (sourcePackage != null) {
-                classDeps.forEach { dependency ->
-                    val targetPackage = getPackageName(dependency.className)
-                    if (targetPackage != null && targetPackage != sourcePackage) {
-                        packageDependencies[sourcePackage]?.add(targetPackage)
+                packages.forEach { packageName ->
+                    packageDependencies[packageName] = mutableSetOf()
+                }
+
+                dependencies.forEach { (sourceClass, classDeps) ->
+                    ProgressManager.checkCanceled()
+                    val sourcePackage = getPackageName(sourceClass)
+                    if (sourcePackage != null) {
+                        classDeps.forEach { dependency ->
+                            ProgressManager.checkCanceled()
+                            val targetPackage = getPackageName(dependency.className)
+                            if (targetPackage != null && targetPackage != sourcePackage) {
+                                packageDependencies[sourcePackage]?.add(targetPackage)
+                            }
+                        }
                     }
                 }
-            }
-        }
 
-        return PackageDependencyGraph(
-            packages = packages,
-            dependencies = packageDependencies.mapValues { it.value.toList() },
-            fanIn = packages.associateWith { pkg ->
-                calculatePackageFanIn(pkg, allClasses, dependencies)
-            },
-            fanOut = packages.associateWith { pkg ->
-                calculatePackageFanOut(pkg, allClasses, dependencies)
+                return@compute PackageDependencyGraph(
+                    packages = packages,
+                    dependencies = packageDependencies.mapValues { it.value.toList() },
+                    fanIn = packages.associateWith { pkg ->
+                        calculatePackageFanIn(pkg, allClasses, dependencies)
+                    },
+                    fanOut = packages.associateWith { pkg ->
+                        calculatePackageFanOut(pkg, allClasses, dependencies)
+                    }
+                )
             }
-        )
+        } catch (e: com.intellij.openapi.progress.ProcessCanceledException) {
+            // 重新抛出取消异常
+            throw e
+        } catch (e: Exception) {
+            logger.error("JavaDependencyExtractor", "构建包依赖图失败", error = e)
+            // 返回空的包依赖图
+            PackageDependencyGraph(
+                packages = emptyList(),
+                dependencies = emptyMap(),
+                fanIn = emptyMap(),
+                fanOut = emptyMap()
+            )
+        }
     }
 
     /**
