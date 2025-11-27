@@ -1,6 +1,7 @@
 package com.cw2.nekoama.core.reporting
 
 import com.cw2.nekoama.ai.model.dependency.DependencyAnalysisResult
+import com.cw2.nekoama.ai.model.dependency.CallEdgeType
 import com.cw2.nekoama.core.logging.NekoamaLogger
 import com.cw2.nekoama.core.serialization.JsonConfig
 import kotlinx.coroutines.Dispatchers
@@ -457,41 +458,84 @@ class DependencyJsonSerializer {
     }
 
     /**
-     * 转换为方法级G6数据（简化实现）
+     * 转换为方法级G6数据（完整调用关系图实现）
      */
     private fun convertToMethodLevelG6Data(result: DependencyAnalysisResult): G6GraphData {
-        // 这里简化实现，实际应该根据方法调用关系构建图
-        val nodes = mutableListOf<G6Node>()
+        val nodes = mutableSetOf<String>()
         val edges = mutableListOf<G6Edge>()
+        val methodMap = result.methods.associateBy { it.id }
 
-        // 只导出高复杂度方法
-        val highComplexityMethods = result.methods.filter { method ->
-            (method.metrics.complexityScore ?: 0) > 30
-        }.take(100) // 限制数量
+        // ✅ 使用 callGraph.edges 构建真正的调用关系图
+        result.callGraph.edges.forEach { edge ->
+            // 收集涉及的所有方法节点
+            nodes.add(edge.source)
+            nodes.add(edge.target)
 
-        highComplexityMethods.forEach { method ->
-            nodes.add(
-                G6Node(
-                    id = method.id,
-                    label = "${method.className}.${method.name}",
-                    category = "method",
-                    style = G6NodeStyle(
-                        fill = getComplexityColor(method.metrics.complexityScore ?: 0),
-                        stroke = "#5B8FF9",
-                        lineWidth = 1
+            // 查找方法信息
+            val sourceMethod = methodMap[edge.source]
+            val targetMethod = methodMap[edge.target]
+
+            // 创建调用关系边
+            edges.add(
+                G6Edge(
+                    source = edge.source,
+                    target = edge.target,
+                    label = "${edge.callContext.callCount}次调用",
+                    category = when(edge.type) {
+                        CallEdgeType.METHOD_CALL -> "method_call"
+                        CallEdgeType.CONSTRUCTOR_CALL -> "constructor_call"
+                        CallEdgeType.SUPER_CALL -> "super_call"
+                    },
+                    style = G6EdgeStyle(
+                        stroke = getCallTypeColor(edge.type),
+                        lineWidth = (edge.weight / 2).coerceIn(1, 8),
+                        endArrow = G6Arrow(
+                            path = "M 0,0 L 8,4 L 0,8",
+                            fill = getCallTypeColor(edge.type)
+                        )
                     ),
-                    size = 30,
                     data = mapOf(
-                        "className" to method.className,
-                        "complexity" to (method.metrics.complexityScore ?: 0).toString(),
-                        "linesOfCode" to method.metrics.linesOfCode.toString(),
-                        "parameterCount" to method.metrics.parameterCount.toString()
+                        "callCount" to edge.callContext.callCount.toString(),
+                        "callType" to edge.type.name,
+                        "depth" to edge.depth.toString(),
+                        "weight" to edge.weight.toString(),
+                        "sourceMethod" to (sourceMethod?.let { "${it.className}.${it.name}" } ?: edge.source),
+                        "targetMethod" to (targetMethod?.let { "${it.className}.${it.name}" } ?: edge.target),
+                        "callLocations" to edge.callContext.callLocations.size.toString()
                     )
                 )
             )
         }
 
-        return G6GraphData(nodes, edges)
+        // 构建方法节点，包含复杂度和调用信息
+        val methodNodes = nodes.map { methodId ->
+            val method = methodMap[methodId]
+            val callCount = result.callGraph.edges.count { it.source == methodId }
+            val calledByCount = result.callGraph.edges.count { it.target == methodId }
+
+            G6Node(
+                id = methodId,
+                label = method?.let { "${it.className}.${it.name}" } ?: methodId,
+                category = "method",
+                style = G6NodeStyle(
+                    fill = getNodeColorByComplexity(method?.metrics?.complexityScore ?: 0),
+                    stroke = "#5B8FF9",
+                    lineWidth = if (method?.metrics?.complexityScore ?: 0 > 50) 3 else 2
+                ),
+                size = calculateNodeSize(callCount, method?.metrics?.complexityScore ?: 0),
+                data = mapOf(
+                    "className" to (method?.className ?: ""),
+                    "methodName" to (method?.name ?: ""),
+                    "complexity" to (method?.metrics?.complexityScore ?: 0).toString(),
+                    "linesOfCode" to (method?.metrics?.linesOfCode ?: 0).toString(),
+                    "parameterCount" to (method?.metrics?.parameterCount ?: 0).toString(),
+                    "callCount" to callCount.toString(),
+                    "calledByCount" to calledByCount.toString()
+                )
+            )
+        }
+
+        return G6GraphData(methodNodes, edges)
     }
 
     /**
@@ -635,6 +679,41 @@ class DependencyJsonSerializer {
             com.cw2.nekoama.ai.model.dependency.ReferenceType.ANNOTATION -> "#FAAD14"
         }
     }
+
+    /**
+     * 获取调用类型对应的颜色
+     */
+    private fun getCallTypeColor(callType: CallEdgeType): String {
+        return when (callType) {
+            CallEdgeType.METHOD_CALL -> "#1890FF"      // 蓝色 - 普通方法调用
+            CallEdgeType.CONSTRUCTOR_CALL -> "#52C41A"  // 绿色 - 构造器调用
+            CallEdgeType.SUPER_CALL -> "#FA8C16"        // 橙色 - 父类调用
+        }
+    }
+
+    /**
+     * 根据复杂度获取节点颜色
+     */
+    private fun getNodeColorByComplexity(complexity: Int): String {
+        return when {
+            complexity > 50 -> "#FF4D4F"    // 红色 - 极高复杂度
+            complexity > 30 -> "#FA8C16"    // 橙色 - 高复杂度
+            complexity > 15 -> "#FAAD14"    // 黄色 - 中等复杂度
+            complexity > 5 -> "#52C41A"     // 绿色 - 低复杂度
+            else -> "#1890FF"               // 蓝色 - 极低复杂度
+        }
+    }
+
+    /**
+     * 计算节点大小（基于调用次数和复杂度）
+     */
+    private fun calculateNodeSize(callCount: Int, complexity: Int): Int {
+        val baseSize = 30
+        val callBonus = (callCount.coerceAtMost(50) / 10).coerceAtMost(20)
+        val complexityBonus = (complexity.coerceAtMost(100) / 20).coerceAtMost(15)
+
+        return baseSize + callBonus + complexityBonus
+    }
 }
 
 /**
@@ -723,7 +802,8 @@ data class G6Edge(
     val target: String,
     val label: String? = null,
     val category: String? = null,
-    val style: G6EdgeStyle
+    val style: G6EdgeStyle,
+    val data: Map<String, String>? = null
 )
 
 /**
@@ -732,5 +812,15 @@ data class G6Edge(
 @kotlinx.serialization.Serializable
 data class G6EdgeStyle(
     val stroke: String,
-    val lineWidth: Int
+    val lineWidth: Int,
+    val endArrow: G6Arrow? = null
+)
+
+/**
+ * G6箭头
+ */
+@kotlinx.serialization.Serializable
+data class G6Arrow(
+    val path: String,
+    val fill: String
 )

@@ -4,7 +4,7 @@
  * 提供代码依赖关系的交互式可视化功能，包括：
  * - 包级依赖图
  * - 类级关系图
- * - 方法复杂度热力图
+ * - 方法调用关系图和调用链分析
  * - 业务场景分析图
  */
 
@@ -155,7 +155,7 @@ class DependencyVisualizer {
         `;
 
         // 在所有图表容器中显示错误信息
-        ['package-graph', 'class-graph', 'method-heatmap', 'scene-graph'].forEach(id => {
+        ['package-graph', 'class-graph', 'method-call-graph', 'call-chain-graph', 'scene-graph'].forEach(id => {
             const container = document.getElementById(id);
             if (container) {
                 container.innerHTML = errorHtml;
@@ -223,14 +223,7 @@ class DependencyVisualizer {
             this.toggleFullscreen();
         });
 
-        // 热力图指标切换
-        const heatmapMetric = document.getElementById('heatmap-metric');
-        if (heatmapMetric) {
-            heatmapMetric.addEventListener('change', (e) => {
-                this.updateMethodHeatmap(e.target.value);
-            });
-        }
-
+        
         // 场景选择
         const sceneSelect = document.getElementById('scene-select');
         if (sceneSelect) {
@@ -307,7 +300,7 @@ class DependencyVisualizer {
                 this.updateClassGraph();
                 break;
             case 'method-view':
-                this.updateMethodHeatmap('cyclomatic');
+                this.updateMethodAnalysis();
                 break;
             case 'scene-view':
                 this.updateSceneSelector();
@@ -785,98 +778,114 @@ class DependencyVisualizer {
     }
 
     /**
-     * 更新方法热力图
+     * 更新方法分析视图（替换热力图）
      */
-    updateMethodHeatmap(metric) {
-        const container = document.getElementById('method-heatmap');
-        if (!container || !this.currentData) return;
+    updateMethodAnalysis() {
+        if (!this.currentData) return;
 
-        // 这里简化实现，实际应该使用热力图库如D3.js
-        const methods = this.getTopMethodsByMetric(metric, 20);
+        // 初始化方法分析控件
+        this.setupMethodAnalysisControls();
 
-        let html = '<div class="heatmap-grid">';
-        methods.forEach(method => {
-            const value = this.getMethodMetricValue(method, metric);
-            const color = this.getHeatmapColor(value, metric);
+        // 默认启动调用关系图模式
+        this.initCallGraphMode();
 
-            html += `
-                <div class="heatmap-cell" style="background-color: ${color};"
-                     title="${method.className}.${method.methodName}: ${value}">
-                    <div class="method-name">${method.methodName}</div>
-                    <div class="method-class">${method.className}</div>
-                    <div class="metric-value">${value}</div>
-                </div>
-            `;
-        });
-        html += '</div>';
-
-        container.innerHTML = html;
+        // 填充入口方法选择器
+        this.populateEntryMethods();
     }
 
     /**
-     * 获取按指标排序的顶级方法
+     * 设置方法分析控件
      */
-    getTopMethodsByMetric(metric, limit) {
-        const methods = [];
+    setupMethodAnalysisControls() {
+        // 模式切换
+        this.setupMethodAnalysisModeToggle();
 
-        this.currentData.methods?.forEach(method => {
-            methods.push({
-                ...method,
-                metricValue: this.getMethodMetricValue(method, metric)
+        // 筛选控件
+        this.setupMethodFilters();
+
+        // 操作按钮
+        this.setupMethodActions();
+    }
+
+    /**
+     * 设置方法分析模式切换
+     */
+    setupMethodAnalysisModeToggle() {
+        const callgraphMode = document.getElementById('callgraph-mode');
+        const callchainMode = document.getElementById('callchain-mode');
+        const callgraphContainer = document.getElementById('callgraph-container');
+        const callchainContainer = document.getElementById('callchain-container');
+
+        if (!callgraphMode || !callchainMode) return;
+
+        callgraphMode.addEventListener('click', () => {
+            callgraphMode.classList.add('active');
+            callchainMode.classList.remove('active');
+            if (callgraphContainer) callgraphContainer.style.display = 'block';
+            if (callchainContainer) callchainContainer.style.display = 'none';
+            this.initCallGraphMode();
+        });
+
+        callchainMode.addEventListener('click', () => {
+            callchainMode.classList.add('active');
+            callgraphMode.classList.remove('active');
+            if (callgraphContainer) callgraphContainer.style.display = 'none';
+            if (callchainContainer) callchainContainer.style.display = 'block';
+            this.initCallChainMode();
+        });
+    }
+
+    /**
+     * 设置方法筛选器
+     */
+    setupMethodFilters() {
+        const filters = ['call-type-filter', 'complexity-filter', 'call-count-filter'];
+        filters.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.addEventListener('change', () => {
+                    if (this.currentMethodMode === 'callgraph') {
+                        this.refreshCallGraph();
+                    }
+                });
+            }
+        });
+    }
+
+    /**
+     * 设置方法操作按钮
+     */
+    setupMethodActions() {
+        // 导出图片
+        const exportBtn = document.getElementById('export-graph');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => {
+                this.exportMethodGraph();
             });
-        });
-
-        return methods
-            .sort((a, b) => b.metricValue - a.metricValue)
-            .slice(0, limit);
-    }
-
-    /**
-     * 获取方法指标值
-     */
-    getMethodMetricValue(method, metric) {
-        const metrics = method.metrics;
-        switch (metric) {
-            case 'cyclomatic':
-                return metrics?.cyclomaticComplexity || 0;
-            case 'cognitive':
-                return metrics?.cognitiveComplexity || 0;
-            case 'lines':
-                return metrics?.linesOfCode || 0;
-            case 'parameters':
-                return metrics?.parameterCount || 0;
-            default:
-                return 0;
         }
-    }
 
-    /**
-     * 获取热力图颜色
-     */
-    getHeatmapColor(value, metric) {
-        const thresholds = this.getMetricThresholds(metric);
+        // 重置视图
+        const resetBtn = document.getElementById('reset-view');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                this.resetMethodGraphView();
+            });
+        }
 
-        if (value >= thresholds.high) return '#FF4D4F';
-        if (value >= thresholds.medium) return '#FA8C16';
-        if (value >= thresholds.low) return '#FAAD14';
-        return '#52C41A';
-    }
+        // 方法详情面板关闭按钮
+        const closeBtn = document.getElementById('close-details');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                this.hideMethodDetails();
+            });
+        }
 
-    /**
-     * 获取指标阈值
-     */
-    getMetricThresholds(metric) {
-        switch (metric) {
-            case 'cyclomatic':
-                return { high: 10, medium: 5, low: 2 };
-            case 'cognitive':
-                return { high: 15, medium: 8, low: 4 };
-            case 'lines':
-                return { high: 50, medium: 25, low: 10 };
-            case 'parameters':
-                return { high: 6, medium: 4, low: 2 };
-            default:
-                return { high: 10, medium: 5, low: 2 };
+        // 自动检测入口方法
+        const autoDetectBtn = document.getElementById('auto-detect-entries');
+        if (autoDetectBtn) {
+            autoDetectBtn.addEventListener('click', () => {
+                this.autoDetectEntryMethods();
+            });
         }
     }
 
@@ -1300,6 +1309,632 @@ class DependencyVisualizer {
         if (overlay) {
             overlay.style.display = 'none';
         }
+    }
+
+    // ========================= 方法调用分析功能 =========================
+
+    /**
+     * 转换方法调用图数据
+     */
+    convertToMethodCallGraphData() {
+        if (!this.currentData.callGraph || !this.currentData.callGraph.edges) {
+            return { nodes: [], edges: [] };
+        }
+
+        // 获取筛选条件
+        const callCountThreshold = parseInt(document.getElementById('call-count-filter')?.value || '1');
+        const complexityFilter = document.getElementById('complexity-filter')?.value;
+        const callTypeFilter = document.getElementById('call-type-filter')?.value;
+
+        // 聚合和筛选调用关系
+        const nodeMap = new Map();
+        const edges = [];
+
+        this.currentData.callGraph.edges.forEach(edge => {
+            // 应用筛选条件
+            if (edge.callContext?.callCount < callCountThreshold) return;
+            if (callTypeFilter !== 'all' && !this.matchesCallType(edge.type, callTypeFilter)) return;
+
+            // 构建节点和边
+            this.buildMethodNode(nodeMap, edge.source, this.currentData);
+            this.buildMethodNode(nodeMap, edge.target, this.currentData);
+
+            edges.push({
+                id: `${edge.source}-${edge.target}`,
+                source: edge.source,
+                target: edge.target,
+                label: `${edge.callContext?.callCount || 0}次`,
+                data: edge,
+                style: {
+                    stroke: this.getCallTypeColor(edge.type),
+                    lineWidth: Math.min((edge.weight || 1) / 2, 8)
+                }
+            });
+        });
+
+        // 应用复杂度筛选
+        const filteredNodes = Array.from(nodeMap.values()).filter(node => {
+            if (complexityFilter === 'all') return true;
+            return this.matchesComplexity(node.complexity || 0, complexityFilter);
+        });
+
+        // 构建最终的节点数据
+        const finalNodes = filteredNodes.map(node => this.createMethodNode(node));
+
+        return { nodes: finalNodes, edges };
+    }
+
+    /**
+     * 构建方法节点数据
+     */
+    buildMethodNode(nodeMap, methodId, currentData) {
+        if (nodeMap.has(methodId)) return;
+
+        const method = currentData.methods?.find(m => m.id === methodId);
+        const callCount = currentData.callGraph?.edges?.filter(e => e.source === methodId).length || 0;
+        const calledByCount = currentData.callGraph?.edges?.filter(e => e.target === methodId).length || 0;
+
+        const node = {
+            id: methodId,
+            name: method?.name || methodId,
+            className: method?.className || '',
+            complexity: method?.metrics?.complexityScore || 0,
+            linesOfCode: method?.metrics?.linesOfCode || 0,
+            parameterCount: method?.metrics?.parameterCount || 0,
+            callCount: callCount,
+            calledByCount: calledByCount
+        };
+
+        nodeMap.set(methodId, node);
+    }
+
+    /**
+     * 创建方法节点
+     */
+    createMethodNode(node) {
+        return {
+            id: node.id,
+            label: `${node.className}.${node.name}`,
+            data: node,
+            style: {
+                fill: this.getNodeColorByComplexity(node.complexity),
+                size: this.calculateNodeSize(node.callCount, node.complexity)
+            }
+        };
+    }
+
+    /**
+     * 初始化调用关系图模式
+     */
+    initCallGraphMode() {
+        this.currentMethodMode = 'callgraph';
+        const container = document.getElementById('method-call-graph');
+        if (!container) return;
+
+        const graphData = this.convertToMethodCallGraphData();
+        this.updateGraphStats(graphData);
+
+        // 清理旧的图表实例
+        if (this.methodCallGraph) {
+            this.methodCallGraph.destroy();
+        }
+
+        this.methodCallGraph = new G6.Graph({
+            container: container,
+            modes: {
+                default: ['drag-node', 'drag-canvas', 'zoom-canvas', 'click-select']
+            },
+            layout: {
+                type: 'dagre',
+                rankdir: 'TB',
+                nodesep: 50,
+                ranksep: 100
+            },
+            defaultNode: {
+                type: 'circle',
+                size: [60, 60],
+                style: {
+                    fill: '#1890ff',
+                    stroke: '#096dd9',
+                    lineWidth: 2
+                },
+                labelCfg: {
+                    position: 'center',
+                    style: {
+                        fill: '#fff',
+                        fontSize: 10
+                    }
+                }
+            },
+            defaultEdge: {
+                type: 'polyline',
+                style: {
+                    stroke: '#e6e6e6',
+                    lineWidth: 2,
+                    endArrow: {
+                        path: 'M 0,0 L 8,4 L 0,8',
+                        fill: '#e6e6e6'
+                    }
+                }
+            }
+        });
+
+        this.methodCallGraph.data(graphData);
+        this.methodCallGraph.render();
+        this.setupCallGraphEvents();
+    }
+
+    /**
+     * 初始化调用链分析模式
+     */
+    initCallChainMode() {
+        this.currentMethodMode = 'callchain';
+        const container = document.getElementById('call-chain-graph');
+        const entryMethod = document.getElementById('entry-method-select')?.value;
+
+        if (!entryMethod) {
+            this.showMessage('请选择入口方法查看调用链');
+            return;
+        }
+
+        const chainData = this.buildCallChainData(entryMethod);
+        this.updateChainStats(chainData);
+
+        // 清理旧的图表实例
+        if (this.callChainGraph) {
+            this.callChainGraph.destroy();
+        }
+
+        this.callChainGraph = new G6.Graph({
+            container: container,
+            modes: {
+                default: ['drag-canvas', 'zoom-canvas']
+            },
+            layout: {
+                type: 'dagre',
+                rankdir: 'TB'
+            }
+        });
+
+        this.callChainGraph.data(chainData);
+        this.callChainGraph.render();
+        this.setupCallChainEvents(entryMethod);
+        this.displayChainDetails(chainData);
+    }
+
+    /**
+     * 构建调用链数据
+     */
+    buildCallChainData(entryMethodId) {
+        const visited = new Set();
+        const nodes = new Map();
+        const edges = [];
+
+        // 深度优先搜索构建调用链
+        this.buildCallChainDFS(entryMethodId, visited, nodes, edges, 0, 10);
+
+        // 转换为G6格式
+        const g6Nodes = Array.from(nodes.values()).map(node => ({
+            id: node.id,
+            label: `${node.className}.${node.name}`,
+            data: node,
+            style: {
+                fill: this.getNodeColorByDepth(node.depth),
+                size: Math.max(30, Math.min(80, 30 + node.callCount * 5))
+            }
+        }));
+
+        return { nodes: g6Nodes, edges };
+    }
+
+    /**
+     * 构建调用链（深度优先搜索）
+     */
+    buildCallChainDFS(methodId, visited, nodes, edges, depth, maxDepth) {
+        if (depth > maxDepth || visited.has(methodId)) return;
+
+        visited.add(methodId);
+        const method = this.currentData.methods?.find(m => m.id === methodId);
+        if (!method) return;
+
+        // 添加节点
+        const callCount = this.currentData.callGraph?.edges?.filter(e => e.source === methodId).length || 0;
+        const node = {
+            id: methodId,
+            name: method.name,
+            className: method.className,
+            complexity: method.metrics?.complexityScore || 0,
+            callCount: callCount,
+            depth: depth
+        };
+        nodes.set(methodId, node);
+
+        // 处理调用关系
+        this.currentData.callGraph?.edges?.forEach(edge => {
+            if (edge.source === methodId && !visited.has(edge.target)) {
+                edges.push({
+                    id: `${edge.source}-${edge.target}`,
+                    source: edge.source,
+                    target: edge.target,
+                    label: `${edge.callContext?.callCount || 1}次`,
+                    style: {
+                        stroke: '#1890ff',
+                        lineWidth: Math.min((edge.callContext?.callCount || 1), 5)
+                    }
+                });
+
+                // 递归处理被调用方法
+                this.buildCallChainDFS(edge.target, visited, nodes, edges, depth + 1, maxDepth);
+            }
+        });
+    }
+
+    /**
+     * 填充入口方法选择器
+     */
+    populateEntryMethods() {
+        const selector = document.getElementById('entry-method-select');
+        if (!selector) return;
+
+        // 清空现有选项
+        selector.innerHTML = '<option value="">选择入口方法</option>';
+
+        // 添加业务入口方法
+        const entryMethods = this.currentData.methods?.filter(m => m.isEntryPoint) || [];
+        entryMethods.forEach(method => {
+            const option = document.createElement('option');
+            option.value = method.id;
+            option.textContent = `${method.className}.${method.name}`;
+            selector.appendChild(option);
+        });
+
+        // 如果没有明确的入口方法，添加复杂度最高的方法
+        if (entryMethods.length === 0) {
+            const topMethods = this.currentData.methods?.sort((a, b) =>
+                (b.metrics?.complexityScore || 0) - (a.metrics?.complexityScore || 0)
+            ).slice(0, 20) || [];
+
+            topMethods.forEach(method => {
+                const option = document.createElement('option');
+                option.value = method.id;
+                option.textContent = `${method.className}.${method.name}`;
+                selector.appendChild(option);
+            });
+        }
+    }
+
+    /**
+     * 设置调用图事件
+     */
+    setupCallGraphEvents() {
+        if (!this.methodCallGraph) return;
+
+        // 节点点击事件 - 显示方法详情
+        this.methodCallGraph.on('node:click', (evt) => {
+            const node = evt.item;
+            this.showMethodDetails(node.getModel());
+        });
+
+        // 边点击事件 - 高亮调用路径
+        this.methodCallGraph.on('edge:click', (evt) => {
+            const edge = evt.item;
+            this.highlightCallPath(edge.getModel());
+        });
+    }
+
+    /**
+     * 设置调用链事件
+     */
+    setupCallChainEvents(entryMethodId) {
+        if (!this.callChainGraph) return;
+
+        // 节点点击事件 - 显示方法详情
+        this.callChainGraph.on('node:click', (evt) => {
+            const node = evt.item;
+            this.showMethodDetails(node.getModel());
+        });
+    }
+
+    /**
+     * 显示方法详情
+     */
+    showMethodDetails(nodeModel) {
+        const panel = document.getElementById('method-details-panel');
+        const info = document.getElementById('method-info');
+        const calls = document.getElementById('calls-list');
+        const calledBy = document.getElementById('called-by-list');
+
+        if (!panel || !info || !calls || !calledBy) return;
+
+        const methodData = nodeModel.data;
+
+        // 更新基本信息
+        info.innerHTML = `
+            <div class="info-item">
+                <span class="info-label">方法名:</span>
+                <span class="info-value">${methodData.className}.${methodData.name}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">复杂度:</span>
+                <span class="info-value">${methodData.complexity}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">代码行数:</span>
+                <span class="info-value">${methodData.linesOfCode}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">参数个数:</span>
+                <span class="info-value">${methodData.parameterCount}</span>
+            </div>
+        `;
+
+        // 更新调用关系
+        const methodCalls = this.currentData.callGraph?.edges?.filter(e => e.source === methodData.id) || [];
+        calls.innerHTML = methodCalls.length > 0 ? methodCalls.map(call => {
+            const targetMethod = this.currentData.methods?.find(m => m.id === call.target);
+            return `
+                <div class="call-item" onclick="dependencyVisualizer.focusMethod('${call.target}')">
+                    调用 ${targetMethod?.className || 'Unknown'}.${targetMethod?.name || 'Unknown'}
+                    (${call.callContext?.callCount || 1}次)
+                </div>
+            `;
+        }).join('') : '<div class="no-data">无调用关系</div>';
+
+        // 更新被调用关系
+        const methodCalledBy = this.currentData.callGraph?.edges?.filter(e => e.target === methodData.id) || [];
+        calledBy.innerHTML = methodCalledBy.length > 0 ? methodCalledBy.map(call => {
+            const sourceMethod = this.currentData.methods?.find(m => m.id === call.source);
+            return `
+                <div class="called-by-item" onclick="dependencyVisualizer.focusMethod('${call.source}')">
+                    被 ${sourceMethod?.className || 'Unknown'}.${sourceMethod?.name || 'Unknown'}
+                    调用 (${call.callContext?.callCount || 1}次)
+                </div>
+            `;
+        }).join('') : '<div class="no-data">无被调用关系</div>';
+
+        // 显示面板
+        panel.classList.add('show');
+    }
+
+    /**
+     * 隐藏方法详情
+     */
+    hideMethodDetails() {
+        const panel = document.getElementById('method-details-panel');
+        if (panel) {
+            panel.classList.remove('show');
+        }
+    }
+
+    /**
+     * 自动检测入口方法
+     */
+    autoDetectEntryMethods() {
+        // 基于调用次数和复杂度自动检测潜在的入口方法
+        const methods = this.currentData.methods || [];
+        const entryMethods = methods.filter(method => {
+            const callCount = this.currentData.callGraph?.edges?.filter(e => e.source === method.id).length || 0;
+            const calledByCount = this.currentData.callGraph?.edges?.filter(e => e.target === method.id).length || 0;
+            const complexity = method.metrics?.complexityScore || 0;
+
+            // 入口方法通常：被调用少、调用其他方法多、复杂度较高
+            return calledByCount <= 2 && callCount >= 3 && complexity >= 10;
+        });
+
+        // 更新选择器
+        const selector = document.getElementById('entry-method-select');
+        if (selector && entryMethods.length > 0) {
+            selector.innerHTML = '<option value="">选择入口方法</option>';
+            entryMethods.forEach(method => {
+                const option = document.createElement('option');
+                option.value = method.id;
+                option.textContent = `${method.className}.${method.name}`;
+                selector.appendChild(option);
+            });
+        }
+    }
+
+    /**
+     * 更新图表统计信息
+     */
+    updateGraphStats(graphData) {
+        const nodeCount = document.getElementById('node-count');
+        const edgeCount = document.getElementById('edge-count');
+        const maxDepth = document.getElementById('max-depth');
+        const complexMethods = document.getElementById('complex-methods-count');
+
+        if (nodeCount) nodeCount.textContent = graphData.nodes.length;
+        if (edgeCount) edgeCount.textContent = graphData.edges.length;
+        if (maxDepth) maxDepth.textContent = this.calculateMaxDepth();
+        if (complexMethods) {
+            const count = graphData.nodes.filter(node =>
+                (node.data?.complexity || 0) > 30
+            ).length;
+            complexMethods.textContent = count;
+        }
+    }
+
+    /**
+     * 更新调用链统计信息
+     */
+    updateChainStats(chainData) {
+        const chainLength = document.getElementById('chain-length');
+        const chainComplexity = document.getElementById('chain-complexity');
+        const chainDescription = document.getElementById('chain-description');
+
+        if (chainLength) chainLength.textContent = chainData.nodes.length;
+        if (chainComplexity) {
+            const totalComplexity = chainData.nodes.reduce((sum, node) =>
+                sum + (node.data?.complexity || 0), 0
+            );
+            chainComplexity.textContent = totalComplexity;
+        }
+        if (chainDescription) {
+            chainDescription.textContent = `显示了包含 ${chainData.nodes.length} 个方法的调用链`;
+        }
+    }
+
+    /**
+     * 显示调用链详情
+     */
+    displayChainDetails(chainData) {
+        const steps = document.getElementById('chain-steps');
+        if (!steps) return;
+
+        const sortedNodes = chainData.nodes.sort((a, b) =>
+            (a.data?.depth || 0) - (b.data?.depth || 0)
+        );
+
+        steps.innerHTML = sortedNodes.map((node, index) => `
+            <div class="chain-step">
+                <div class="chain-step-number">${index + 1}</div>
+                <div class="chain-step-content">
+                    <div class="chain-method">${node.data?.className}.${node.data?.name}</div>
+                    <div class="chain-metrics">
+                        复杂度: ${node.data?.complexity || 0} |
+                        调用次数: ${node.data?.callCount || 0}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // ========================= 辅助方法 =========================
+
+    /**
+     * 匹配调用类型
+     */
+    matchesCallType(edgeType, filterType) {
+        const typeMap = {
+            'METHOD_CALL': 'method_call',
+            'CONSTRUCTOR_CALL': 'constructor_call',
+            'SUPER_CALL': 'super_call'
+        };
+        return typeMap[edgeType] === filterType;
+    }
+
+    /**
+     * 匹配复杂度
+     */
+    matchesComplexity(complexity, filterType) {
+        switch (filterType) {
+            case 'high': return complexity > 30;
+            case 'medium': return complexity >= 15 && complexity <= 30;
+            case 'low': return complexity < 15;
+            default: return true;
+        }
+    }
+
+    /**
+     * 获取调用类型颜色
+     */
+    getCallTypeColor(callType) {
+        const colorMap = {
+            'METHOD_CALL': '#1890FF',      // 蓝色
+            'CONSTRUCTOR_CALL': '#52C41A',  // 绿色
+            'SUPER_CALL': '#FA8C16'         // 橙色
+        };
+        return colorMap[callType] || '#1890FF';
+    }
+
+    /**
+     * 根据复杂度获取节点颜色
+     */
+    getNodeColorByComplexity(complexity) {
+        if (complexity > 50) return '#FF4D4F';    // 红色
+        if (complexity > 30) return '#FA8C16';    // 橙色
+        if (complexity > 15) return '#FAAD14';    // 黄色
+        if (complexity > 5) return '#52C41A';     // 绿色
+        return '#1890FF';                         // 蓝色
+    }
+
+    /**
+     * 根据深度获取节点颜色
+     */
+    getNodeColorByDepth(depth) {
+        const colors = ['#1890FF', '#52C41A', '#FAAD14', '#FA8C16', '#FF4D4F'];
+        return colors[Math.min(depth, colors.length - 1)];
+    }
+
+    /**
+     * 计算节点大小
+     */
+    calculateNodeSize(callCount, complexity) {
+        const baseSize = 30;
+        const callBonus = Math.min(callCount, 50) / 2;
+        const complexityBonus = Math.min(complexity / 20, 15);
+        return baseSize + callBonus + complexityBonus;
+    }
+
+    /**
+     * 计算最大深度
+     */
+    calculateMaxDepth() {
+        let maxDepth = 0;
+        this.currentData.callGraph?.edges?.forEach(edge => {
+            maxDepth = Math.max(maxDepth, edge.depth || 0);
+        });
+        return maxDepth;
+    }
+
+    /**
+     * 刷新调用图
+     */
+    refreshCallGraph() {
+        if (this.currentMethodMode === 'callgraph') {
+            this.initCallGraphMode();
+        }
+    }
+
+    /**
+     * 重置方法图视图
+     */
+    resetMethodGraphView() {
+        if (this.currentMethodMode === 'callgraph' && this.methodCallGraph) {
+            this.methodCallGraph.changeFitView();
+        } else if (this.currentMethodMode === 'callchain' && this.callChainGraph) {
+            this.callChainGraph.changeFitView();
+        }
+    }
+
+    /**
+     * 导出方法图
+     */
+    exportMethodGraph() {
+        const graph = this.currentMethodMode === 'callgraph' ? this.methodCallGraph : this.callChainGraph;
+        if (graph) {
+            graph.downloadFullImage('method-graph', 'image/png');
+        }
+    }
+
+    /**
+     * 聚焦方法
+     */
+    focusMethod(methodId) {
+        const graph = this.currentMethodMode === 'callgraph' ? this.methodCallGraph : this.callChainGraph;
+        if (graph) {
+            const node = graph.findById(methodId);
+            if (node) {
+                graph.focusItem(node);
+                this.showMethodDetails(node.getModel());
+            }
+        }
+    }
+
+    /**
+     * 高亮调用路径
+     */
+    highlightCallPath(edgeModel) {
+        // 实现调用路径高亮逻辑
+        // 这里可以添加更复杂的路径高亮算法
+    }
+
+    /**
+     * 显示消息
+     */
+    showMessage(message) {
+        // 简单的消息显示实现
+        alert(message);
     }
 }
 

@@ -835,3 +835,615 @@ section h2 i {
         border: 1px solid black !important;
     }
 }
+
+/* ========================= 方法分析样式 ========================= */
+
+/* 方法分析控件样式 */
+.method-analysis-controls {
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    align-items: center;
+    min-height: 60px;
+}
+
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.control-label {
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    font-size: 0.9rem;
+}
+
+.control-select {
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    min-width: 140px;
+}
+
+.control-select:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.btn:hover {
+    background: var(--bg-tertiary);
+    transform: translateY(-1px);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+.btn.btn-primary {
+    background: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+}
+
+.btn.btn-primary:hover {
+    background: #0056b3;
+    border-color: #0056b3;
+}
+
+.btn.btn-secondary {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+}
+
+.btn.btn-secondary:hover {
+    background: var(--bg-tertiary);
+}
+
+.btn.btn-outline {
+    background: transparent;
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+.btn.btn-outline:hover {
+    background: var(--bg-secondary);
+    border-color: var(--accent-color);
+}
+
+.btn.active {
+    background: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* 图表统计信息 */
+.graph-stats {
+    display: flex;
+    gap: 2rem;
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 80px;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.stat-value {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--accent-color);
+}
+
+/* 方法调用图容器 */
+.method-callgraph {
+    height: 600px;
+    position: relative;
+    background: var(--bg-primary);
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.graph-canvas {
+    width: 100%;
+    height: 100%;
+    min-height: 500px;
+    background: var(--bg-primary);
+}
+
+/* 调用链分析容器 */
+.method-callchain {
+    display: flex;
+    gap: 1rem;
+    height: 600px;
+}
+
+.chain-controls {
+    flex: 0 0 300px;
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.chain-info h4 {
+    margin: 0 0 1rem 0;
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.chain-info p {
+    color: var(--text-secondary);
+    margin: 0 0 1rem 0;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.chain-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.chain-stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    background: var(--bg-primary);
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.chain-stat-label {
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.chain-stat-value {
+    font-weight: bold;
+    color: var(--accent-color);
+    font-size: 1rem;
+}
+
+.chain-details {
+    flex: 1 0 auto;
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+}
+
+.chain-details h5 {
+    margin: 0 0 1rem 0;
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.chain-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.chain-step {
+    display: flex;
+    align-items: flex-start;
+    padding: 0.75rem;
+    background: var(--bg-primary);
+    border-radius: 6px;
+    border-left: 4px solid var(--accent-color);
+    transition: all 0.2s ease;
+}
+
+.chain-step:hover {
+    background: var(--bg-tertiary);
+    transform: translateX(2px);
+}
+
+.chain-step-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--accent-color);
+    color: white;
+    font-size: 0.8rem;
+    font-weight: bold;
+    margin-right: 0.75rem;
+    flex-shrink: 0;
+}
+
+.chain-step-content {
+    flex: 1;
+}
+
+.chain-method {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+    word-break: break-all;
+}
+
+.chain-metrics {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    line-height: 1.3;
+}
+
+/* 方法详情面板 */
+.method-details-panel {
+    position: fixed;
+    top: 50%;
+    right: -400px;
+    transform: translateY(-50%);
+    width: 380px;
+    max-height: 80vh;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px 0 0 8px;
+    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    transition: right 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.method-details-panel.show {
+    right: 0;
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    flex-shrink: 0;
+}
+
+.panel-header h4 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.close-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+    cursor: pointer;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.close-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.panel-content {
+    flex: 1;
+    padding: 1rem;
+    overflow-y: auto;
+}
+
+.method-info,
+.method-calls,
+.method-called-by {
+    margin-bottom: 1.5rem;
+}
+
+.method-info:last-child,
+.method-calls:last-child,
+.method-called-by:last-child {
+    margin-bottom: 0;
+}
+
+.method-info h5,
+.method-calls h5,
+.method-called-by h5 {
+    margin: 0 0 0.75rem 0;
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.5rem;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--bg-tertiary);
+}
+
+.info-item:last-child {
+    border-bottom: none;
+}
+
+.info-label {
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.info-value {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    text-align: right;
+    max-width: 60%;
+    word-break: break-all;
+}
+
+.calls-list,
+.called-by-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.call-item,
+.called-by-item {
+    padding: 0.75rem;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    border-left: 3px solid var(--accent-color);
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    line-height: 1.3;
+}
+
+.call-item:hover,
+.called-by-item:hover {
+    background: var(--bg-tertiary);
+    transform: translateX(4px);
+    box-shadow: var(--shadow-sm);
+}
+
+.no-data {
+    padding: 1rem;
+    text-align: center;
+    color: var(--text-secondary);
+    font-style: italic;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+    .method-analysis-controls {
+        gap: 1rem;
+    }
+
+    .control-group {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .method-analysis-controls {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+    }
+
+    .control-group {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .graph-stats {
+        gap: 1rem;
+        justify-content: space-around;
+    }
+
+    .method-callchain {
+        flex-direction: column;
+        height: auto;
+    }
+
+    .chain-controls {
+        flex: none;
+        max-width: none;
+    }
+
+    .method-details-panel {
+        width: 90%;
+        right: -95%;
+        max-height: 70vh;
+    }
+
+    .method-details-panel.show {
+        right: 5%;
+    }
+
+    .method-callgraph {
+        height: 400px;
+    }
+}
+
+@media (max-width: 480px) {
+    .method-analysis-controls {
+        padding: 0.75rem;
+    }
+
+    .btn {
+        font-size: 0.8rem;
+        padding: 0.4rem 0.8rem;
+    }
+
+    .control-select {
+        font-size: 0.8rem;
+        min-width: 120px;
+    }
+
+    .graph-stats {
+        gap: 0.5rem;
+    }
+
+    .stat-item {
+        min-width: 60px;
+    }
+
+    .stat-value {
+        font-size: 1rem;
+    }
+}
+
+/* 深色主题适配 */
+@media (prefers-color-scheme: dark) {
+    .method-details-panel {
+        box-shadow: -4px 0 16px rgba(0, 0, 0, 0.3);
+    }
+
+    .call-item,
+    .called-by-item {
+        background: var(--bg-tertiary);
+    }
+
+    .call-item:hover,
+    .called-by-item:hover {
+        background: var(--bg-primary);
+    }
+
+    .chain-stat {
+        background: var(--bg-tertiary);
+    }
+
+    .chain-step {
+        background: var(--bg-tertiary);
+    }
+
+    .chain-step:hover {
+        background: var(--bg-primary);
+    }
+}
+
+/* 动画效果 */
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+    }
+    to {
+        transform: translateX(0);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.method-details-panel.show {
+    animation: slideInRight 0.3s ease-out;
+}
+
+.method-callgraph,
+.method-callchain {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* 滚动条样式 */
+.panel-content::-webkit-scrollbar,
+.calls-list::-webkit-scrollbar,
+.called-by-list::-webkit-scrollbar,
+.chain-details::-webkit-scrollbar {
+    width: 6px;
+}
+
+.panel-content::-webkit-scrollbar-track,
+.calls-list::-webkit-scrollbar-track,
+.called-by-list::-webkit-scrollbar-track,
+.chain-details::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+    border-radius: 3px;
+}
+
+.panel-content::-webkit-scrollbar-thumb,
+.calls-list::-webkit-scrollbar-thumb,
+.called-by-list::-webkit-scrollbar-thumb,
+.chain-details::-webkit-scrollbar-thumb {
+    background: var(--text-muted);
+    border-radius: 3px;
+}
+
+.panel-content::-webkit-scrollbar-thumb:hover,
+.calls-list::-webkit-scrollbar-thumb:hover,
+.called-by-list::-webkit-scrollbar-thumb:hover,
+.chain-details::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+}

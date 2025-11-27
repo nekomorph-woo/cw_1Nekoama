@@ -171,18 +171,122 @@
                     </div>
                 </div>
 
-                <!-- Method View -->
+                <!-- Method View - 调用关系分析版本 -->
                 <div class="tab-pane" id="method-view">
-                    <div class="heatmap-container">
-                        <div class="heatmap-controls">
-                            <select id="heatmap-metric" class="control-select">
-                                <option value="cyclomatic">圈复杂度</option>
-                                <option value="cognitive">认知复杂度</option>
-                                <option value="lines">代码行数</option>
-                                <option value="parameters">参数个数</option>
+                    <!-- 调用分析控件 -->
+                    <div class="method-analysis-controls">
+                        <div class="control-group">
+                            <label class="control-label">分析模式:</label>
+                            <button id="callgraph-mode" class="btn btn-primary active">调用关系图</button>
+                            <button id="callchain-mode" class="btn btn-secondary">调用链分析</button>
+                        </div>
+
+                        <div class="control-group">
+                            <label class="control-label">入口方法:</label>
+                            <select id="entry-method-select" class="control-select">
+                                <option value="">选择入口方法</option>
+                                <!-- 动态填充业务入口方法 -->
+                            </select>
+                            <button id="auto-detect-entries" class="btn btn-outline">自动检测入口</button>
+                        </div>
+
+                        <div class="control-group">
+                            <label class="control-label">筛选条件:</label>
+                            <select id="call-type-filter" class="control-select">
+                                <option value="all">所有调用类型</option>
+                                <option value="method_call">方法调用</option>
+                                <option value="constructor_call">构造器调用</option>
+                                <option value="super_call">父类调用</option>
+                            </select>
+
+                            <select id="complexity-filter" class="control-select">
+                                <option value="all">所有复杂度</option>
+                                <option value="high">高复杂度 (>30)</option>
+                                <option value="medium">中等复杂度 (15-30)</option>
+                                <option value="low">低复杂度 (≤15)</option>
+                            </select>
+
+                            <select id="call-count-filter" class="control-select">
+                                <option value="1">调用次数 ≥ 1</option>
+                                <option value="5">调用次数 ≥ 5</option>
+                                <option value="10">调用次数 ≥ 10</option>
+                                <option value="20">调用次数 ≥ 20</option>
                             </select>
                         </div>
-                        <div id="method-heatmap" class="heatmap-canvas"></div>
+
+                        <div class="control-group">
+                            <button id="expand-all" class="btn btn-outline">展开所有</button>
+                            <button id="collapse-all" class="btn btn-outline">收缩所有</button>
+                            <button id="reset-view" class="btn btn-outline">重置视图</button>
+                            <button id="export-graph" class="btn btn-outline">导出图片</button>
+                        </div>
+                    </div>
+
+                    <!-- 调用关系图容器 -->
+                    <div id="callgraph-container" class="method-callgraph">
+                        <div class="graph-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">方法节点:</span>
+                                <span id="node-count" class="stat-value">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">调用关系:</span>
+                                <span id="edge-count" class="stat-value">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">最大深度:</span>
+                                <span id="max-depth" class="stat-value">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">复杂方法:</span>
+                                <span id="complex-methods-count" class="stat-value">0</span>
+                            </div>
+                        </div>
+                        <div id="method-call-graph" class="graph-canvas"></div>
+                    </div>
+
+                    <!-- 调用链分析容器 -->
+                    <div id="callchain-container" class="method-callchain" style="display: none;">
+                        <div class="chain-controls">
+                            <div class="chain-info">
+                                <h4>调用链信息</h4>
+                                <p id="chain-description">选择入口方法查看完整调用链</p>
+                                <div class="chain-stats">
+                                    <div class="chain-stat">
+                                        <span class="chain-stat-label">链长度:</span>
+                                        <span id="chain-length" class="chain-stat-value">0</span>
+                                    </div>
+                                    <div class="chain-stat">
+                                        <span class="chain-stat-label">复杂度总和:</span>
+                                        <span id="chain-complexity" class="chain-stat-value">0</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="call-chain-graph" class="graph-canvas"></div>
+                        <div id="chain-details" class="chain-details">
+                            <h5>调用链详情</h5>
+                            <div id="chain-steps" class="chain-steps"></div>
+                        </div>
+                    </div>
+
+                    <!-- 方法详情面板 -->
+                    <div id="method-details-panel" class="method-details-panel">
+                        <div class="panel-header">
+                            <h4>方法详情</h4>
+                            <button id="close-details" class="close-btn">×</button>
+                        </div>
+                        <div class="panel-content">
+                            <div id="method-info" class="method-info"></div>
+                            <div id="method-calls" class="method-calls">
+                                <h5>调用关系</h5>
+                                <div id="calls-list"></div>
+                            </div>
+                            <div id="method-called-by" class="method-called-by">
+                                <h5>被调用关系</h5>
+                                <div id="called-by-list"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
