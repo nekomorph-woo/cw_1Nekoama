@@ -1,9 +1,12 @@
 package com.cw2.nekoama.integrations.psi.framework
 
+import com.cw2.nekoama.ai.model.dependency.BusinessEntryPoint
+import com.cw2.nekoama.ai.model.dependency.EntryType
 import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiMethod
 import com.intellij.psi.search.GlobalSearchScope
 import com.cw2.nekoama.integrations.psi.AnnotationPatternDetector
+import com.cw2.nekoama.integrations.psi.HttpMappingInfo
 import com.cw2.nekoama.integrations.psi.PSIAnnotationExtractor
 import com.intellij.psi.JavaPsiFacade
 
@@ -72,19 +75,42 @@ class JaxRsDetector(project: com.intellij.openapi.project.Project) : AbstractFra
 
     override fun detectControllers(scope: GlobalSearchScope): List<PsiClass> {
         try {
-            val allClasses = javaPsiFacade.findClasses("*", scope)
+            // 优先使用allScope进行更全面的搜索
+            val allScope = GlobalSearchScope.allScope(project)
+            val allClasses = javaPsiFacade.findClasses("*", allScope)
 
-            return allClasses.filter { psiClass ->
+            val resources = allClasses.filter { psiClass ->
                 isJaxRsResource(psiClass)
             }.distinctBy { it.qualifiedName }
+
+            com.cw2.nekoama.core.logging.NekoamaLogger.info(
+                "JaxRsDetector",
+                "在${allClasses.size}个类中找到${resources.size}个JAX-RS资源"
+            )
+
+            return resources
 
         } catch (e: Exception) {
             com.cw2.nekoama.core.logging.NekoamaLogger.error(
                 "JaxRsDetector",
-                "检测JAX-RS资源失败",
+                "使用allScope检测失败，尝试使用传入的scope",
                 error = e
             )
-            return emptyList()
+
+            // 降级到传入的scope
+            return try {
+                val fallbackClasses = javaPsiFacade.findClasses("*", scope)
+                fallbackClasses.filter { psiClass ->
+                    isJaxRsResource(psiClass)
+                }.distinctBy { it.qualifiedName }
+            } catch (fallbackException: Exception) {
+                com.cw2.nekoama.core.logging.NekoamaLogger.error(
+                    "JaxRsDetector",
+                    "降级搜索也失败",
+                    error = fallbackException
+                )
+                emptyList()
+            }
         }
     }
 
@@ -145,10 +171,10 @@ class JaxRsDetector(project: com.intellij.openapi.project.Project) : AbstractFra
         method: PsiMethod,
         mapping: HttpMappingInfo
     ): BusinessEntryPoint {
-        return createStandardBusinessEntryPoint(controller, method, mapping, EntryType.REST_ENDPOINT)
+        return createStandardBusinessEntryPoint(controller, method, mapping, EntryType.CONTROLLER)
     }
 
-    override fun getEntryPointType(): EntryType = EntryType.REST_ENDPOINT
+    override fun getEntryPointType(): EntryType = EntryType.CONTROLLER
 
     /**
      * 检查类是否是JAX-RS资源类

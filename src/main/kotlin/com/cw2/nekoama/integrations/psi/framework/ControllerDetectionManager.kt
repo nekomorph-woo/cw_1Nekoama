@@ -1,6 +1,8 @@
 package com.cw2.nekoama.integrations.psi.framework
 
-import com.cw2.nekoama.integrations.psi.framework.*
+import com.cw2.nekoama.ai.model.dependency.BusinessEntryPoint
+import com.cw2.nekoama.ai.model.dependency.EntryType
+import com.cw2.nekoama.integrations.psi.HttpMappingInfo
 import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiMethod
 import com.intellij.psi.search.GlobalSearchScope
@@ -153,7 +155,7 @@ class ControllerDetectionManager(private val project: Project) {
         return entryPoints
             .groupBy { "${it.className}.${it.methodName}" }
             .mapNotNull { (_, entries) ->
-                entries.maxByOrNull { it.confidence }
+                entries.firstOrNull() // 由于现在没有confidence属性，直接取第一个
             }
     }
 
@@ -182,13 +184,7 @@ class ControllerDetectionManager(private val project: Project) {
         return summary.toString()
     }
 
-    /**
-     * 按框架分组入口点
-     */
-    fun groupEntryPointsByFramework(result: DetectionResult): Map<String, List<BusinessEntryPoint>> {
-        return result.entryPoints.groupBy { it.detectedBy }
-    }
-
+    
     /**
      * 按HTTP方法分组入口点
      */

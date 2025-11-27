@@ -1,54 +1,12 @@
 package com.cw2.nekoama.integrations.psi.framework
 
+import com.cw2.nekoama.ai.model.dependency.BusinessEntryPoint
+import com.cw2.nekoama.ai.model.dependency.EntryType
+import com.cw2.nekoama.ai.model.dependency.ParameterInfo
+import com.cw2.nekoama.integrations.psi.HttpMappingInfo
 import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiMethod
 import com.intellij.psi.search.GlobalSearchScope
-
-/**
- * HTTP映射信息数据类
- */
-data class HttpMappingInfo(
-    val method: String,
-    val path: String,
-    val consumes: List<String> = emptyList(),
-    val produces: List<String> = emptyList()
-) {
-    override fun toString(): String = "$method $path"
-}
-
-/**
- * 业务入口点数据类
- */
-data class BusinessEntryPoint(
-    val className: String,
-    val methodName: String,
-    val entryType: EntryType,
-    val annotations: List<String>,
-    val businessScenario: String,
-    val parameters: Map<String, String> = emptyMap(),
-    val httpMapping: String? = null,
-    val confidence: Double = 1.0,
-    val detectedBy: String = "Unknown"
-) {
-    val qualifiedMethodName: String
-        get() = "$className.$methodName"
-}
-
-/**
- * 入口点类型枚举
- */
-enum class EntryType {
-    CONTROLLER,      // HTTP控制器入口
-    SERVICE,         // 服务入口
-    SCHEDULED,       // 定时任务入口
-    EVENT_LISTENER,  // 事件监听器入口
-    MESSAGE_CONSUMER,// 消息消费者入口
-    MAIN_METHOD,     // Main方法入口
-    BATCH_JOB,       // 批处理作业入口
-    REST_ENDPOINT,   // REST端点
-    WEB_ENDPOINT,    // Web端点
-    UNKNOWN          // 未知类型
-}
 
 /**
  * 框架检测器接口
@@ -175,25 +133,25 @@ abstract class AbstractFrameworkDetector(
             annotations = annotations,
             businessScenario = determineBusinessScenario(controller, method, mapping.toString()),
             parameters = parameters,
-            httpMapping = mapping.toString(),
-            confidence = getDetectionConfidence(),
-            detectedBy = getFrameworkName()
+            httpMapping = mapping.toString()
         )
     }
 
     /**
      * 提取方法参数信息
      */
-    private fun extractParameterInfo(method: PsiMethod): Map<String, String> {
-        val parameters = mutableMapOf<String, String>()
-
-        method.parameterList.parameters.forEachIndexed { index, param ->
+    private fun extractParameterInfo(method: PsiMethod): List<ParameterInfo> {
+        return method.parameterList.parameters.mapIndexed { index, param ->
             val paramName = param.name ?: "param$index"
             val paramType = param.type.canonicalText
-            parameters[paramName] = paramType
-        }
+            val paramAnnotations = param.annotations.mapNotNull { it.qualifiedName }
 
-        return parameters
+            ParameterInfo(
+                name = paramName,
+                type = paramType,
+                annotations = paramAnnotations
+            )
+        }
     }
 
     /**

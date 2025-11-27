@@ -1,7 +1,6 @@
 package com.cw2.nekoama.integrations.psi
 
 import com.cw2.nekoama.ai.model.dependency.BusinessEntryPoint
-import com.cw2.nekoama.ai.model.dependency.EntryPointComplexity
 import com.cw2.nekoama.ai.model.dependency.EntryType
 import com.cw2.nekoama.ai.model.dependency.ParameterInfo
 import com.cw2.nekoama.core.logging.NekoamaLogger
@@ -10,15 +9,19 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.*
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.searches.AnnotatedElementsSearch
+import com.cw2.nekoama.integrations.psi.framework.ControllerDetectionManager
+import com.cw2.nekoama.integrations.psi.framework.DetectionResult
 
 /**
  * 业务边界入口点检测器
  * 基于注解和命名模式自动识别业务场景入口
+ * 重构版本：集成了新的ControllerDetectionManager架构
  */
 class BoundaryEntryPointDetector(private val project: Project) {
 
     private val logger = NekoamaLogger
     private val javaPsiFacade = JavaPsiFacade.getInstance(project)
+    private val controllerDetectionManager = ControllerDetectionManager(project)
 
     /**
      * 检测所有业务入口点
@@ -102,18 +105,56 @@ class BoundaryEntryPointDetector(private val project: Project) {
     }
 
     /**
-     * 检测HTTP Controller入口点
+     * 检测HTTP Controller入口点 - 重构版本
+     * 使用新的ControllerDetectionManager架构
      */
     private fun detectControllerEntryPoints(): List<BusinessEntryPoint> {
+        logger.info("BoundaryEntryPointDetector", "开始使用新架构检测Controller入口点")
+
+        try {
+            // 使用新的ControllerDetectionManager
+            val detectionResult = controllerDetectionManager.detectAllControllers()
+
+            // 转换框架检测结果为业务入口点
+            val entryPoints = detectionResult.entryPoints.map { frameworkEntryPoint ->
+                convertFrameworkEntryPoint(frameworkEntryPoint)
+            }
+
+            // 记录检测统计信息
+            logDetectionStatistics(detectionResult)
+
+            logger.info("BoundaryEntryPointDetector", "新架构Controller检测完成，共找到${entryPoints.size}个入口点")
+
+            // 如果新架构检测结果过少，同时使用传统方法补充
+            if (entryPoints.size < 10) {
+                logger.info("BoundaryEntryPointDetector", "新架构检测结果较少(${entryPoints.size}个)，启用传统检测作为补充")
+                val legacyEntryPoints = detectControllerEntryPointsLegacy()
+                val allEntryPoints = (entryPoints + legacyEntryPoints).distinctBy { "${it.className}.${it.methodName}" }
+                logger.info("BoundaryEntryPointDetector", "传统检测额外找到${legacyEntryPoints.size}个Controller入口点，总计${allEntryPoints.size}个")
+                return allEntryPoints
+            }
+
+            return entryPoints
+
+        } catch (e: Exception) {
+            logger.error("BoundaryEntryPointDetector", "新架构Controller检测失败，降级到传统方法", error = e)
+
+            // 降级到原始实现（保留备用方案）
+            return detectControllerEntryPointsLegacy()
+        }
+    }
+
+    /**
+     * 传统Controller检测方法（备用方案）
+     */
+    private fun detectControllerEntryPointsLegacy(): List<BusinessEntryPoint> {
         val entryPoints = mutableListOf<BusinessEntryPoint>()
 
         // 使用多级搜索策略：首先尝试allScope（包含依赖库），然后降级到projectScope
         val allScope = GlobalSearchScope.allScope(project)
         val projectScope = GlobalSearchScope.projectScope(project)
 
-        logger.info("BoundaryEntryPointDetector", "开始检测Controller入口点")
-        logger.info("BoundaryEntryPointDetector", "主要搜索范围: $allScope")
-        logger.info("BoundaryEntryPointDetector", "备用搜索范围: $projectScope")
+        logger.info("BoundaryEntryPointDetector", "使用传统方法检测Controller入口点")
 
         // 主要搜索：使用allScope查找Spring注解
         var controllerAnnotation = javaPsiFacade.findClass("org.springframework.stereotype.Controller", allScope)
@@ -135,19 +176,11 @@ class BoundaryEntryPointDetector(private val project: Project) {
             )
             restControllerAnnotation = restControllerAnnotation
                 ?: javaPsiFacade.findClass("org.springframework.web.bind.annotation.RestController", projectScope)
-
-            logger.info(
-                "BoundaryEntryPointDetector", "Spring Controller注解查找结果 (projectScope): " +
-                        "Controller=${controllerAnnotation != null}, RestController=${restControllerAnnotation != null}"
-            )
         }
-
-        // 检查Spring依赖状态
-        checkSpringDependencies(allScope, projectScope)
 
         // 确定最终使用的搜索范围
         val effectiveScope = if (controllerAnnotation != null || restControllerAnnotation != null) {
-            if (controllerAnnotation != null || restControllerAnnotation != null) allScope else projectScope
+            allScope
         } else {
             projectScope
         }
@@ -187,8 +220,42 @@ class BoundaryEntryPointDetector(private val project: Project) {
             entryPoints.addAll(detectControllersByNamingPattern(effectiveScope))
         }
 
-        logger.info("BoundaryEntryPointDetector", "Controller入口点检测完成，共找到 ${entryPoints.size} 个入口点")
+        logger.info("BoundaryEntryPointDetector", "传统方法Controller检测完成，共找到 ${entryPoints.size} 个入口点")
         return entryPoints
+    }
+
+    /**
+     * 转换框架检测结果为业务入口点
+     */
+    private fun convertFrameworkEntryPoint(frameworkEntry: BusinessEntryPoint): BusinessEntryPoint {
+        return frameworkEntry // 现在使用统一的BusinessEntryPoint类型，无需转换
+    }
+
+    
+  
+    /**
+     * 记录检测统计信息
+     */
+    private fun logDetectionStatistics(detectionResult: com.cw2.nekoama.integrations.psi.framework.DetectionResult) {
+        val summary = controllerDetectionManager.getDetectionSummary(detectionResult)
+        logger.info("BoundaryEntryPointDetector", "=== Controller检测统计 ===")
+        summary.lines().forEach { line ->
+            logger.info("BoundaryEntryPointDetector", line)
+        }
+
+        // 记录检测质量评估
+        val quality = controllerDetectionManager.getDetectionQuality(detectionResult)
+        logger.info("BoundaryEntryPointDetector", "检测质量分数: ${quality["qualityScore"]}/100")
+        logger.info("BoundaryEntryPointDetector", "平均置信度: ${quality["averageConfidence"]}")
+
+        // 记录验证结果
+        val issues = controllerDetectionManager.validateDetectionResult(detectionResult)
+        if (issues.isNotEmpty()) {
+            logger.warn("BoundaryEntryPointDetector", "检测结果验证发现${issues.size}个问题:")
+            issues.forEach { issue ->
+                logger.warn("BoundaryEntryPointDetector", "- $issue")
+            }
+        }
     }
 
     /**
@@ -206,7 +273,7 @@ class BoundaryEntryPointDetector(private val project: Project) {
                     BusinessEntryPoint(
                         className = controllerClass.qualifiedName ?: "",
                         methodName = method.name,
-                        entryType = EntryType.CONTROLLER,
+                        entryType = com.cw2.nekoama.ai.model.dependency.EntryType.CONTROLLER,
                         annotations = annotations,
                         businessScenario = determineControllerScenario(controllerClass, method, httpMapping),
                         httpMapping = httpMapping,
@@ -282,9 +349,7 @@ class BoundaryEntryPointDetector(private val project: Project) {
                             is PsiLiteralValue -> attribute.value?.toString()
                             is PsiArrayInitializerMemberValue -> {
                                 attribute.initializers
-                                    .filterIsInstance<PsiLiteralValue>()
-                                    .mapNotNull { it.value?.toString() }
-                                    .firstOrNull()
+                                    .filterIsInstance<PsiLiteralValue>().firstNotNullOfOrNull { it.value?.toString() }
                             }
 
                             else -> attribute.text?.removeSurrounding("\"")
@@ -429,7 +494,7 @@ class BoundaryEntryPointDetector(private val project: Project) {
                     BusinessEntryPoint(
                         className = serviceClass.qualifiedName ?: "",
                         methodName = method.name,
-                        entryType = EntryType.SERVICE,
+                        entryType = com.cw2.nekoama.ai.model.dependency.EntryType.SERVICE,
                         annotations = annotations,
                         businessScenario = determineServiceScenario(serviceClass, method),
                         parameters = extractParameterInfo(method)
@@ -511,7 +576,7 @@ class BoundaryEntryPointDetector(private val project: Project) {
                             BusinessEntryPoint(
                                 className = psiClass.qualifiedName ?: "",
                                 methodName = element.name,
-                                entryType = EntryType.SCHEDULED,
+                                entryType = com.cw2.nekoama.ai.model.dependency.EntryType.SCHEDULED,
                                 annotations = element.annotations.mapNotNull { it.qualifiedName },
                                 businessScenario = determineScheduledScenario(element),
                                 parameters = extractParameterInfo(element)
@@ -568,7 +633,7 @@ class BoundaryEntryPointDetector(private val project: Project) {
                             BusinessEntryPoint(
                                 className = psiClass.qualifiedName ?: "",
                                 methodName = element.name,
-                                entryType = EntryType.EVENT_LISTENER,
+                                entryType = com.cw2.nekoama.ai.model.dependency.EntryType.EVENT_LISTENER,
                                 annotations = element.annotations.mapNotNull { it.qualifiedName },
                                 businessScenario = determineEventListenerScenario(element),
                                 parameters = extractParameterInfo(element)
@@ -624,7 +689,7 @@ class BoundaryEntryPointDetector(private val project: Project) {
                             BusinessEntryPoint(
                                 className = psiClass.qualifiedName ?: "",
                                 methodName = element.name,
-                                entryType = EntryType.MESSAGE_CONSUMER,
+                                entryType = com.cw2.nekoama.ai.model.dependency.EntryType.MESSAGE_CONSUMER,
                                 annotations = element.annotations.mapNotNull { it.qualifiedName },
                                 businessScenario = determineMessageConsumerScenario(element),
                                 parameters = extractParameterInfo(element)
@@ -685,7 +750,7 @@ class BoundaryEntryPointDetector(private val project: Project) {
                                 BusinessEntryPoint(
                                     className = psiClass.qualifiedName ?: "",
                                     methodName = "main",
-                                    entryType = EntryType.MAIN,
+                                    entryType = com.cw2.nekoama.ai.model.dependency.EntryType.MAIN,
                                     annotations = emptyList(),
                                     businessScenario = determineMainScenario(psiClass),
                                     parameters = extractParameterInfo(method)
@@ -749,7 +814,7 @@ class BoundaryEntryPointDetector(private val project: Project) {
                             BusinessEntryPoint(
                                 className = psiClass.qualifiedName ?: "",
                                 methodName = method.name,
-                                entryType = EntryType.SERVICE, // 批处理作业归类为Service类型
+                                entryType = com.cw2.nekoama.ai.model.dependency.EntryType.SERVICE, // 批处理作业归类为Service类型
                                 annotations = method.annotations.mapNotNull { it.qualifiedName },
                                 businessScenario = determineBatchJobScenario(method),
                                 parameters = extractParameterInfo(method)
@@ -883,7 +948,7 @@ class BoundaryEntryPointDetector(private val project: Project) {
                             BusinessEntryPoint(
                                 className = psiClass.qualifiedName ?: "",
                                 methodName = method.name,
-                                entryType = EntryType.CONTROLLER,
+                                entryType = com.cw2.nekoama.ai.model.dependency.EntryType.CONTROLLER,
                                 annotations = method.annotations.mapNotNull { it.qualifiedName },
                                 businessScenario = determineControllerScenario(psiClass, method, "ANY /"),
                                 parameters = extractParameterInfo(method)
@@ -942,36 +1007,5 @@ class BoundaryEntryPointDetector(private val project: Project) {
         return entryPoints.groupBy { it.entryType }
     }
 
-    /**
-     * 分析入口点复杂度
-     */
-    fun analyzeEntryPointComplexity(entryPoints: List<BusinessEntryPoint>): Map<String, EntryPointComplexity> {
-        return entryPoints.associate { entryPoint ->
-            val complexity = EntryPointComplexity(
-                name = "${entryPoint.className}.${entryPoint.methodName}",
-                businessScenario = entryPoint.businessScenario,
-                parameterCount = entryPoint.parameters.size,
-                hasComplexAnnotations = entryPoint.annotations.any { isComplexAnnotation(it) },
-                hasPathVariable = entryPoint.parameters.any {
-                    it.annotations.any { it.contains("PathVariable") || it.contains("PathParam") }
-                },
-                hasRequestBody = entryPoint.parameters.any {
-                    it.annotations.any { it.contains("RequestBody") || it.contains("MessageBody") }
-                }
-            )
-            entryPoint.businessScenario to complexity
-        }
-    }
-
-    /**
-     * 判断是否为复杂注解
-     */
-    private fun isComplexAnnotation(annotationName: String): Boolean {
-        return annotationName.contains("Transactional") ||
-                annotationName.contains("Async") ||
-                annotationName.contains("Cacheable") ||
-                annotationName.contains("PreAuthorize") ||
-                annotationName.contains("Secured")
-    }
-
+    
 }

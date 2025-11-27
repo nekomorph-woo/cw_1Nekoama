@@ -1,9 +1,12 @@
 package com.cw2.nekoama.integrations.psi.framework
 
+import com.cw2.nekoama.ai.model.dependency.BusinessEntryPoint
+import com.cw2.nekoama.ai.model.dependency.EntryType
 import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiMethod
 import com.intellij.psi.search.GlobalSearchScope
 import com.cw2.nekoama.integrations.psi.AnnotationPatternDetector
+import com.cw2.nekoama.integrations.psi.HttpMappingInfo
 import com.cw2.nekoama.integrations.psi.PSIAnnotationExtractor
 import com.intellij.psi.JavaPsiFacade
 
@@ -47,20 +50,42 @@ class SpringWebDetector(project: com.intellij.openapi.project.Project) : Abstrac
 
     override fun detectControllers(scope: GlobalSearchScope): List<PsiClass> {
         try {
-            // 获取范围内的所有Java类
-            val allClasses = javaPsiFacade.findClasses("*", scope)
+            // 优先使用allScope进行更全面的搜索
+            val allScope = GlobalSearchScope.allScope(project)
+            val allClasses = javaPsiFacade.findClasses("*", allScope)
 
-            return allClasses.filter { psiClass ->
+            val controllers = allClasses.filter { psiClass ->
                 isController(psiClass)
             }.distinctBy { it.qualifiedName }
+
+            com.cw2.nekoama.core.logging.NekoamaLogger.info(
+                "SpringWebDetector",
+                "在${allClasses.size}个类中找到${controllers.size}个Spring Controller"
+            )
+
+            return controllers
 
         } catch (e: Exception) {
             com.cw2.nekoama.core.logging.NekoamaLogger.error(
                 "SpringWebDetector",
-                "检测Spring Controller失败",
+                "使用allScope检测失败，尝试使用传入的scope",
                 error = e
             )
-            return emptyList()
+
+            // 降级到传入的scope
+            return try {
+                val fallbackClasses = javaPsiFacade.findClasses("*", scope)
+                fallbackClasses.filter { psiClass ->
+                    isController(psiClass)
+                }.distinctBy { it.qualifiedName }
+            } catch (fallbackException: Exception) {
+                com.cw2.nekoama.core.logging.NekoamaLogger.error(
+                    "SpringWebDetector",
+                    "降级搜索也失败",
+                    error = fallbackException
+                )
+                emptyList()
+            }
         }
     }
 
