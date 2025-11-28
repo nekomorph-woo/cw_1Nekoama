@@ -236,7 +236,7 @@ class BoundaryEntryPointDetector(private val project: Project) {
     /**
      * 记录检测统计信息
      */
-    private fun logDetectionStatistics(detectionResult: com.cw2.nekoama.integrations.psi.framework.DetectionResult) {
+    private fun logDetectionStatistics(detectionResult: DetectionResult) {
         val summary = controllerDetectionManager.getDetectionSummary(detectionResult)
         logger.info("BoundaryEntryPointDetector", "=== Controller检测统计 ===")
         summary.lines().forEach { line ->
