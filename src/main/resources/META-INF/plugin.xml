@@ -63,7 +63,8 @@
                     icon="/icons/NekoamaToolWindow.svg"/>
 
         <!-- 设置页面注册 -->
-        <applicationConfigurable id="Nekoama.settings" displayName="Nekoama" instance="com.cw2.nekoama.presentation.settings.NekoamaConfigurable"/>
+        <applicationConfigurable id="Nekoama.settings" displayName="Nekoama"
+                                 instance="com.cw2.nekoama.presentation.settings.NekoamaConfigurable"/>
 
         <!-- 通知分组注册（使用稳定的分组ID，不随本地化变化） -->
         <notificationGroup id="Nekoama.Notifications" displayType="BALLOON" isLogByDefault="true"/>
@@ -86,23 +87,39 @@
     <actions>
         <!-- 顶层 Nekoama 组（可用于扩展） -->
         <group id="Nekoama.Actions" text="Nekoama" popup="true">
-            <action id="Nekoama.GenerateNaming" class="com.cw2.nekoama.presentation.actions.GenerateNamingAction" text="Name for Any" description="Generate naming suggestions" icon="AllIcons.Actions.GroupByModuleGroup"/>
-            <action id="Nekoama.GenerateComment" class="com.cw2.nekoama.presentation.actions.GenerateCommentAction" text="Comment for Me" description="Generate documentation" icon="AllIcons.Actions.Lightning"/>
-            <action id="Nekoama.CustomGenerate" class="com.cw2.nekoama.presentation.actions.CustomGenerateAction" text="IDEA for Neko" description="Custom generate with context" icon="AllIcons.Actions.EnableNewUi"/>
+            <action id="Nekoama.GenerateNaming" class="com.cw2.nekoama.presentation.actions.GenerateNamingAction"
+                    text="Name for Any" description="Generate naming suggestions"
+                    icon="AllIcons.Actions.GroupByModuleGroup"/>
+            <action id="Nekoama.GenerateComment" class="com.cw2.nekoama.presentation.actions.GenerateCommentAction"
+                    text="Comment for Me" description="Generate documentation" icon="AllIcons.Actions.Lightning"/>
+            <action id="Nekoama.CustomGenerate" class="com.cw2.nekoama.presentation.actions.CustomGenerateAction"
+                    text="IDEA for Neko" description="Custom generate with context"
+                    icon="AllIcons.Actions.EnableNewUi"/>
         </group>
 
-        <!-- 暂时移除ToolsMenu中的分析Action，将在后续版本通过工具窗口重新提供 -->
+        <!-- ToolsMenu中的分析Action -->
+        <action id="Nekoama.AnalyzeUnusedCode" class="com.cw2.nekoama.presentation.actions.AnalyzeUnusedCodeAction"
+                text="Neko Unused Code" description="Analysis Unused Code" icon="AllIcons.Actions.Find">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+        <action id="Nekoama.AnalyzeDependencies" class="com.cw2.nekoama.presentation.actions.AnalyzeDependenciesAction"
+                text="Neko Code Depens" description="Analysis Code Depens Then Out"
+                icon="AllIcons.Actions.DependencyAnalyzer">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
 
         <!-- 右键菜单集成 -->
-        <action id="Nekoama.CustomGenerate.Popup" class="com.cw2.nekoama.presentation.actions.CustomGenerateAction" text="IDEA for Neko" icon="AllIcons.Actions.EnableNewUi">
+        <action id="Nekoama.CustomGenerate.Popup" class="com.cw2.nekoama.presentation.actions.CustomGenerateAction"
+                text="IDEA for Neko" icon="AllIcons.Actions.EnableNewUi">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
         </action>
-        <action id="Nekoama.GenerateNaming.Popup" class="com.cw2.nekoama.presentation.actions.GenerateNamingAction" text="Name for Any" icon="AllIcons.Actions.GroupByModuleGroup">
+        <action id="Nekoama.GenerateNaming.Popup" class="com.cw2.nekoama.presentation.actions.GenerateNamingAction"
+                text="Name for Any" icon="AllIcons.Actions.GroupByModuleGroup">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
         </action>
-        <action id="Nekoama.GenerateComment.Popup" class="com.cw2.nekoama.presentation.actions.GenerateCommentAction" text="Comment for Me" icon="AllIcons.Actions.Lightning">
+        <action id="Nekoama.GenerateComment.Popup" class="com.cw2.nekoama.presentation.actions.GenerateCommentAction"
+                text="Comment for Me" icon="AllIcons.Actions.Lightning">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
         </action>
-        <!-- 移除右键分析Action菜单项 -->
     </actions>
 </idea-plugin>

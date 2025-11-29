@@ -13,6 +13,11 @@ class DependencyVisualizer {
         this.graphs = {};
         this.currentData = null;
         this.currentLayout = 'dagre';
+        this.currentMethodMode = 'callgraph'; // 默认调用关系图模式
+
+        // 搜索相关属性
+        this.currentSearchResults = [];
+        this.currentSearchResultsIndex = -1;
 
         // 初始化
         this.init();
@@ -50,19 +55,23 @@ class DependencyVisualizer {
         try {
             const dataElement = document.getElementById('analysis-data');
             if (dataElement) {
-                this.currentData = JSON.parse(dataElement.textContent);
-                console.log('分析数据加载成功:', this.currentData);
+                const rawData = JSON.parse(dataElement.textContent);
+                console.log('原始数据加载成功:', rawData);
 
-                // 验证数据结构
-                if (!this.validateAnalysisData(this.currentData)) {
-                    console.warn('分析数据结构不完整，使用默认值');
-                    this.currentData = this.normalizeAnalysisData(this.currentData);
+                // 兼容新旧数据结构，转换为标准格式
+                this.currentData = this.normalizeDataStructure(rawData);
+                console.log('标准化后数据:', this.currentData);
+
+                // 更新项目名称和路径
+                const projectNameElement = document.getElementById('project-name');
+                const projectPathElement = document.getElementById('project-path');
+
+                if (projectNameElement && this.currentData.projectInfo) {
+                    projectNameElement.textContent = this.currentData.projectInfo.name || 'Nekoama分析报告';
                 }
 
-                // 更新项目名称
-                const projectNameElement = document.getElementById('project-name');
-                if (projectNameElement && this.currentData.metadata) {
-                    projectNameElement.textContent = this.currentData.metadata.projectName || 'Nekoama分析报告';
+                if (projectPathElement && this.currentData.projectInfo) {
+                    projectPathElement.textContent = this.currentData.projectInfo.location || 'Unknown Location';
                 }
             } else {
                 console.error('找不到分析数据元素');
@@ -72,6 +81,93 @@ class DependencyVisualizer {
             console.error('解析分析数据失败:', error);
             this.showDataError('解析分析数据失败: ' + error.message);
         }
+    }
+
+    /**
+     * 标准化数据结构，兼容新旧版本
+     */
+    normalizeDataStructure(data) {
+        // 如果已经是新版本格式，直接返回
+        if (data.projectInfo && data.methodCallGraph) {
+            return data;
+        }
+
+        // 兼容旧版本格式，转换为新版本格式
+        console.log('检测到旧版本数据格式，进行转换...');
+
+        const normalizedData = {
+            projectInfo: data.metadata ? {
+                name: data.metadata.projectName || 'Unknown Project',
+                location: data.metadata.scope?.rootPackage || 'Unknown Location',
+                totalFiles: 0,
+                totalClasses: data.classes?.length || 0,
+                totalMethods: data.methods?.length || 0,
+                analysisTime: data.timestamp || Date.now()
+            } : data.projectInfo || {},
+
+            classGraph: {
+                nodes: data.classes?.map(cls => ({
+                    id: cls.qualifiedName || cls.id,
+                    name: cls.name,
+                    packagePath: cls.packageId || cls.packageName || '',
+                    complexity: cls.metrics?.complexityScore || 0,
+                    isController: cls.type === 'CLASS' && (cls.annotations?.some(ann =>
+                        ann.includes('Controller') || ann.includes('RestController')
+                    ) || false),
+                    isService: cls.type === 'CLASS' && (cls.annotations?.some(ann =>
+                        ann.includes('Service')
+                    ) || false)
+                })) || [],
+                edges: data.classDependencies?.map(dep => ({
+                    source: dep.className,
+                    target: dep.dependencies?.[0]?.className || '',
+                    type: 'ASSOCIATION',
+                    strength: 1.0
+                })) || []
+            },
+
+            methodCallGraph: {
+                nodes: data.methods?.map(method => ({
+                    id: `${method.className}.${method.name}`,
+                    name: method.name,
+                    className: method.className,
+                    complexity: method.metrics?.cyclomaticComplexity || 0,
+                    fanIn: method.metrics?.fanIn || 0,
+                    fanOut: method.metrics?.fanOut || 0
+                })) || [],
+                edges: data.methodCalls?.map(call => ({
+                    source: `${call.callerClass}.${call.callerMethod}`,
+                    target: `${call.calleeClass}.${call.calleeMethod}`,
+                    type: 'method_call',
+                    callType: call.callType?.toString()?.toLowerCase() || 'direct'
+                })) || []
+            },
+
+            entryPoints: data.businessEntryPoints || [],
+            codeSmells: data.codeSmells || [],
+            complexityMetrics: data.complexityMetrics || {},
+            statistics: data.statistics || {}
+        };
+
+        // 为methodCallGraph添加methodCalls和methodCallTargets字段
+        if (normalizedData.methodCallGraph.edges.length > 0) {
+            normalizedData.methodCallGraph.methodCalls = normalizedData.methodCallGraph.edges
+                .groupBy(edge => edge.source)
+                .mapValues(edges => edges.map(edge => ({
+                    toMethod: edge.target,
+                    callType: edge.callType,
+                    line: 0
+                })));
+
+            normalizedData.methodCallGraph.methodCallTargets = normalizedData.methodCallGraph.edges
+                .groupBy(edge => edge.target)
+                .mapValues(edges => edges.length);
+        } else {
+            normalizedData.methodCallGraph.methodCalls = {};
+            normalizedData.methodCallGraph.methodCallTargets = {};
+        }
+
+        return normalizedData;
     }
 
     /**
@@ -234,6 +330,129 @@ class DependencyVisualizer {
 
         // 节点筛选器
         this.setupNodeFilters();
+
+        // 初始化搜索功能
+        this.initSearchFunctionality();
+
+        // 方法模式切换
+        this.setupMethodModeSwitching();
+
+        // 清空搜索按钮
+        document.getElementById('clear-search')?.addEventListener('click', () => {
+            this.clearSearch();
+        });
+
+        // 分析调用链按钮
+        document.getElementById('analyze-callchain')?.addEventListener('click', () => {
+            const entryMethodSelect = document.getElementById('entry-method-select');
+            const searchInput = document.getElementById('method-search-input');
+
+            let selectedMethod = null;
+
+            // 优先使用搜索框输入的方法
+            if (searchInput && searchInput.value.trim()) {
+                const searchResults = this.searchMethods(searchInput.value.trim());
+                if (searchResults.length > 0) {
+                    selectedMethod = searchResults[0];
+                }
+            }
+
+            // 如果搜索框没有选择，使用下拉框选择的方法
+            if (!selectedMethod && entryMethodSelect && entryMethodSelect.value) {
+                selectedMethod = { id: entryMethodSelect.value };
+            }
+
+            if (selectedMethod) {
+                this.analyzeCallChain(selectedMethod.id);
+            } else {
+                this.showMessage('请选择入口方法或输入搜索关键词');
+            }
+        });
+    }
+
+    /**
+     * 设置方法模式切换
+     */
+    setupMethodModeSwitching() {
+        const callgraphModeBtn = document.getElementById('callgraph-mode');
+        const callchainModeBtn = document.getElementById('callchain-mode');
+
+        if (callgraphModeBtn && callchainModeBtn) {
+            callgraphModeBtn.addEventListener('click', () => {
+                this.switchMethodMode('callgraph');
+            });
+
+            callchainModeBtn.addEventListener('click', () => {
+                this.switchMethodMode('callchain');
+            });
+        }
+    }
+
+    /**
+     * 切换方法分析模式
+     */
+    switchMethodMode(mode) {
+        const callgraphModeBtn = document.getElementById('callgraph-mode');
+        const callchainModeBtn = document.getElementById('callchain-mode');
+        const callgraphControls = document.getElementById('callgraph-controls');
+        const callchainControls = document.getElementById('callchain-controls');
+        const callgraphContainer = document.getElementById('callgraph-container');
+        const callchainContainer = document.getElementById('callchain-container');
+
+        // 更新按钮状态
+        if (callgraphModeBtn && callchainModeBtn) {
+            if (mode === 'callgraph') {
+                callgraphModeBtn.classList.add('active', 'btn-primary');
+                callgraphModeBtn.classList.remove('btn-secondary');
+                callchainModeBtn.classList.remove('active', 'btn-primary');
+                callchainModeBtn.classList.add('btn-secondary');
+            } else {
+                callchainModeBtn.classList.add('active', 'btn-primary');
+                callchainModeBtn.classList.remove('btn-secondary');
+                callgraphModeBtn.classList.remove('active', 'btn-primary');
+                callgraphModeBtn.classList.add('btn-secondary');
+            }
+        }
+
+        // 切换控件显示
+        if (callgraphControls && callchainControls) {
+            if (mode === 'callgraph') {
+                callgraphControls.style.display = 'flex';
+                callchainControls.style.display = 'none';
+            } else {
+                callgraphControls.style.display = 'none';
+                callchainControls.style.display = 'flex';
+            }
+        }
+
+        // 切换图表容器显示
+        if (callgraphContainer && callchainContainer) {
+            if (mode === 'callgraph') {
+                callgraphContainer.style.display = 'block';
+                callchainContainer.style.display = 'none';
+            } else {
+                callgraphContainer.style.display = 'none';
+                callchainContainer.style.display = 'block';
+            }
+        }
+
+        // 切换统计信息显示
+        document.querySelectorAll('.callgraph-mode-controls').forEach(el => {
+            el.style.display = mode === 'callgraph' ? 'block' : 'none';
+        });
+        document.querySelectorAll('.callchain-mode-controls').forEach(el => {
+            el.style.display = mode === 'callchain' ? 'none' : 'block';
+        });
+
+        // 更新当前模式
+        this.currentMethodMode = mode;
+
+        // 初始化对应的图表
+        if (mode === 'callgraph') {
+            this.initCallGraphMode();
+        } else {
+            this.initCallChainMode();
+        }
     }
 
     /**
@@ -2034,7 +2253,231 @@ class DependencyVisualizer {
     exportMethodGraph() {
         const graph = this.currentMethodMode === 'callgraph' ? this.methodCallGraph : this.callChainGraph;
         if (graph) {
-            graph.downloadFullImage('method-graph', 'image/png');
+            // 显示导出选项对话框
+            this.showExportDialog(graph);
+        } else {
+            this.showMessage('没有可导出的图表');
+        }
+    }
+
+    /**
+     * 显示导出选项对话框
+     */
+    showExportDialog(graph) {
+        const dialog = document.createElement('div');
+        dialog.className = 'export-dialog-overlay';
+        dialog.innerHTML = `
+            <div class="export-dialog">
+                <div class="export-dialog-header">
+                    <h3>导出图表</h3>
+                    <button class="export-dialog-close">&times;</button>
+                </div>
+                <div class="export-dialog-content">
+                    <div class="export-option">
+                        <label>
+                            <input type="radio" name="exportFormat" value="png" checked>
+                            PNG 格式（推荐）
+                        </label>
+                    </div>
+                    <div class="export-option">
+                        <label>
+                            <input type="radio" name="exportFormat" value="jpg">
+                            JPG 格式
+                        </label>
+                    </div>
+                    <div class="export-option">
+                        <label>
+                            <input type="radio" name="exportFormat" value="svg">
+                            SVG 格式（矢量图）
+                        </label>
+                    </div>
+                    <div class="export-option">
+                        <label>
+                            <input type="checkbox" id="include-background" checked>
+                            包含背景色
+                        </label>
+                    </div>
+                    <div class="export-option">
+                        <label>
+                            <input type="number" id="export-scale" value="2" min="1" max="5" step="0.5">
+                            导出缩放比例 (倍数)
+                        </label>
+                    </div>
+                </div>
+                <div class="export-dialog-footer">
+                    <button class="btn btn-secondary" id="export-cancel">取消</button>
+                    <button class="btn btn-primary" id="export-confirm">导出</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(dialog);
+
+        // 绑定事件
+        const closeBtn = dialog.querySelector('.export-dialog-close');
+        const cancelBtn = dialog.querySelector('#export-cancel');
+        const confirmBtn = dialog.querySelector('#export-confirm');
+
+        const closeDialog = () => {
+            document.body.removeChild(dialog);
+        };
+
+        closeBtn.addEventListener('click', closeDialog);
+        cancelBtn.addEventListener('click', closeDialog);
+
+        confirmBtn.addEventListener('click', () => {
+            const format = dialog.querySelector('input[name="exportFormat"]:checked').value;
+            const includeBackground = dialog.querySelector('#include-background').checked;
+            const scale = parseFloat(dialog.querySelector('#export-scale').value);
+
+            this.performExport(graph, format, includeBackground, scale);
+            closeDialog();
+        });
+
+        // 点击背景关闭
+        dialog.addEventListener('click', (e) => {
+            if (e.target === dialog) {
+                closeDialog();
+            }
+        });
+    }
+
+    /**
+     * 执行导出操作
+     */
+    performExport(graph, format, includeBackground, scale) {
+        try {
+            const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
+            const mode = this.currentMethodMode === 'callgraph' ? 'callgraph' : 'callchain';
+            const filename = `nekoama-${mode}-${timestamp}`;
+
+            switch (format) {
+                case 'png':
+                    this.exportAsPNG(graph, filename, includeBackground, scale);
+                    break;
+                case 'jpg':
+                    this.exportAsJPG(graph, filename, includeBackground, scale);
+                    break;
+                case 'svg':
+                    this.exportAsSVG(graph, filename);
+                    break;
+                default:
+                    this.showMessage('不支持的导出格式');
+            }
+        } catch (error) {
+            console.error('导出图表失败:', error);
+            this.showMessage('导出失败: ' + error.message);
+        }
+    }
+
+    /**
+     * 导出为PNG格式
+     */
+    exportAsPNG(graph, filename, includeBackground, scale) {
+        if (graph.downloadFullImage) {
+            // 使用G6内置的下载方法
+            graph.downloadFullImage(filename, 'image/png', {
+                backgroundColor: includeBackground ? '#ffffff' : 'transparent',
+                padding: 30,
+                quality: 1.0,
+                ratio: scale
+            });
+            this.showMessage('图表已导出为PNG格式');
+        } else {
+            this.fallbackExport(graph, filename, 'png', includeBackground, scale);
+        }
+    }
+
+    /**
+     * 导出为JPG格式
+     */
+    exportAsJPG(graph, filename, includeBackground, scale) {
+        if (graph.downloadFullImage) {
+            // 使用G6内置的下载方法
+            graph.downloadFullImage(filename, 'image/jpeg', {
+                backgroundColor: includeBackground ? '#ffffff' : '#ffffff',
+                padding: 30,
+                quality: 0.9,
+                ratio: scale
+            });
+            this.showMessage('图表已导出为JPG格式');
+        } else {
+            this.fallbackExport(graph, filename, 'jpeg', includeBackground, scale);
+        }
+    }
+
+    /**
+     * 导出为SVG格式
+     */
+    exportAsSVG(graph, filename) {
+        try {
+            const svgContainer = graph.getContainer();
+            const svgElements = svgContainer.querySelectorAll('svg');
+
+            if (svgElements.length > 0) {
+                const svgElement = svgElements[0];
+                const svgData = new XMLSerializer().serializeToString(svgElement);
+                const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(svgBlob);
+                link.download = `${filename}.svg`;
+                link.click();
+
+                URL.revokeObjectURL(link.href);
+                this.showMessage('图表已导出为SVG格式');
+            } else {
+                this.showMessage('无法获取SVG数据');
+            }
+        } catch (error) {
+            console.error('SVG导出失败:', error);
+            this.showMessage('SVG导出失败: ' + error.message);
+        }
+    }
+
+    /**
+     * 备用导出方法（使用canvas截图）
+     */
+    fallbackExport(graph, filename, format, includeBackground, scale) {
+        try {
+            const container = graph.getContainer();
+
+            // 使用html2canvas库（如果可用）或者原生canvas方法
+            if (window.html2canvas) {
+                window.html2canvas(container, {
+                    backgroundColor: includeBackground ? '#ffffff' : null,
+                    scale: scale
+                }).then(canvas => {
+                    canvas.toBlob((blob) => {
+                        const link = document.createElement('a');
+                        link.href = URL.createObjectURL(blob);
+                        link.download = `${filename}.${format}`;
+                        link.click();
+                        URL.revokeObjectURL(link.href);
+                        this.showMessage(`图表已导出为${format.toUpperCase()}格式`);
+                    }, `image/${format}`);
+                });
+            } else {
+                // 简单的canvas导出
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const rect = container.getBoundingClientRect();
+
+                canvas.width = rect.width * scale;
+                canvas.height = rect.height * scale;
+
+                if (includeBackground) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                }
+
+                // 这里可以实现更复杂的截图逻辑
+                // 但为了简化，我们提示用户使用其他方法
+                this.showMessage('浏览器不支持直接导出，请使用截图工具');
+            }
+        } catch (error) {
+            console.error('备用导出方法失败:', error);
+            this.showMessage('导出失败，请尝试截图或使用其他浏览器');
         }
     }
 
@@ -2067,6 +2510,767 @@ class DependencyVisualizer {
         // 简单的消息显示实现
         alert(message);
     }
+
+    // ===== 模糊匹配功能 =====
+
+    /**
+     * Levenshtein距离算法实现
+     * 计算两个字符串之间的编辑距离
+     */
+    levenshteinDistance(str1, str2) {
+        const m = str1.length;
+        const n = str2.length;
+
+        // 如果其中一个字符串为空，返回另一个字符串的长度
+        if (m === 0) return n;
+        if (n === 0) return m;
+
+        // 创建二维数组存储距离
+        const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(null));
+
+        // 初始化边界值
+        for (let i = 0; i <= m; i++) dp[i][0] = i;
+        for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+        // 填充距离矩阵
+        for (let i = 1; i <= m; i++) {
+            for (let j = 1; j <= n; j++) {
+                const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
+                dp[i][j] = Math.min(
+                    dp[i - 1][j] + 1,      // 删除
+                    dp[i][j - 1] + 1,      // 插入
+                    dp[i - 1][j - 1] + cost // 替换
+                );
+            }
+        }
+
+        return dp[m][n];
+    }
+
+    /**
+     * 计算字符串相似度 (0-1之间，1表示完全相同)
+     */
+    calculateSimilarity(str1, str2) {
+        const distance = this.levenshteinDistance(
+            str1.toLowerCase(),
+            str2.toLowerCase()
+        );
+        const maxLen = Math.max(str1.length, str2.length);
+        return maxLen === 0 ? 1 : (maxLen - distance) / maxLen;
+    }
+
+    /**
+     * 搜索方法名
+     * @param {string} query 搜索查询
+     * @param {number} maxResults 最大结果数量
+     * @returns {Array} 匹配的方法列表
+     */
+    searchMethods(query, maxResults = 20) {
+        if (!query || query.trim().length === 0) {
+            return [];
+        }
+
+        const results = [];
+        const queryLower = query.toLowerCase().trim();
+
+        // 获取所有方法数据
+        const allMethods = this.getAllMethods();
+
+        allMethods.forEach(method => {
+            const methodName = method.name || '';
+            const className = method.className || '';
+            const fullMethodPath = `${className}.${methodName}`;
+
+            // 计算不同层面的相似度
+            const nameSimilarity = this.calculateSimilarity(methodName, query);
+            const pathSimilarity = this.calculateSimilarity(fullMethodPath, query);
+            const keywordMatch = this.calculateKeywordSimilarity(fullMethodPath, query);
+
+            // 综合相似度评分
+            const combinedScore = Math.max(nameSimilarity * 1.5, pathSimilarity, keywordMatch);
+
+            if (combinedScore > 0.3) { // 相似度阈值
+                results.push({
+                    ...method,
+                    similarity: combinedScore,
+                    matchType: nameSimilarity > 0.7 ? 'exact' :
+                              pathSimilarity > 0.7 ? 'path' : 'keyword'
+                });
+            }
+        });
+
+        // 按相似度排序并限制结果数量
+        return results
+            .sort((a, b) => b.similarity - a.similarity)
+            .slice(0, maxResults);
+    }
+
+    /**
+     * 计算关键词相似度
+     * 检查查询是否是方法名或类名的一部分
+     */
+    calculateKeywordSimilarity(str, query) {
+        const strLower = str.toLowerCase();
+        const queryLower = query.toLowerCase();
+
+        // 精确匹配
+        if (strLower.includes(queryLower)) {
+            return 0.9;
+        }
+
+        // 查询的每个词是否都存在
+        const queryWords = queryLower.split(/\s+/);
+        const strWords = strLower.split(/[\.\-_]/);
+
+        let matchedWords = 0;
+        queryWords.forEach(qWord => {
+            if (strWords.some(sWord => sWord.includes(qWord))) {
+                matchedWords++;
+            }
+        });
+
+        return matchedWords / queryWords.length * 0.8;
+    }
+
+    /**
+     * 获取所有方法数据
+     */
+    getAllMethods() {
+        const methods = [];
+
+        if (this.currentData?.methodCallGraph?.nodes) {
+            this.currentData.methodCallGraph.nodes.forEach(node => {
+                methods.push({
+                    id: node.id,
+                    name: node.name,
+                    className: node.className,
+                    complexity: node.complexity || 0,
+                    fanIn: node.fanIn || 0,
+                    fanOut: node.fanOut || 0
+                });
+            });
+        }
+
+        // 如果没有方法数据，尝试从其他数据源获取
+        if (methods.length === 0 && this.currentData?.classGraph?.nodes) {
+            this.currentData.classGraph.nodes.forEach(node => {
+                // 为类创建一个虚拟的方法节点
+                methods.push({
+                    id: node.id,
+                    name: node.name,
+                    className: node.packagePath || node.name,
+                    complexity: node.complexity || 0,
+                    fanIn: 0,
+                    fanOut: 0,
+                    isClassNode: true
+                });
+            });
+        }
+
+        return methods;
+    }
+
+    /**
+     * 初始化搜索功能
+     */
+    initSearchFunctionality() {
+        const searchInput = document.getElementById('method-search-input');
+        const searchResults = document.getElementById('search-results');
+
+        if (!searchInput || !searchResults) return;
+
+        let searchTimeout;
+        let selectedResultIndex = -1;
+        let currentResults = [];
+
+        // 输入事件监听 - 使用防抖
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                this.performSearch(e.target.value);
+                selectedResultIndex = -1;
+            }, 300); // 300ms防抖
+        });
+
+        // 键盘导航支持
+        searchInput.addEventListener('keydown', (e) => {
+            if (currentResults.length === 0) return;
+
+            switch (e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    selectedResultIndex = Math.min(selectedResultIndex + 1, currentResults.length - 1);
+                    this.updateSearchResultSelection();
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    selectedResultIndex = Math.max(selectedResultIndex - 1, -1);
+                    this.updateSearchResultSelection();
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    if (selectedResultIndex >= 0 && currentResults[selectedResultIndex]) {
+                        this.selectSearchResult(currentResults[selectedResultIndex]);
+                    }
+                    break;
+                case 'Escape':
+                    this.clearSearch();
+                    break;
+            }
+        });
+
+        // 点击其他地方关闭搜索结果
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                this.clearSearch();
+            }
+        });
+    }
+
+    /**
+     * 执行搜索
+     */
+    performSearch(query) {
+        const searchResults = document.getElementById('search-results');
+        if (!searchResults) return;
+
+        if (!query || query.trim().length === 0) {
+            searchResults.style.display = 'none';
+            return;
+        }
+
+        const results = this.searchMethods(query);
+        this.currentSearchResults = results;
+
+        if (results.length === 0) {
+            searchResults.innerHTML = '<div class="search-no-results">未找到匹配的方法</div>';
+        } else {
+            searchResults.innerHTML = results.map((result, index) => `
+                <div class="search-result-item" data-index="${index}">
+                    <div class="search-result-method">${result.name}</div>
+                    <div class="search-result-class">${result.className}</div>
+                </div>
+            `).join('');
+
+            // 添加点击事件
+            searchResults.querySelectorAll('.search-result-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const index = parseInt(item.dataset.index);
+                    this.selectSearchResult(results[index]);
+                });
+            });
+        }
+
+        searchResults.style.display = 'block';
+    }
+
+    /**
+     * 更新搜索结果选择状态
+     */
+    updateSearchResultSelection() {
+        const items = document.querySelectorAll('.search-result-item');
+        items.forEach((item, index) => {
+            if (index === this.currentSearchResultsIndex) {
+                item.classList.add('selected');
+                item.scrollIntoView({ block: 'nearest' });
+            } else {
+                item.classList.remove('selected');
+            }
+        });
+    }
+
+    /**
+     * 选择搜索结果
+     */
+    selectSearchResult(result) {
+        const searchInput = document.getElementById('method-search-input');
+        const searchResults = document.getElementById('search-results');
+
+        if (searchInput) {
+            searchInput.value = `${result.className}.${result.name}`;
+        }
+
+        this.clearSearch();
+
+        // 如果在调用链分析模式，直接分析这个方法的调用链
+        if (this.currentMethodMode === 'callchain') {
+            this.analyzeCallChain(result.id);
+        } else {
+            // 如果在调用关系图模式，聚焦到这个方法
+            this.focusMethod(result.id);
+        }
+    }
+
+    /**
+     * 清空搜索
+     */
+    clearSearch() {
+        const searchInput = document.getElementById('method-search-input');
+        const searchResults = document.getElementById('search-results');
+
+        if (searchInput) {
+            searchInput.value = '';
+        }
+
+        if (searchResults) {
+            searchResults.style.display = 'none';
+            searchResults.innerHTML = '';
+        }
+
+        this.currentSearchResults = [];
+        this.currentSearchResultsIndex = -1;
+    }
+
+    // ===== 完整调用链筛选逻辑 =====
+
+    /**
+     * 分析指定方法的完整调用链
+     * @param {string} methodId 方法ID
+     */
+    analyzeCallChain(methodId) {
+        if (!this.currentData?.methodCallGraph?.nodes) {
+            this.showMessage('没有可用的方法调用数据');
+            return;
+        }
+
+        // 递归构建完整调用链
+        const callChain = this.buildCompleteCallChain(methodId);
+
+        if (callChain.nodes.length === 0) {
+            this.showMessage('未找到指定方法的调用链');
+            return;
+        }
+
+        // 更新调用链统计信息
+        this.updateCallChainStats(callChain);
+
+        // 渲染调用链图表
+        this.renderCallChainGraph(callChain);
+
+        // 显示调用链详情
+        this.displayCallChainDetails(callChain);
+
+        // 切换到调用链模式
+        if (this.currentMethodMode !== 'callchain') {
+            this.switchMethodMode('callchain');
+        }
+    }
+
+    /**
+     * 递归构建完整调用链
+     * @param {string} startMethodId 起始方法ID
+     * @param {Set} visited 已访问方法ID集合（防止循环调用）
+     * @returns {Object} 包含节点和边的调用链数据
+     */
+    buildCompleteCallChain(startMethodId, visited = new Set()) {
+        if (visited.has(startMethodId)) {
+            // 检测到循环调用，停止递归
+            return { nodes: [], edges: [] };
+        }
+
+        visited.add(startMethodId);
+
+        const allNodes = new Map();
+        const allEdges = [];
+        const nodesToProcess = [startMethodId];
+
+        // 查找起始方法节点
+        const startNode = this.findMethodNode(startMethodId);
+        if (startNode) {
+            allNodes.set(startMethodId, startNode);
+        }
+
+        while (nodesToProcess.length > 0) {
+            const currentMethodId = nodesToProcess.pop();
+
+            // 获取当前方法的所有直接调用
+            const outgoingCalls = this.getOutgoingCalls(currentMethodId);
+
+            outgoingCalls.forEach(call => {
+                const targetMethodId = call.toMethod;
+
+                // 添加边
+                if (!allEdges.some(edge =>
+                    edge.source === currentMethodId && edge.target === targetMethodId)) {
+                    allEdges.push({
+                        source: currentMethodId,
+                        target: targetMethodId,
+                        callType: call.callType || 'method_call',
+                        line: call.line || 0
+                    });
+                }
+
+                // 如果目标方法未被处理过，则加入处理队列
+                if (!visited.has(targetMethodId)) {
+                    const targetNode = this.findMethodNode(targetMethodId);
+                    if (targetNode) {
+                        allNodes.set(targetMethodId, targetNode);
+                        nodesToProcess.push(targetMethodId);
+                        visited.add(targetMethodId);
+                    }
+                }
+            });
+        }
+
+        return {
+            nodes: Array.from(allNodes.values()),
+            edges: allEdges,
+            startMethod: startMethodId
+        };
+    }
+
+    /**
+     * 查找方法节点
+     * @param {string} methodId 方法ID
+     * @returns {Object|null} 方法节点数据
+     */
+    findMethodNode(methodId) {
+        const nodes = this.currentData.methodCallGraph?.nodes || [];
+        return nodes.find(node => node.id === methodId) || null;
+    }
+
+    /**
+     * 获取方法的直接调用（被调用的方法）
+     * @param {string} methodId 方法ID
+     * @returns {Array} 调用关系数组
+     */
+    getOutgoingCalls(methodId) {
+        const methodCalls = this.currentData.methodCallGraph?.methodCalls || {};
+        return methodCalls[methodId] || [];
+    }
+
+    /**
+     * 获取调用该方法的方法（调用者）
+     * @param {string} methodId 方法ID
+     * @returns {Array} 调用者关系数组
+     */
+    getIncomingCalls(methodId) {
+        const methodCalls = this.currentData.methodCallGraph?.methodCalls || {};
+        const incomingCalls = [];
+
+        Object.entries(methodCalls).forEach(([callerId, calls]) => {
+            calls.forEach(call => {
+                if (call.toMethod === methodId) {
+                    incomingCalls.push({
+                        fromMethod: callerId,
+                        toMethod: methodId,
+                        callType: call.callType || 'method_call',
+                        line: call.line || 0
+                    });
+                }
+            });
+        });
+
+        return incomingCalls;
+    }
+
+    /**
+     * 更新调用链统计信息
+     * @param {Object} callChain 调用链数据
+     */
+    updateCallChainStats(callChain) {
+        const nodeCountEl = document.getElementById('node-count');
+        const edgeCountEl = document.getElementById('edge-count');
+        const chainLengthEl = document.getElementById('chain-length');
+        const chainComplexityEl = document.getElementById('chain-complexity');
+
+        if (nodeCountEl) nodeCountEl.textContent = callChain.nodes.length;
+        if (edgeCountEl) edgeCountEl.textContent = callChain.edges.length;
+        if (chainLengthEl) chainLengthEl.textContent = callChain.nodes.length;
+
+        // 计算复杂度总和
+        const totalComplexity = callChain.nodes.reduce((sum, node) =>
+            sum + (node.complexity || 0), 0);
+        if (chainComplexityEl) chainComplexityEl.textContent = totalComplexity;
+    }
+
+    /**
+     * 渲染调用链图表
+     * @param {Object} callChain 调用链数据
+     */
+    renderCallChainGraph(callChain) {
+        const container = document.getElementById('call-chain-graph');
+        if (!container) return;
+
+        // 销毁现有图表
+        if (this.callChainGraph) {
+            this.callChainGraph.destroy();
+        }
+
+        // 转换数据格式
+        const g6Data = this.convertCallChainToG6Data(callChain);
+
+        // 创建G6图表实例
+        this.callChainGraph = new G6.Graph({
+            container: container,
+            width: container.clientWidth,
+            height: 500,
+            layout: {
+                type: 'force', // 固定使用力导向布局
+                preventOverlap: true,
+                nodeSize: 20,
+                linkDistance: 100,
+                nodeStrength: -50,
+                edgeStrength: 0.1,
+            },
+            modes: {
+                default: [
+                    'drag-canvas',
+                    'zoom-canvas',
+                    'drag-node',
+                    {
+                        type: 'tooltip',
+                        formatText(model) {
+                            return `${model.name || model.id}\n复杂度: ${model.complexity || 0}`;
+                        }
+                    }
+                ]
+            },
+            defaultNode: {
+                size: 30,
+                style: {
+                    fill: '#1890FF',
+                    stroke: '#fff',
+                    lineWidth: 2,
+                },
+                labelCfg: {
+                    position: 'bottom',
+                    style: {
+                        fill: '#000',
+                        fontSize: 12,
+                    }
+                }
+            },
+            defaultEdge: {
+                style: {
+                    stroke: '#e2e2e2',
+                    lineWidth: 2,
+                    endArrow: {
+                        path: 'M 0,0 L 8,4 L 8,-4 Z',
+                        fill: '#e2e2e2',
+                    },
+                }
+            }
+        });
+
+        // 数据处理 - 根据复杂度设置节点颜色和大小
+        g6Data.nodes = g6Data.nodes.map(node => {
+            const complexity = node.complexity || 0;
+            let color = '#52c41a'; // 低复杂度 - 绿色
+            let size = 30;
+
+            if (complexity > 30) {
+                color = '#ff4d4f'; // 高复杂度 - 红色
+                size = 40;
+            } else if (complexity > 15) {
+                color = '#faad14'; // 中等复杂度 - 橙色
+                size = 35;
+            }
+
+            return {
+                ...node,
+                style: {
+                    fill: color,
+                    stroke: node.id === callChain.startMethod ? '#1890FF' : '#fff',
+                    lineWidth: node.id === callChain.startMethod ? 3 : 2,
+                },
+                size: size
+            };
+        });
+
+        // 读取数据并渲染
+        this.callChainGraph.data(g6Data);
+        this.callChainGraph.render();
+
+        // 聚焦起始方法
+        setTimeout(() => {
+            this.callChainGraph.focusItem(callChain.startMethod, true);
+        }, 500);
+    }
+
+    /**
+     * 将调用链数据转换为G6格式
+     * @param {Object} callChain 调用链数据
+     * @returns {Object} G6格式数据
+     */
+    convertCallChainToG6Data(callChain) {
+        return {
+            nodes: callChain.nodes.map(node => ({
+                id: node.id,
+                label: node.name || node.id,
+                name: node.name,
+                className: node.className,
+                complexity: node.complexity,
+                fanIn: node.fanIn,
+                fanOut: node.fanOut
+            })),
+            edges: callChain.edges.map(edge => ({
+                source: edge.source,
+                target: edge.target,
+                label: edge.callType,
+                callType: edge.callType,
+                line: edge.line
+            }))
+        };
+    }
+
+    /**
+     * 显示调用链详情
+     * @param {Object} callChain 调用链数据
+     */
+    displayCallChainDetails(callChain) {
+        const chainSteps = document.getElementById('chain-steps');
+        if (!chainSteps) return;
+
+        // 构建调用链步骤
+        const steps = this.buildCallChainSteps(callChain);
+
+        chainSteps.innerHTML = steps.map((step, index) => `
+            <div class="chain-step">
+                <div class="step-number">${index + 1}</div>
+                <div class="step-content">
+                    <div class="step-method">${step.method}</div>
+                    <div class="step-class">${step.className}</div>
+                    <div class="step-info">
+                        <span class="complexity">复杂度: ${step.complexity}</span>
+                        ${step.line ? `<span class="line">行号: ${step.line}</span>` : ''}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    /**
+     * 构建调用链步骤数组
+     * @param {Object} callChain 调用链数据
+     * @returns {Array} 调用链步骤数组
+     */
+    buildCallChainSteps(callChain) {
+        const steps = [];
+        const visited = new Set();
+        const currentPath = [callChain.startMethod];
+
+        // 简单的深度优先搜索构建调用链路径
+        this.buildCallChainPath(callChain.startMethod, callChain, visited, currentPath, steps);
+
+        return steps;
+    }
+
+    /**
+     * 递归构建调用链路径
+     * @param {string} currentMethod 当前方法ID
+     * @param {Object} callChain 调用链数据
+     * @param {Set} visited 已访问方法
+     * @param {Array} currentPath 当前路径
+     * @param {Array} steps 结果步骤数组
+     */
+    buildCallChainPath(currentMethod, callChain, visited, currentPath, steps) {
+        if (visited.has(currentMethod)) {
+            return;
+        }
+
+        visited.add(currentMethod);
+
+        // 添加当前步骤
+        const node = callChain.nodes.find(n => n.id === currentMethod);
+        if (node) {
+            const outgoingEdge = callChain.edges.find(e => e.source === currentMethod);
+
+            steps.push({
+                method: node.name || node.id,
+                className: node.className || '',
+                complexity: node.complexity || 0,
+                line: outgoingEdge?.line || 0,
+                depth: currentPath.length - 1
+            });
+        }
+
+        // 查找下一个被调用的方法
+        const nextCalls = callChain.edges.filter(e => e.source === currentMethod);
+
+        // 为了避免显示过于复杂的调用链，这里只显示主要的调用路径
+        if (nextCalls.length > 0) {
+            const primaryCall = nextCalls[0]; // 选择第一个调用作为主要路径
+            currentPath.push(primaryCall.target);
+            this.buildCallChainPath(primaryCall.target, callChain, visited, currentPath, steps);
+        }
+
+        currentPath.pop();
+    }
+
+    /**
+     * 初始化调用链模式
+     */
+    initCallChainMode() {
+        const container = document.getElementById('call-chain-graph');
+        if (!container) return;
+
+        // 如果还没有数据，显示提示
+        if (!this.currentData?.methodCallGraph) {
+            container.innerHTML = '<div class="empty-state">请选择方法并点击"分析调用链"按钮</div>';
+            return;
+        }
+
+        // 填充入口方法下拉框
+        this.populateEntryMethodSelect();
+    }
+
+    /**
+     * 填充入口方法下拉框
+     */
+    populateEntryMethodSelect() {
+        const select = document.getElementById('entry-method-select');
+        if (!select) return;
+
+        const allMethods = this.getAllMethods();
+
+        // 清空现有选项
+        select.innerHTML = '<option value="">选择入口方法</option>';
+
+        // 添加业务入口方法
+        if (this.currentData?.entryPoints) {
+            this.currentData.entryPoints.forEach(entry => {
+                const option = document.createElement('option');
+                option.value = `${entry.className}.${entry.methodName}`;
+                option.textContent = `${entry.className}.${entry.methodName} (${entry.entryType})`;
+                select.appendChild(option);
+            });
+        }
+
+        // 如果没有业务入口方法，添加所有方法
+        if (this.currentData.entryPoints?.length === 0) {
+            allMethods.forEach(method => {
+                const option = document.createElement('option');
+                option.value = method.id;
+                option.textContent = `${method.className}.${method.name}`;
+                select.appendChild(option);
+            });
+        }
+    }
+}
+
+// 添加数组的groupBy和mapValues polyfill
+if (!Array.prototype.groupBy) {
+    Array.prototype.groupBy = function(keySelector) {
+        return this.reduce((groups, item) => {
+            const key = keySelector(item);
+            if (!groups[key]) {
+                groups[key] = [];
+            }
+            groups[key].push(item);
+            return groups;
+        }, {});
+    };
+}
+
+if (!Object.prototype.mapValues) {
+    Object.prototype.mapValues = function(valueMapper) {
+        const result = {};
+        for (const [key, value] of Object.entries(this)) {
+            result[key] = valueMapper(value, key);
+        }
+        return result;
+    };
 }
 
 // 页面加载完成后初始化

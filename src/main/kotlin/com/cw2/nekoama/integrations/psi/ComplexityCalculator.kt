@@ -106,7 +106,8 @@ class ComplexityCalculator {
      * 计算方法的圈复杂度
      */
     fun calculateMethodCyclomaticComplexity(method: PsiMethod): Int {
-        var complexity = 1 // 基础复杂度
+        return com.intellij.openapi.application.ReadAction.compute<Int, com.intellij.openapi.progress.ProcessCanceledException> {
+            var complexity = 1 // 基础复杂度
 
         val visitor = object : JavaRecursiveElementVisitor() {
             var nestingLevel = 0
@@ -198,7 +199,8 @@ class ComplexityCalculator {
         }
 
         method.accept(visitor)
-        return complexity
+        complexity
+        }
     }
 
     /**
@@ -258,6 +260,7 @@ class ComplexityCalculator {
      * 计算方法的认知复杂度
      */
     fun calculateMethodCognitiveComplexity(method: PsiMethod): Int {
+        return com.intellij.openapi.application.ReadAction.compute<Int, com.intellij.openapi.progress.ProcessCanceledException> {
         var complexity = 0
         var nestingLevel = 0
         var isNested = false
@@ -379,7 +382,8 @@ class ComplexityCalculator {
         }
 
         method.accept(visitor)
-        return complexity
+        complexity
+        }
     }
 
     /**

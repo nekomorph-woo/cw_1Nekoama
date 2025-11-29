@@ -3,6 +3,7 @@ package com.cw2.nekoama.core.analysis
 import com.cw2.nekoama.ai.model.dependency.*
 import com.cw2.nekoama.core.logging.NekoamaLogger
 import com.cw2.nekoama.core.reporting.DependencyReportGenerator
+import com.cw2.nekoama.core.reporting.ReportGenerationResult
 import com.cw2.nekoama.integrations.psi.BatchAnalysisProcessor
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
@@ -23,8 +24,7 @@ class SimpleAnalysisExecutor(private val project: Project) {
 
     private val logger = NekoamaLogger
     private val codeAnalysisEngine = CodeAnalysisEngine(project)
-    // 报告生成器暂时注释，因为构造函数参数问题
-    // private val reportGenerator = DependencyReportGenerator(project)
+    private val reportGenerator = DependencyReportGenerator()
 
     /**
      * 执行完整的代码分析流程
@@ -33,6 +33,15 @@ class SimpleAnalysisExecutor(private val project: Project) {
      * @param progressIndicator 进度指示器
      */
     suspend fun executeAnalysis(
+        config: SimpleAnalysisConfig,
+        progressIndicator: ProgressIndicator
+    ): AnalysisResult = com.intellij.openapi.application.ReadAction.compute<AnalysisResult, com.intellij.openapi.progress.ProcessCanceledException> {
+        return@compute kotlinx.coroutines.runBlocking {
+            executeAnalysisInternal(config, progressIndicator)
+        }
+    }
+
+    private suspend fun executeAnalysisInternal(
         config: SimpleAnalysisConfig,
         progressIndicator: ProgressIndicator
     ): AnalysisResult = withContext(Dispatchers.IO) {
@@ -91,14 +100,18 @@ class SimpleAnalysisExecutor(private val project: Project) {
 
         // 过滤测试代码（如果配置要求）
         if (!config.includeTestCode) {
-            filteredClasses = fullProjectResult.allClasses.filter { psiClass ->
-                ProgressManager.checkCanceled()
-                !isTestClass(psiClass)
+            filteredClasses = com.intellij.openapi.application.ReadAction.compute<List<PsiClass>, com.intellij.openapi.progress.ProcessCanceledException> {
+                fullProjectResult.allClasses.filter { psiClass ->
+                    ProgressManager.checkCanceled()
+                    !isTestClass(psiClass)
+                }
             }
 
-            filteredMethods = fullProjectResult.allMethods.filter { psiMethod ->
-                ProgressManager.checkCanceled()
-                !isTestMethod(psiMethod)
+            filteredMethods = com.intellij.openapi.application.ReadAction.compute<List<PsiMethod>, com.intellij.openapi.progress.ProcessCanceledException> {
+                fullProjectResult.allMethods.filter { psiMethod ->
+                    ProgressManager.checkCanceled()
+                    !isTestMethod(psiMethod)
+                }
             }
         }
 
@@ -158,23 +171,31 @@ class SimpleAnalysisExecutor(private val project: Project) {
     private suspend fun buildClassGraphData(fullProjectResult: FullProjectAnalysisResult): ClassGraphData = withContext(Dispatchers.Default) {
         ProgressManager.checkCanceled()
 
-        val nodes = fullProjectResult.allClasses.map { psiClass ->
-            val className = psiClass.qualifiedName ?: ""
-            ClassNode(
-                id = className,
-                name = psiClass.name ?: "",
-                packagePath = className.substringBeforeLast(".", ""),
-                complexity = fullProjectResult.complexityMetrics[className]?.cyclomaticComplexity ?: 0,
-                isController = psiClass.annotations.any { annotation ->
-                    annotation.qualifiedName in setOf(
-                        "org.springframework.web.bind.annotation.RestController",
-                        "org.springframework.stereotype.Controller"
-                    )
-                },
-                isService = psiClass.annotations.any { annotation ->
-                    annotation.qualifiedName?.contains("Service") == true
+        val nodes = com.intellij.openapi.application.ReadAction.compute<List<ClassNode>, com.intellij.openapi.progress.ProcessCanceledException> {
+            fullProjectResult.allClasses.map { psiClass ->
+                ProgressManager.checkCanceled()
+
+                val className = psiClass.qualifiedName ?: ""
+                val annotations = com.intellij.openapi.application.ReadAction.compute<List<com.intellij.psi.PsiAnnotation>, com.intellij.openapi.progress.ProcessCanceledException> {
+                    psiClass.annotations.toList()
                 }
-            )
+
+                ClassNode(
+                    id = className,
+                    name = psiClass.name ?: "",
+                    packagePath = className.substringBeforeLast(".", ""),
+                    complexity = fullProjectResult.complexityMetrics[className]?.cyclomaticComplexity ?: 0,
+                    isController = annotations.any { annotation ->
+                        annotation.qualifiedName in setOf(
+                            "org.springframework.web.bind.annotation.RestController",
+                            "org.springframework.stereotype.Controller"
+                        )
+                    },
+                    isService = annotations.any { annotation ->
+                        annotation.qualifiedName?.contains("Service") == true
+                    }
+                )
+            }
         }
 
         val edges = fullProjectResult.dependencyGraph.map { dep ->
@@ -198,16 +219,20 @@ class SimpleAnalysisExecutor(private val project: Project) {
     private suspend fun buildMethodCallGraphData(fullProjectResult: FullProjectAnalysisResult): MethodCallGraphData = withContext(Dispatchers.Default) {
         ProgressManager.checkCanceled()
 
-        val nodes = fullProjectResult.allMethods.map { psiMethod ->
-            val methodKey = "${psiMethod.containingClass?.qualifiedName}.${psiMethod.name}"
-            MethodNode(
-                id = methodKey,
-                name = psiMethod.name,
-                className = psiMethod.containingClass?.qualifiedName ?: "",
-                complexity = fullProjectResult.complexityMetrics[methodKey]?.cyclomaticComplexity ?: 0,
-                fanIn = fullProjectResult.methodCallGraph.methodCallTargets[methodKey] ?: 0,
-                fanOut = fullProjectResult.methodCallGraph.methodCalls[methodKey]?.size ?: 0
-            )
+        val nodes = com.intellij.openapi.application.ReadAction.compute<List<MethodNode>, com.intellij.openapi.progress.ProcessCanceledException> {
+            fullProjectResult.allMethods.map { psiMethod ->
+                ProgressManager.checkCanceled()
+
+                val methodKey = "${psiMethod.containingClass?.qualifiedName}.${psiMethod.name}"
+                MethodNode(
+                    id = methodKey,
+                    name = psiMethod.name,
+                    className = psiMethod.containingClass?.qualifiedName ?: "",
+                    complexity = fullProjectResult.complexityMetrics[methodKey]?.cyclomaticComplexity ?: 0,
+                    fanIn = fullProjectResult.methodCallGraph.methodCallTargets[methodKey] ?: 0,
+                    fanOut = fullProjectResult.methodCallGraph.methodCalls[methodKey]?.size ?: 0
+                )
+            }
         }
 
         val edges = fullProjectResult.methodCallGraph.methodCalls.flatMap { (fromMethod, calls) ->
@@ -230,36 +255,59 @@ class SimpleAnalysisExecutor(private val project: Project) {
      * 判断是否为测试类
      */
     private fun isTestClass(psiClass: PsiClass): Boolean {
-        val className = psiClass.name ?: return false
-        val packageName = psiClass.qualifiedName ?: return false
+        return com.intellij.openapi.application.ReadAction.compute<Boolean, com.intellij.openapi.progress.ProcessCanceledException> {
+            ProgressManager.checkCanceled()
 
-        return className.endsWith("Test") ||
-               className.endsWith("Tests") ||
-               packageName.contains(".test.") ||
-               packageName.contains(".tests.")
+            val className = psiClass.name ?: return@compute false
+            val packageName = psiClass.qualifiedName ?: return@compute false
+
+            className.endsWith("Test") ||
+                   className.endsWith("Tests") ||
+                   packageName.contains(".test.") ||
+                   packageName.contains(".tests.")
+        }
     }
 
     /**
      * 判断是否为测试方法
      */
     private fun isTestMethod(psiMethod: PsiMethod): Boolean {
-        val methodName = psiMethod.name
-        val containingClass = psiMethod.containingClass
+        return com.intellij.openapi.application.ReadAction.compute<Boolean, com.intellij.openapi.progress.ProcessCanceledException> {
+            ProgressManager.checkCanceled()
 
-        // 如果所在类是测试类，则所有public方法都可能是测试方法
-        if (containingClass != null && isTestClass(containingClass)) {
-            return psiMethod.hasModifierProperty(PsiModifier.PUBLIC) &&
-                   (methodName.startsWith("test") ||
-                    psiMethod.annotations.any { annotation ->
-                        annotation.qualifiedName in setOf(
-                            "org.junit.Test",
-                            "org.junit.jupiter.api.Test",
-                            "org.testng.annotations.Test"
-                        )
-                    })
+            val methodName = psiMethod.name
+            val containingClass = psiMethod.containingClass
+
+            // 如果所在类是测试类，则所有public方法都可能是测试方法
+            if (containingClass != null && isTestClass(containingClass)) {
+                return@compute psiMethod.hasModifierProperty(PsiModifier.PUBLIC) &&
+                       (methodName.startsWith("test") ||
+                        psiMethod.annotations.any { annotation ->
+                            annotation.qualifiedName in setOf(
+                                "org.junit.Test",
+                                "org.junit.jupiter.api.Test",
+                                "org.testng.annotations.Test"
+                            )
+                        })
+            }
+
+            return@compute false
         }
+    }
 
-        return false
+    /**
+     * 生成HTML报告（新版本 - 使用M2重构后的数据结构）
+     */
+    suspend fun generateHtmlReport(
+        analysisResult: AnalysisResult,
+        outputPath: java.nio.file.Path
+    ): com.cw2.nekoama.core.reporting.ReportGenerationResult {
+        logger.info("SimpleAnalysisExecutor", "开始生成HTML报告: ${outputPath.fileName}")
+        return com.intellij.openapi.application.ReadAction.compute<com.cw2.nekoama.core.reporting.ReportGenerationResult, com.intellij.openapi.progress.ProcessCanceledException> {
+            kotlinx.coroutines.runBlocking {
+                reportGenerator.generateReport(analysisResult, outputPath)
+            }
+        }
     }
 }
 
