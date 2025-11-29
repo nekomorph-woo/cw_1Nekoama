@@ -555,22 +555,27 @@ class DependencyCodeAnalyzer(private val project: Project) {
                 try {
                     val resolveResult = expression.resolveMethod()
                     if (resolveResult != null) {
-                        val calleeClass = resolveResult.containingClass
-                        if (calleeClass != null && isIncludedClass(calleeClass, config)) {
-                            val methodCall = MethodCall(
-                                callerClass = callerClass.qualifiedName!!,
-                                callerMethod = method.name,
-                                calleeClass = calleeClass.qualifiedName!!,
-                                calleeMethod = resolveResult.name,
-                                callType = determineCallType(expression),
-                                location = SourceLocation(
-                                    filePath = expression.containingFile.virtualFile.path,
-                                    lineNumber = expression.containingFile.viewProvider.document.getLineNumber(expression.textRange.startOffset) + 1,
-                                    columnNumber = 0
-                                ),
-                                callDepth = currentDepth
-                            )
-                            methodCalls.add(methodCall)
+                        // 过滤掉外部框架方法
+                        if (!isExternalFrameworkMethod(resolveResult, config)) {
+                            val calleeClass = resolveResult.containingClass
+                            if (calleeClass != null && isIncludedClass(calleeClass, config)) {
+                                val methodCall = MethodCall(
+                                    callerClass = callerClass.qualifiedName!!,
+                                    callerMethod = method.name,
+                                    calleeClass = calleeClass.qualifiedName!!,
+                                    calleeMethod = resolveResult.name,
+                                    callType = determineCallType(expression),
+                                    location = SourceLocation(
+                                        filePath = expression.containingFile.virtualFile.path,
+                                        lineNumber = expression.containingFile.viewProvider.document.getLineNumber(expression.textRange.startOffset) + 1,
+                                        columnNumber = 0
+                                    ),
+                                    callDepth = currentDepth
+                                )
+                                methodCalls.add(methodCall)
+                            }
+                        } else {
+                            logger.debug("DependencyCodeAnalyzer", "过滤外部框架方法调用: ${resolveResult.containingClass?.qualifiedName}.${resolveResult.name}")
                         }
                     }
                 } catch (e: Exception) {
@@ -1436,6 +1441,23 @@ class DependencyCodeAnalyzer(private val project: Project) {
                 typeName.startsWith("kotlin.") ||
                 typeName.startsWith("org.springframework.") ||
                 typeName.startsWith("lombok.")
+    }
+
+    /**
+     * 判断方法是否为外部框架方法
+     */
+    private fun isExternalFrameworkMethod(psiMethod: PsiMethod, config: AnalysisConfig): Boolean {
+        val className = psiMethod.containingClass?.qualifiedName ?: return true
+
+        // 如果配置允许包含外部依赖，则不过滤
+        if (config.includeExternalDependencies) {
+            return false
+        }
+
+        // 检查是否属于配置中排除的框架包
+        return config.excludedFrameworkPackages.any { packageName ->
+            className.startsWith("$packageName.") || className == packageName
+        }
     }
 
     /**

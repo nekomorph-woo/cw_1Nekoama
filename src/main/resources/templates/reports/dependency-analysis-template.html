@@ -82,7 +82,7 @@
                         <i class="fas fa-cube"></i> 类级视图
                     </button>
                     <button class="tab-btn" data-tab="method-view">
-                        <i class="fas fa-code"></i> 方法热力图
+                        <i class="fas fa-code"></i> 方法视图
                     </button>
                     <!-- 场景分析标签页已移除 -->
                 </div>
@@ -105,30 +105,6 @@
                 <div class="tab-pane active" id="package-view">
                     <div class="graph-container">
                         <div id="package-graph" class="graph-canvas"></div>
-                        <div class="graph-sidebar">
-                            <div class="sidebar-section">
-                                <h4>节点筛选</h4>
-                                <div class="filter-controls">
-                                    <label>
-                                        <input type="checkbox" id="filter-high-complexity" checked>
-                                        高复杂度节点
-                                    </label>
-                                    <label>
-                                        <input type="checkbox" id="filter-cycles" checked>
-                                        循环依赖
-                                    </label>
-                                    <label>
-                                        <input type="number" id="min-dependencies" min="1" value="3" placeholder="最小依赖数">
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="sidebar-section">
-                                <h4>节点详情</h4>
-                                <div id="package-details" class="node-details">
-                                    <p class="placeholder">点击节点查看详情</p>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
@@ -137,27 +113,6 @@
                     <div class="graph-container">
                         <div id="class-graph" class="graph-canvas"></div>
                         <div class="graph-sidebar">
-                            <div class="sidebar-section">
-                                <h4>类类型筛选</h4>
-                                <div class="filter-controls">
-                                    <label>
-                                        <input type="checkbox" id="filter-controllers" checked>
-                                        控制器类
-                                    </label>
-                                    <label>
-                                        <input type="checkbox" id="filter-services" checked>
-                                        服务类
-                                    </label>
-                                    <label>
-                                        <input type="checkbox" id="filter-pojos" checked>
-                                        POJO类
-                                    </label>
-                                    <label>
-                                        <input type="checkbox" id="filter-interfaces" checked>
-                                        接口
-                                    </label>
-                                </div>
-                            </div>
                             <div class="sidebar-section">
                                 <h4>类详情</h4>
                                 <div id="class-details" class="node-details">

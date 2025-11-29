@@ -176,6 +176,9 @@ class SimpleAnalysisExecutor(private val project: Project) {
                 ProgressManager.checkCanceled()
 
                 val className = psiClass.qualifiedName ?: ""
+                val packageName = com.intellij.openapi.application.ReadAction.compute<String?, com.intellij.openapi.progress.ProcessCanceledException> {
+                    (psiClass.containingFile as? PsiJavaFile)?.packageName
+                } ?: ""
                 val annotations = com.intellij.openapi.application.ReadAction.compute<List<com.intellij.psi.PsiAnnotation>, com.intellij.openapi.progress.ProcessCanceledException> {
                     psiClass.annotations.toList()
                 }
@@ -183,7 +186,7 @@ class SimpleAnalysisExecutor(private val project: Project) {
                 ClassNode(
                     id = className,
                     name = psiClass.name ?: "",
-                    packagePath = className.substringBeforeLast(".", ""),
+                    packagePath = packageName,
                     complexity = fullProjectResult.complexityMetrics[className]?.cyclomaticComplexity ?: 0,
                     isController = annotations.any { annotation ->
                         annotation.qualifiedName in setOf(

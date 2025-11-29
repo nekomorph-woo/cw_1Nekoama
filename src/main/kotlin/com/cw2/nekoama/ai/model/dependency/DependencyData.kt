@@ -347,7 +347,20 @@ data class AnalysisConfig(
     val maxDepth: Int,
     val excludePackages: List<String>,
     val includeTestClasses: Boolean,
-    val complexityThresholds: ComplexityThresholds
+    val complexityThresholds: ComplexityThresholds,
+    val includeExternalDependencies: Boolean = false,
+    val excludedFrameworkPackages: Set<String> = setOf(
+        "java",
+        "javax",
+        "kotlin",
+        "org.springframework",
+        "org.apache",
+        "com.fasterxml",
+        "org.slf4j",
+        "lombok",
+        "org.junit",
+        "org.mockito"
+    )
 )
 
 /**

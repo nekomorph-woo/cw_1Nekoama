@@ -1225,19 +1225,9 @@ class DependencyVisualizer {
                 icon: 'fa-code'
             },
             {
-                label: '代码问题',
-                value: this.currentData.codeSmells?.length || 0,
+                label: '高复杂度',
+                value: this.currentData.metadata?.statistics?.highComplexityMethods || 0,
                 icon: 'fa-exclamation-triangle'
-            },
-            {
-                label: '高复杂度类',
-                value: this.countHighComplexityClasses(),
-                icon: 'fa-fire'
-            },
-            {
-                label: '业务场景',
-                value: this.currentData.sceneDefinitions?.length || 0,
-                icon: 'fa-route'
             }
         ];
 
@@ -1383,6 +1373,12 @@ class DependencyVisualizer {
             html = '<div class="issue-item"><p>没有发现该级别的问题。</p></div>';
         } else {
             filteredSmells.forEach(smell => {
+                // 解析element字段获取类名和方法名
+                const element = smell.element || 'Unknown Element';
+                const parts = element.split('.');
+                const className = parts.length > 1 ? parts[parts.length - 2] : parts[0] || 'Unknown';
+                const methodName = parts.length > 1 ? parts[parts.length - 1] : '';
+
                 html += `
                     <div class="issue-item">
                         <div class="issue-header">
@@ -1392,8 +1388,8 @@ class DependencyVisualizer {
                             </span>
                         </div>
                         <div class="issue-location">
-                            ${smell.className}${smell.methodName ? `.${smell.methodName}` : ''}
-                            (${smell.location?.filePath || 'unknown'}:${smell.location?.lineNumber || 0})
+                            ${className}${methodName ? `.${methodName}` : ''}
+                            (unknown:0)
                         </div>
                         <div class="issue-description">
                             ${smell.description}
@@ -1826,43 +1822,6 @@ class DependencyVisualizer {
             selector.appendChild(option);
             console.log(`Nekoama: 入口方法 - ${method.className}.${method.name}`);
         });
-
-        // 改进的降级策略：如果没有明确的入口方法
-        if (entryMethods.length === 0) {
-            console.warn('Nekoama: 未检测到明确的入口方法，启用降级策略');
-
-            // 显示警告提示
-            this.showFallbackWarning();
-
-            // 使用更严格的过滤条件选择备选方法
-            const fallbackMethods = this.selectFallbackMethods();
-
-            if (fallbackMethods.length > 0) {
-                console.log(`Nekoama: 降级策略选择了 ${fallbackMethods.length} 个备选方法`);
-
-                // 添加分隔标记
-                const separatorOption = document.createElement('option');
-                separatorOption.value = "";
-                separatorOption.textContent = "--- 备选方法（可能不准确）---";
-                separatorOption.disabled = true;
-                selector.appendChild(separatorOption);
-
-                fallbackMethods.forEach(method => {
-                    const option = document.createElement('option');
-                    option.value = method.id;
-                    option.textContent = `${method.className}.${method.name} (备选)`;
-                    option.style.color = "#666";
-                    selector.appendChild(option);
-                });
-            } else {
-                // 如果连备选方法都没有，显示提示
-                const noMethodsOption = document.createElement('option');
-                noMethodsOption.value = "";
-                noMethodsOption.textContent = "未找到合适的入口方法";
-                noMethodsOption.disabled = true;
-                selector.appendChild(noMethodsOption);
-            }
-        }
     }
 
     /**
@@ -2889,25 +2848,29 @@ class DependencyVisualizer {
             outgoingCalls.forEach(call => {
                 const targetMethodId = call.toMethod;
 
-                // 添加边
-                if (!allEdges.some(edge =>
-                    edge.source === currentMethodId && edge.target === targetMethodId)) {
-                    allEdges.push({
-                        source: currentMethodId,
-                        target: targetMethodId,
-                        callType: call.callType || 'method_call',
-                        line: call.line || 0
-                    });
-                }
+                // 先检查目标节点是否存在
+                const targetNode = this.findMethodNode(targetMethodId);
+                if (targetNode) {
+                    // 只有当目标节点存在时才添加边
+                    if (!allEdges.some(edge =>
+                        edge.source === currentMethodId && edge.target === targetMethodId)) {
+                        allEdges.push({
+                            source: currentMethodId,
+                            target: targetMethodId,
+                            callType: call.callType || 'method_call',
+                            line: call.line || 0
+                        });
+                    }
 
-                // 如果目标方法未被处理过，则加入处理队列
-                if (!visited.has(targetMethodId)) {
-                    const targetNode = this.findMethodNode(targetMethodId);
-                    if (targetNode) {
+                    // 如果目标方法未被处理过，则加入处理队列
+                    if (!visited.has(targetMethodId)) {
                         allNodes.set(targetMethodId, targetNode);
                         nodesToProcess.push(targetMethodId);
                         visited.add(targetMethodId);
                     }
+                } else {
+                    // 目标节点不存在（可能是外部方法），记录但不创建边
+                    console.debug(`G6 Visualization: 跳过外部方法调用 - 目标节点不存在: ${targetMethodId}`);
                 }
             });
         }

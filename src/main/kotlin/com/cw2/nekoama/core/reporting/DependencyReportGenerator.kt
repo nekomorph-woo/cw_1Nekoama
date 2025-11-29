@@ -244,7 +244,22 @@ class DependencyReportGenerator {
             }
             appendLine("  },")
 
-            // Statistics
+            // Metadata structure for frontend compatibility
+            appendLine("  \"metadata\": {")
+            appendLine("    \"projectName\": \"${analysisResult.projectInfo.name}\",")
+            appendLine("    \"projectPath\": \"${analysisResult.projectInfo.location}\",")
+            appendLine("    \"statistics\": {")
+            appendLine("      \"totalPackages\": ${calculatePackageCount(analysisResult)},")
+            appendLine("      \"totalClasses\": ${analysisResult.stats.totalClasses},")
+            appendLine("      \"totalMethods\": ${analysisResult.stats.totalMethods},")
+            appendLine("      \"entryPointsCount\": ${analysisResult.stats.entryPointsCount},")
+            appendLine("      \"totalComplexity\": ${analysisResult.stats.complexityStats.totalComplexity},")
+            appendLine("      \"averageComplexity\": ${analysisResult.stats.complexityStats.averageComplexity},")
+            appendLine("      \"highComplexityMethods\": ${analysisResult.stats.complexityStats.highComplexityMethods}")
+            appendLine("    }")
+            appendLine("  },")
+
+            // Statistics (keep for backward compatibility)
             appendLine("  \"statistics\": {")
             appendLine("    \"totalClasses\": ${analysisResult.stats.totalClasses},")
             appendLine("    \"totalMethods\": ${analysisResult.stats.totalMethods},")
@@ -664,6 +679,15 @@ class DependencyReportGenerator {
         } else 0
 
         logger.info("DependencyReportGenerator", "入口方法占总方法比例: ${entryPointRatio}% ($methodEntryCount/$totalMethodCount)")
+    }
+
+    /**
+     * 计算项目的包数量
+     */
+    private fun calculatePackageCount(analysisResult: AnalysisResult): Int {
+        return analysisResult.classGraph.nodes
+            .groupBy { it.packagePath }
+            .size  // 统计所有包，包括默认包（空字符串）
     }
 }
 
