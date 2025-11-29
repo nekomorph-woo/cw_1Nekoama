@@ -1,6 +1,9 @@
 package com.cw2.nekoama.integrations.psi
 
 import com.cw2.nekoama.ai.model.dependency.*
+import com.cw2.nekoama.core.analysis.SimpleAnalysisExecutor
+import com.cw2.nekoama.core.analysis.SimpleAnalysisConfig
+import com.cw2.nekoama.core.analysis.AnalysisResult
 import com.cw2.nekoama.core.logging.NekoamaLogger
 import com.intellij.openapi.fileTypes.StdFileTypes
 import com.intellij.openapi.progress.ProgressIndicator
@@ -26,8 +29,22 @@ class BatchAnalysisProcessor(private val project: Project) {
     private val javaDependencyExtractor = JavaDependencyExtractor()
     private val complexityScorer = ComplexityScorer()
 
+    // 新的简化分析执行器
+    private val simpleAnalysisExecutor = SimpleAnalysisExecutor(project)
+
     /**
-     * 执行批量分析
+     * 执行简化分析（使用新的分析引擎）
+     */
+    suspend fun executeSimpleAnalysis(
+        config: SimpleAnalysisConfig,
+        progressIndicator: ProgressIndicator
+    ): AnalysisResult {
+        logger.info("BatchAnalysisProcessor", "使用新的简化分析引擎")
+        return simpleAnalysisExecutor.executeAnalysis(config, progressIndicator)
+    }
+
+    /**
+     * 执行批量分析（保持向后兼容）
      */
     suspend fun executeBatchAnalysis(
         config: AnalysisConfig,
