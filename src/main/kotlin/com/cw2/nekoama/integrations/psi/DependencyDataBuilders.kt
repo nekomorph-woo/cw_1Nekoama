@@ -11,6 +11,17 @@ import com.intellij.psi.impl.source.PsiClassReferenceType
 object DependencyDataBuilders {
 
     /**
+     * 标准化方法签名 - 用于宽松匹配
+     * 移除泛型、标准化格式等
+     */
+    private fun normalizeMethodSignature(signature: String): String {
+        return signature
+            .replace("<[^<>]+>".toRegex(), "") // 移除泛型参数
+            .replace("\\.\\.\\.".toRegex(), "[]") // 可变参数转为数组格式
+            .replace("\\s+".toRegex(), "") // 移除多余的空格
+    }
+
+    /**
      * 构建包信息列表
      */
     fun buildPackageInfos(
@@ -115,9 +126,15 @@ object DependencyDataBuilders {
     fun buildMethodInfos(
         classes: List<PsiClass>,
         methodCalls: List<MethodCall>,
-        complexityMetrics: Map<String, ClassComplexityMetrics>
+        complexityMetrics: Map<String, ClassComplexityMetrics>,
+        businessEntryPoints: List<BusinessEntryPoint> = emptyList()
     ): List<MethodInfo> {
         val methodInfos = mutableListOf<MethodInfo>()
+
+        // 创建入口方法签名查找映射 - 用于精确匹配业务入口点
+        val entryMethodSignatures = businessEntryPoints.associateBy { entry ->
+            "${entry.className}.${entry.methodName}(${entry.parameters.joinToString(",") { it.type }})"
+        }
 
         for (psiClass in classes) {
             for (method in psiClass.methods) {
@@ -192,10 +209,52 @@ object DependencyDataBuilders {
                         ),
                         usedTypes = emptyList(),
                         tags = MethodTags(
-                            isEntryPoint = false, // 需要从入口点分析中获取
+                            isEntryPoint = run {
+                                // 策略1：构建方法签名用于精确匹配
+                                val methodSignature = "${psiClass.qualifiedName}.${method.name}(${method.parameterList.parameters.joinToString(",") { it.type.presentableText }})"
+                                val exactMatch = entryMethodSignatures.containsKey(methodSignature)
+
+                                // 策略2：宽松匹配（忽略泛型和格式差异）
+                                val normalizedSignature = normalizeMethodSignature(methodSignature)
+                                val relaxedMatch = if (!exactMatch) {
+                                    entryMethodSignatures.any { (sig, _) ->
+                                        normalizeMethodSignature(sig) == normalizedSignature
+                                    }
+                                } else false
+
+                                // 策略3：容错匹配（只匹配类名+方法名）
+                                val fallbackMatch = if (!exactMatch && !relaxedMatch) {
+                                    entryMethodSignatures.any { (sig, _) ->
+                                        val sigParts = sig.split(".")
+                                        val methodParts = methodSignature.split(".")
+                                        sigParts.size >= 2 && methodParts.size >= 2 &&
+                                        sigParts.dropLast(1).last() == methodParts.dropLast(1).last() && // 类名匹配
+                                        sigParts.last().split("(").first() == methodParts.last().split("(").first() // 方法名匹配
+                                    }
+                                } else false
+
+                                val isEntryPoint = exactMatch || relaxedMatch || fallbackMatch
+
+                                // 详细日志记录匹配结果
+                                when {
+                                    exactMatch -> println("Nekoama: ✅ 精确匹配入口方法: $methodSignature")
+                                    relaxedMatch -> println("Nekoama: ✅ 宽松匹配入口方法: $methodSignature")
+                                    fallbackMatch -> println("Nekoama: ✅ 容错匹配入口方法: $methodSignature")
+                                    else -> {
+                                        if (entryMethodSignatures.isNotEmpty()) {
+                                            println("Nekoama: ❌ 方法未匹配为入口点: $methodSignature")
+                                            println("Nekoama:   可用签名示例: ${entryMethodSignatures.keys.take(3)}")
+                                        }
+                                    }
+                                }
+
+                                isEntryPoint
+                            },
                             isPublicApi = method.hasModifierProperty(PsiModifier.PUBLIC),
                             isDeprecated = method.modifierList.annotations.any { it.text.contains("Deprecated") },
-                            sceneNames = emptyList()
+                            sceneNames = businessEntryPoints.filter {
+                                it.className == psiClass.qualifiedName && it.methodName == method.name
+                            }.map { it.businessScenario }
                         )
                     )
                 )

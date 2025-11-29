@@ -30,7 +30,7 @@ class GenericWebDetector(project: com.intellij.openapi.project.Project) : Abstra
 
         private val CONTROLLER_KEYWORDS = listOf(
             "controller", "restcontroller", "endpoint", "resource",
-            "handler", "webservice", "api", "action", "service"
+            "handler", "webservice", "api", "action"
         )
 
         // HTTP方法识别模式
@@ -57,7 +57,7 @@ class GenericWebDetector(project: com.intellij.openapi.project.Project) : Abstra
         // 通用Web注解模式
         private val GENERIC_WEB_ANNOTATIONS = listOf(
             "mapping", "request", "response", "path", "route",
-            "endpoint", "web", "api", "rest", "service"
+            "endpoint", "web", "api", "rest"
         )
     }
 
@@ -164,12 +164,21 @@ class GenericWebDetector(project: com.intellij.openapi.project.Project) : Abstra
 
     /**
      * 检查类是否是通用Web Controller
+     * 使用评分机制，要求至少满足3个条件才能被认为是Web Controller
      */
     private fun isGenericWebController(psiClass: PsiClass): Boolean {
-        return isControllerByNaming(psiClass) ||
-               hasHttpMethods(psiClass) ||
-               hasWebAnnotations(psiClass) ||
-               hasWebParameterTypes(psiClass)
+        val namingScore = if (isControllerByNaming(psiClass)) 2 else 0  // 命名权重更高
+        val annotationScore = if (hasWebAnnotations(psiClass)) 3 else 0  // 注解权重最高
+        val methodScore = if (hasStrictHttpMethods(psiClass)) 2 else 0   // 使用更严格的方法检测
+        val parameterScore = if (hasWebParameterTypes(psiClass)) 1 else 0
+
+        val totalScore = namingScore + annotationScore + methodScore + parameterScore
+
+        // 日志记录检测结果
+        println("Nekoama: GenericWebDetector检测 ${psiClass.qualifiedName} - 评分: $totalScore (命名:$namingScore, 注解:$annotationScore, 方法:$methodScore, 参数:$parameterScore)")
+
+        // 要求至少3分，且必须有注解或明确的Controller命名
+        return totalScore >= 3 && (annotationScore >= 3 || namingScore >= 2)
     }
 
     /**
@@ -195,11 +204,21 @@ class GenericWebDetector(project: com.intellij.openapi.project.Project) : Abstra
     }
 
     /**
-     * 检查类是否有HTTP方法
+     * 检查类是否有HTTP方法（旧版本，保留用于兼容性）
      */
     private fun hasHttpMethods(psiClass: PsiClass): Boolean {
         return psiClass.methods.any { method ->
             isGenericHttpEndpoint(method)
+        }
+    }
+
+    /**
+     * 检查类是否有严格的HTTP方法
+     * 使用更严格的条件来识别真正的HTTP端点
+     */
+    private fun hasStrictHttpMethods(psiClass: PsiClass): Boolean {
+        return psiClass.methods.any { method ->
+            isStrictHttpEndpoint(method)
         }
     }
 
@@ -240,6 +259,47 @@ class GenericWebDetector(project: com.intellij.openapi.project.Project) : Abstra
                hasWebAnnotations(method) ||
                hasWebParameterTypes(method) ||
                hasWebReturnType(method)
+    }
+
+    /**
+     * 检查方法是否是严格的HTTP端点
+     * 使用更严格的条件来避免误识别Service方法
+     */
+    private fun isStrictHttpEndpoint(method: PsiMethod): Boolean {
+        val methodName = method.name.lowercase()
+
+        // 1. 必须有明确的HTTP方法注解或明确的HTTP方法名
+        val hasExplicitHttpAnnotation = hasWebAnnotations(method)
+        val hasExplicitHttpMethod = hasStrictHttpMethodSignature(method)
+
+        // 2. 或者有明确的Web相关特征组合
+        val hasWebFeatures = hasWebParameterTypes(method) &&
+                              (hasWebReturnType(method) || methodName.startsWith("handle"))
+
+        return hasExplicitHttpAnnotation || hasExplicitHttpMethod || hasWebFeatures
+    }
+
+    /**
+     * 检查方法是否有严格的HTTP方法签名
+     * 避免将普通的getter/setter方法误识别为HTTP方法
+     */
+    private fun hasStrictHttpMethodSignature(method: PsiMethod): Boolean {
+        val methodName = method.name.lowercase()
+
+        // 直接的HTTP方法名（必须是完整匹配）
+        val isDirectHttpMethod = HTTP_METHOD_PATTERNS.containsKey(methodName) &&
+                                 methodName.length >= 3  // 避免匹配到"get"这样的短词
+
+        // 包含HTTP关键词但不以常见的getter/setter模式开头
+        val hasHttpKeywords = methodName.containsAny("request", "response", "api") &&
+                               !methodName.startsWith("get") &&
+                               !methodName.startsWith("set") &&
+                               !methodName.startsWith("is") &&
+                               !methodName.startsWith("has") &&
+                               !methodName.startsWith("find") &&
+                               !methodName.startsWith("delete") // "delete"可能是业务删除方法
+
+        return isDirectHttpMethod || hasHttpKeywords
     }
 
     /**

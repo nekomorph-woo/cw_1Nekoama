@@ -46,6 +46,9 @@ class DependencyReportGenerator {
             // 读取HTML模板
             val template = loadHtmlTemplate()
 
+            // 验证入口点数据的完整性
+            validateEntryPointData(analysisResult)
+
             // 序列化分析数据为JSON
             val jsonData = jsonConfig.json.encodeToString(
                 DependencyAnalysisResult.serializer(),
@@ -356,6 +359,55 @@ class DependencyReportGenerator {
                 }
             }
         }
+    }
+
+    /**
+     * 验证入口点数据的完整性
+     */
+    private fun validateEntryPointData(result: DependencyAnalysisResult) {
+        val businessEntryCount = result.businessEntryPoints.size
+        val methodEntryCount = result.methods.count { it.tags.isEntryPoint }
+
+        logger.info("DependencyReportGenerator", "入口点数据验证:")
+        logger.info("DependencyReportGenerator", "  BusinessEntryPoints: $businessEntryCount 个")
+        logger.info("DependencyReportGenerator", "  Method.isEntryPoint: $methodEntryCount 个")
+
+        // 按类型统计入口点
+        val entryPointsByType = result.businessEntryPoints.groupBy { it.entryType }
+        entryPointsByType.forEach { (type, entries) ->
+            logger.info("DependencyReportGenerator", "  ${type.name}: ${entries.size} 个")
+        }
+
+        if (methodEntryCount < businessEntryCount) {
+            logger.warn("DependencyReportGenerator",
+                "入口点匹配不完整：$methodEntryCount/$businessEntryCount")
+
+            // 记录未匹配的业务入口点
+            val matchedMethodSignatures = result.methods
+                .filter { it.tags.isEntryPoint }
+                .map { "${it.className}.${it.name}" }
+                .toSet()
+
+            val unmatchedEntryPoints = result.businessEntryPoints
+                .filter { entry ->
+                    !matchedMethodSignatures.contains("${entry.className}.${entry.methodName}")
+                }
+
+            if (unmatchedEntryPoints.isNotEmpty()) {
+                logger.warn("DependencyReportGenerator",
+                    "未匹配的业务入口点示例：${unmatchedEntryPoints.take(5).map { "${it.className}.${it.methodName}" }}")
+            }
+        } else {
+            logger.info("DependencyReportGenerator", "入口点匹配完整 ✓")
+        }
+
+        // 验证方法的入口点标签
+        val totalMethodCount = result.methods.size
+        val entryPointRatio = if (totalMethodCount > 0) {
+            (methodEntryCount.toDouble() / totalMethodCount * 100).toInt()
+        } else 0
+
+        logger.info("DependencyReportGenerator", "入口方法占总方法比例: ${entryPointRatio}% ($methodEntryCount/$totalMethodCount)")
     }
 }
 

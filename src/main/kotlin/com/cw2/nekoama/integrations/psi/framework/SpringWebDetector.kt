@@ -507,36 +507,64 @@ class SpringWebDetector(project: com.intellij.openapi.project.Project) : Abstrac
             )
         }
 
-        // 4. 业务相关的Controller模式
+        // 4. 业务相关的Controller模式（收紧条件）
         val businessPatterns = listOf("user", "order", "product", "payment", "auth", "admin")
         val matchesBusinessPattern = businessPatterns.any { business ->
             className.contains(business) && (
                 className.contains("controller") || className.contains("api") ||
-                className.contains("resource") || className.contains("service")
-            )
+                className.contains("resource") || className.contains("endpoint") ||
+                className.contains("handler") || className.contains("web")
+            ) && !className.contains("service") && !className.contains("repository") && !className.contains("dao")
         }
 
-        // 5. 检查是否有HTTP相关的方法命名
+        // 5. 检查是否有HTTP相关的方法命名（使用更严格的条件）
         val hasHttpMethods = psiClass.methods.any { method ->
             val methodName = method.name.lowercase()
-            methodName.startsWith("get") || methodName.startsWith("post") ||
-            methodName.startsWith("put") || methodName.startsWith("delete") ||
-            methodName.startsWith("patch") || methodName.startsWith("find") ||
-            methodName.startsWith("create") || methodName.startsWith("update") ||
-            methodName.startsWith("remove")
+            val hasHttpAnnotations = method.annotations.any { annotation ->
+                val annotationName = annotation.qualifiedName?.lowercase() ?: ""
+                annotationName.contains("mapping") || annotationName.contains("request") ||
+                annotationName.contains("getmapping") || annotationName.contains("postmapping") ||
+                annotationName.contains("putmapping") || annotationName.contains("deletemapping")
+            }
+
+            // 如果有HTTP注解，直接认为是HTTP方法
+            if (hasHttpAnnotations) return@any true
+
+            // 否则检查方法名，但排除常见的业务方法模式
+            (methodName.startsWith("get") || methodName.startsWith("post") ||
+             methodName.startsWith("put") || methodName.startsWith("delete") ||
+             methodName.startsWith("patch")) &&
+            !methodName.startsWith("getby") && !methodName.startsWith("findby") &&
+            !methodName.startsWith("save") && !methodName.startsWith("update") &&
+            method.parameterList.parameters.isNotEmpty() // HTTP端点通常有参数
         }
 
         // 组合判断逻辑
         val result = when {
-            matchesHighConfidenceClass -> true
-            matchesHighConfidencePackage && hasHttpMethods -> true
-            matchesRestfulPattern && hasHttpMethods -> true
-            matchesBusinessPattern && hasHttpMethods -> true
-            else -> false
+            matchesHighConfidenceClass -> {
+                logger.info("SpringWebDetector", "高置信度匹配: $className - 类名匹配高置信度模式")
+                true
+            }
+            matchesHighConfidencePackage && hasHttpMethods -> {
+                logger.info("SpringWebDetector", "中置信度匹配: $className - 包路径匹配($packageName)且包含HTTP方法")
+                true
+            }
+            matchesRestfulPattern && hasHttpMethods -> {
+                logger.info("SpringWebDetector", "RESTful模式匹配: $className - RESTful命名且包含HTTP方法")
+                true
+            }
+            matchesBusinessPattern && hasHttpMethods -> {
+                logger.info("SpringWebDetector", "业务模式匹配: $className - 业务命名且包含HTTP方法")
+                true
+            }
+            else -> {
+                logger.debug("SpringWebDetector", "未匹配: $className - 不符合Controller模式")
+                false
+            }
         }
 
         if (result) {
-            logger.debug("SpringWebDetector", "增强命名模式检测匹配: $className (包: $packageName)")
+            logger.info("SpringWebDetector", "增强命名模式检测匹配: $className (包: $packageName)")
         }
 
         return result

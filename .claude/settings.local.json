@@ -28,7 +28,8 @@
       "Bash(done)",
       "Bash(for:*)",
       "Bash(python:*)",
-      "Bash(gradlew compileKotlin:*)"
+      "Bash(gradlew compileKotlin:*)",
+      "Bash(rg:*)"
     ],
     "deny": [],
     "ask": []

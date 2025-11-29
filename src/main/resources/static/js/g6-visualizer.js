@@ -1329,8 +1329,10 @@ class DependencyVisualizer {
         // 聚合和筛选调用关系
         const nodeMap = new Map();
         const edges = [];
+        const edgeIdMap = new Map(); // 用于跟踪重复的边ID
+        let edgeIndex = 0; // 边的索引计数器
 
-        this.currentData.callGraph.edges.forEach(edge => {
+        this.currentData.callGraph.edges.forEach((edge, index) => {
             // 应用筛选条件
             if (edge.callContext?.callCount < callCountThreshold) return;
             if (callTypeFilter !== 'all' && !this.matchesCallType(edge.type, callTypeFilter)) return;
@@ -1339,8 +1341,19 @@ class DependencyVisualizer {
             this.buildMethodNode(nodeMap, edge.source, this.currentData);
             this.buildMethodNode(nodeMap, edge.target, this.currentData);
 
+            // 生成唯一的边ID
+            let edgeId = `${edge.source}-${edge.target}`;
+            if (edgeIdMap.has(edgeId)) {
+                // 如果已存在相同的边，添加索引确保唯一性
+                const existingCount = edgeIdMap.get(edgeId);
+                edgeId = `${edge.source}-${edge.target}-${existingCount}`;
+                edgeIdMap.set(`${edge.source}-${edge.target}`, existingCount + 1);
+            } else {
+                edgeIdMap.set(edgeId, 1);
+            }
+
             edges.push({
-                id: `${edge.source}-${edge.target}`,
+                id: edgeId,
                 source: edge.source,
                 target: edge.target,
                 label: `${edge.callContext?.callCount || 0}次`,
@@ -1350,6 +1363,8 @@ class DependencyVisualizer {
                     lineWidth: Math.min((edge.weight || 1) / 2, 8)
                 }
             });
+
+            edgeIndex++;
         });
 
         // 应用复杂度筛选
@@ -1581,26 +1596,142 @@ class DependencyVisualizer {
 
         // 添加业务入口方法
         const entryMethods = this.currentData.methods?.filter(m => m.isEntryPoint) || [];
+
+        // 日志记录：记录找到的入口方法数量
+        console.log(`Nekoama: 找到 ${entryMethods.length} 个入口方法`);
+
         entryMethods.forEach(method => {
             const option = document.createElement('option');
             option.value = method.id;
             option.textContent = `${method.className}.${method.name}`;
             selector.appendChild(option);
+            console.log(`Nekoama: 入口方法 - ${method.className}.${method.name}`);
         });
 
-        // 如果没有明确的入口方法，添加复杂度最高的方法
+        // 改进的降级策略：如果没有明确的入口方法
         if (entryMethods.length === 0) {
-            const topMethods = this.currentData.methods?.sort((a, b) =>
-                (b.metrics?.complexityScore || 0) - (a.metrics?.complexityScore || 0)
-            ).slice(0, 20) || [];
+            console.warn('Nekoama: 未检测到明确的入口方法，启用降级策略');
 
-            topMethods.forEach(method => {
-                const option = document.createElement('option');
-                option.value = method.id;
-                option.textContent = `${method.className}.${method.name}`;
-                selector.appendChild(option);
-            });
+            // 显示警告提示
+            this.showFallbackWarning();
+
+            // 使用更严格的过滤条件选择备选方法
+            const fallbackMethods = this.selectFallbackMethods();
+
+            if (fallbackMethods.length > 0) {
+                console.log(`Nekoama: 降级策略选择了 ${fallbackMethods.length} 个备选方法`);
+
+                // 添加分隔标记
+                const separatorOption = document.createElement('option');
+                separatorOption.value = "";
+                separatorOption.textContent = "--- 备选方法（可能不准确）---";
+                separatorOption.disabled = true;
+                selector.appendChild(separatorOption);
+
+                fallbackMethods.forEach(method => {
+                    const option = document.createElement('option');
+                    option.value = method.id;
+                    option.textContent = `${method.className}.${method.name} (备选)`;
+                    option.style.color = "#666";
+                    selector.appendChild(option);
+                });
+            } else {
+                // 如果连备选方法都没有，显示提示
+                const noMethodsOption = document.createElement('option');
+                noMethodsOption.value = "";
+                noMethodsOption.textContent = "未找到合适的入口方法";
+                noMethodsOption.disabled = true;
+                selector.appendChild(noMethodsOption);
+            }
         }
+    }
+
+    /**
+     * 选择备选方法（使用更严格的条件）
+     */
+    selectFallbackMethods() {
+        const allMethods = this.currentData.methods || [];
+
+        // 过滤条件：优先选择可能是真正入口点的方法
+        const potentialEntryMethods = allMethods.filter(method => {
+            const className = method.className.toLowerCase();
+            const methodName = method.name.toLowerCase();
+            const isPublic = method.modifiers.includes('public');
+
+            // 必须是public方法
+            if (!isPublic) return false;
+
+            // 排除明显不是入口点的方法
+            if (methodName.startsWith('get') &&
+                (methodName.includes('by') || methodName.includes('from'))) return false;
+            if (methodName.startsWith('set')) return false;
+            if (methodName.startsWith('is') && methodName.length > 2) return false;
+            if (methodName.startsWith('has') && methodName.length > 3) return false;
+            if (methodName.startsWith('find') && methodName.includes('by')) return false;
+
+            // 优先选择包含以下特征的方法
+            const score = [
+                className.includes('controller') ? 3 : 0,
+                className.includes('api') ? 3 : 0,
+                className.includes('resource') ? 2 : 0,
+                className.includes('handler') ? 2 : 0,
+                className.includes('endpoint') ? 2 : 0,
+                methodName.includes('request') ? 2 : 0,
+                methodName.includes('response') ? 2 : 0,
+                methodName.startsWith('handle') ? 2 : 0,
+                method.parameters.length > 0 ? 1 : 0  // 有参数的方法更可能是入口点
+            ].reduce((sum, val) => sum + val, 0);
+
+            return score >= 2;
+        });
+
+        // 按分数排序并返回前10个
+        return potentialEntryMethods
+            .sort((a, b) => (b.metrics?.complexityScore || 0) - (a.metrics?.complexityScore || 0))
+            .slice(0, 10);
+    }
+
+    /**
+     * 显示降级策略警告提示
+     */
+    showFallbackWarning() {
+        // 创建警告提示元素
+        const warningDiv = document.createElement('div');
+        warningDiv.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #ff9800;
+            color: white;
+            padding: 12px 16px;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            z-index: 10000;
+            max-width: 300px;
+            font-size: 14px;
+            line-height: 1.4;
+        `;
+
+        warningDiv.innerHTML = `
+            <strong>⚠️ 检测异常</strong><br>
+            未找到有效的入口方法，显示备选方法。建议检查项目中的Controller注解或入口点配置。
+            <button style="margin-top: 8px; padding: 4px 8px; background: white; color: #ff9800; border: none; border-radius: 3px; cursor: pointer;">知道了</button>
+        `;
+
+        // 添加关闭事件
+        const button = warningDiv.querySelector('button');
+        button.addEventListener('click', () => {
+            document.body.removeChild(warningDiv);
+        });
+
+        // 自动关闭
+        setTimeout(() => {
+            if (document.body.contains(warningDiv)) {
+                document.body.removeChild(warningDiv);
+            }
+        }, 10000);
+
+        document.body.appendChild(warningDiv);
     }
 
     /**

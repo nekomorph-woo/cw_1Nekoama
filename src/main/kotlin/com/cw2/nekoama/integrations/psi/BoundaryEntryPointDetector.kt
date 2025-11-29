@@ -59,7 +59,29 @@ class BoundaryEntryPointDetector(private val project: Project) {
                 entryPoints.addAll(detectBatchJobEntryPoints())
             }
 
-            logger.info("BoundaryEntryPointDetector", "检测到 ${entryPoints.size} 个业务入口点")
+            // 详细记录各类入口点的检测结果
+            val controllerEntryPoints = entryPoints.filter { it.entryType == EntryType.CONTROLLER }
+            val scheduledEntryPoints = entryPoints.filter { it.entryType == EntryType.SCHEDULED }
+            val eventListenerEntryPoints = entryPoints.filter { it.entryType == EntryType.EVENT_LISTENER }
+            val messageConsumerEntryPoints = entryPoints.filter { it.entryType == EntryType.MESSAGE_CONSUMER }
+            val mainEntryPoints = entryPoints.filter { it.entryType == EntryType.MAIN }
+            val serviceEntryPoints = entryPoints.filter { it.entryType == EntryType.SERVICE }
+
+            logger.info("BoundaryEntryPointDetector", "检测到 ${entryPoints.size} 个业务入口点，分类统计:")
+            logger.info("BoundaryEntryPointDetector", "  - HTTP Controller入口: ${controllerEntryPoints.size} 个")
+            logger.info("BoundaryEntryPointDetector", "  - 服务入口: ${serviceEntryPoints.size} 个")
+            logger.info("BoundaryEntryPointDetector", "  - 定时任务入口: ${scheduledEntryPoints.size} 个")
+            logger.info("BoundaryEntryPointDetector", "  - 事件监听器入口: ${eventListenerEntryPoints.size} 个")
+            logger.info("BoundaryEntryPointDetector", "  - 消息消费者入口: ${messageConsumerEntryPoints.size} 个")
+            logger.info("BoundaryEntryPointDetector", "  - Main方法入口: ${mainEntryPoints.size} 个")
+
+            // 记录具体的入口方法（仅记录前10个，避免日志过长）
+            entryPoints.take(10).forEach { entryPoint ->
+                logger.info("BoundaryEntryPointDetector", "  [${entryPoint.entryType}] ${entryPoint.className}.${entryPoint.methodName}")
+            }
+            if (entryPoints.size > 10) {
+                logger.info("BoundaryEntryPointDetector", "  ... 还有 ${entryPoints.size - 10} 个入口方法")
+            }
 
         } catch (e: com.intellij.openapi.progress.ProcessCanceledException) {
             // 重新抛出取消异常

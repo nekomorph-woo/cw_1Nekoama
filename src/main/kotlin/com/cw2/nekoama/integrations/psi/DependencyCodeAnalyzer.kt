@@ -133,8 +133,8 @@ class DependencyCodeAnalyzer(private val project: Project) {
             // 构建类信息
             val classInfos = DependencyDataBuilders.buildClassInfos(classes, classDependencies)
 
-            // 构建方法信息
-            val methodInfos = DependencyDataBuilders.buildMethodInfos(classes, methodCalls, complexityMetrics)
+            // 构建方法信息 - 传递业务入口点信息用于正确设置isEntryPoint标志
+            val methodInfos = DependencyDataBuilders.buildMethodInfos(classes, methodCalls, complexityMetrics, businessEntryPoints)
 
             // 构建字段信息
             val fieldInfos = DependencyDataBuilders.buildFieldInfos(classes)
