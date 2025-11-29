@@ -22,7 +22,7 @@ class BatchAnalysisProcessor(private val project: Project) {
     private val dependencyAnalyzer = DependencyCodeAnalyzer(project)
     private val complexityCalculator = ComplexityCalculator()
     private val scopeController = AnalysisScopeController(project)
-    private val pojoUsageAnalyzer = PojoUsageAnalyzer()
+    // POJO分析器已移除，简化分析流程
     private val javaDependencyExtractor = JavaDependencyExtractor()
     private val complexityScorer = ComplexityScorer()
 
@@ -252,7 +252,7 @@ class BatchAnalysisProcessor(private val project: Project) {
                         "complexityMetrics" to complexityMetrics,
                         "dependencies" to dependencies,
                         "methodDetailedMetrics" to methodDetailedMetrics,
-                        "isPojo" to pojoUsageAnalyzer.isPojoClass(psiClass),
+                        // POJO分析功能已移除，简化分析流程
                         "packageMetrics" to PackageMetrics(
                             fanIn = 0, // 将在全局分析中计算
                             fanOut = dependencies.distinctBy { it.className }.size,
@@ -321,9 +321,9 @@ class BatchAnalysisProcessor(private val project: Project) {
         // 2. 计算全局指标
         val enhancedComplexityMetrics = calculateGlobalComplexityMetrics(complexityMetrics, methodMetricsMap, config)
 
-        // 3. POJO使用分析
+        // 3. 提取方法调用（POJO分析已移除，简化分析流程）
         val methodCalls = extractMethodCalls(allClasses, config.maxDepth)
-        val pojoUsages = pojoUsageAnalyzer.analyzePojoUsage(allClasses, methodCalls, config)
+        val pojoUsages = emptyList<PojoUsage>() // 保留空列表以维持API兼容性
 
         // 4. 构建包级依赖图
         val packageDependencyGraph = javaDependencyExtractor.buildPackageDependencyGraph(allClasses, allDependencies)

@@ -80,9 +80,7 @@
                     <button class="tab-btn" data-tab="method-view">
                         <i class="fas fa-code"></i> 方法热力图
                     </button>
-                    <button class="tab-btn" data-tab="scene-view">
-                        <i class="fas fa-route"></i> 场景分析
-                    </button>
+                    <!-- 场景分析标签页已移除 -->
                 </div>
                 <div class="view-controls">
                     <select id="layout-select" class="control-select">
@@ -290,23 +288,7 @@
                     </div>
                 </div>
 
-                <!-- Scene View -->
-                <div class="tab-pane" id="scene-view">
-                    <div class="scene-container">
-                        <div class="scene-selector">
-                            <select id="scene-select" class="control-select">
-                                <option value="">选择业务场景...</option>
-                            </select>
-                        </div>
-                        <div id="scene-graph" class="graph-canvas"></div>
-                        <div class="scene-details">
-                            <h4>场景信息</h4>
-                            <div id="scene-info" class="node-details">
-                                <p class="placeholder">选择场景查看详情</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <!-- 场景分析标签页内容已移除 -->
             </div>
         </section>
 
@@ -332,32 +314,7 @@
             </div>
         </section>
 
-        <!-- POJO Analysis Section -->
-        <section class="pojo-section">
-            <h2><i class="fas fa-database"></i> POJO使用分析</h2>
-            <div class="pojo-stats-grid" id="pojo-stats">
-                <!-- 动态生成POJO统计 -->
-            </div>
-            <div class="pojo-details">
-                <h3>POJO详细列表</h3>
-                <div class="pojo-table-container">
-                    <table class="pojo-table" id="pojo-table">
-                        <thead>
-                            <tr>
-                                <th>POJO名称</th>
-                                <th>类型</th>
-                                <th>使用次数</th>
-                                <th>跨边界使用</th>
-                                <th>推荐</th>
-                            </tr>
-                        </thead>
-                        <tbody id="pojo-tbody">
-                            <!-- 动态生成POJO数据 -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </section>
+        <!-- POJO分析部分已移除 -->
 
         <!-- Footer -->
         <footer class="footer">
