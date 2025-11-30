@@ -30,7 +30,8 @@
       "Bash(python:*)",
       "Bash(gradlew compileKotlin:*)",
       "Bash(rg:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []

@@ -171,7 +171,13 @@ data class MethodCall(
     val calleeMethod: String,
     val callType: CallType,
     val location: SourceLocation,
-    val callDepth: Int
+    val callDepth: Int,
+    val sourceMethod: MethodSource = MethodSource.INTERNAL, // 新增字段：方法来源
+
+    // 🆕 接口实现映射相关字段
+    val actualImplementingClass: String = "", // 实际实现类（如果calleeClass是接口）
+    val isInterfaceCall: Boolean = false, // 是否为接口调用
+    val implementingClasses: List<String> = emptyList() // 所有实现类（用于多态情况）
 )
 
 /**
@@ -183,7 +189,8 @@ enum class CallType {
     INDIRECT,        // 间接调用
     REFLECTION,      // 反射调用
     LAMBDA,          // Lambda表达式
-    STREAM           // Stream API调用
+    STREAM,          // Stream API调用
+    CONSTRUCTOR_CALL // 构造函数调用
 }
 
 /**
@@ -348,8 +355,9 @@ data class AnalysisConfig(
     val excludePackages: List<String>,
     val includeTestClasses: Boolean,
     val complexityThresholds: ComplexityThresholds,
-    val includeExternalDependencies: Boolean = false,
-    val excludedFrameworkPackages: Set<String> = setOf(
+    val includeExternalDependencies: Boolean = false, // 现有配置
+    val includeExternalMethodsInCallChain: Boolean = true, // 新增配置：是否在调用链中包含外部方法
+    val excludeFrameworkPackages: Set<String> = setOf(
         "java",
         "javax",
         "kotlin",
@@ -360,7 +368,9 @@ data class AnalysisConfig(
         "lombok",
         "org.junit",
         "org.mockito"
-    )
+    ),
+    val externalMethodDisplayLimit: Int = 100, // 限制显示的外部方法数量
+    val enableChainCallDecomposition: Boolean = true // 启用链式调用分解
 )
 
 /**
@@ -388,6 +398,18 @@ data class EntryPointComplexity(
     val hasPathVariable: Boolean,
     val hasRequestBody: Boolean
 )
+
+// ==================== 方法来源分析系统 ====================
+
+/**
+ * 方法来源枚举 - 简化版本
+ * 基于项目包路径判断方法来源，支持智能递归策略
+ */
+@Serializable
+enum class MethodSource {
+    INTERNAL,   // 项目内部方法（递归分析）
+    EXTERNAL    // 项目外部方法（显示但不递归）
+}
 
 // ==================== 新增的数据模型 ====================
 
@@ -682,7 +704,23 @@ data class CrossBoundaryUsage(
  */
 @Serializable
 data class CallGraph(
+    val nodes: List<MethodNode> = emptyList(), // 新增字段：方法节点列表
     val edges: List<CallEdge>
+)
+
+/**
+ * 方法节点
+ */
+@Serializable
+data class MethodNode(
+    val id: String,
+    val name: String,
+    val className: String,
+    val complexity: Int,
+    val fanIn: Int,
+    val fanOut: Int,
+    val source: MethodSource = MethodSource.INTERNAL, // 新增字段：方法来源
+    val packageName: String = "" // 新增字段：方法所在包
 )
 
 /**
@@ -696,7 +734,9 @@ data class CallEdge(
     val type: CallEdgeType,
     val callContext: CallContext,
     val depth: Int,
-    val weight: Int
+    val weight: Int,
+    val targetMethodSource: MethodSource = MethodSource.INTERNAL, // 新增字段：目标方法来源
+    val targetPackage: String = "" // 新增字段：目标方法所在包
 )
 
 /**

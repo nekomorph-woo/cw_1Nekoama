@@ -5,6 +5,7 @@ import com.cw2.nekoama.core.logging.NekoamaLogger
 import com.cw2.nekoama.core.reporting.DependencyReportGenerator
 import com.cw2.nekoama.core.reporting.ReportGenerationResult
 import com.cw2.nekoama.integrations.psi.BatchAnalysisProcessor
+import com.cw2.nekoama.integrations.psi.MethodSourceAnalyzer
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
@@ -222,28 +223,51 @@ class SimpleAnalysisExecutor(private val project: Project) {
     private suspend fun buildMethodCallGraphData(fullProjectResult: FullProjectAnalysisResult): MethodCallGraphData = withContext(Dispatchers.Default) {
         ProgressManager.checkCanceled()
 
+        // 获取项目包路径，用于方法来源分析
+        val projectPackage = com.intellij.openapi.application.ReadAction.compute<String?, com.intellij.openapi.progress.ProcessCanceledException> {
+            fullProjectResult.allMethods.firstOrNull()?.containingClass?.let { psiClass ->
+                getProjectPackageFromClassName(psiClass.qualifiedName ?: "")
+            }
+        } ?: ""
+
         val nodes = com.intellij.openapi.application.ReadAction.compute<List<MethodNode>, com.intellij.openapi.progress.ProcessCanceledException> {
             fullProjectResult.allMethods.map { psiMethod ->
                 ProgressManager.checkCanceled()
 
                 val methodKey = "${psiMethod.containingClass?.qualifiedName}.${psiMethod.name}"
+                val className = psiMethod.containingClass?.qualifiedName ?: ""
+                val packageName = MethodSourceAnalyzer.extractPackageName(className)
+                val methodSource = MethodSourceAnalyzer.analyzeMethodSource(psiMethod, projectPackage)
+
                 MethodNode(
                     id = methodKey,
                     name = psiMethod.name,
-                    className = psiMethod.containingClass?.qualifiedName ?: "",
+                    className = className,
                     complexity = fullProjectResult.complexityMetrics[methodKey]?.cyclomaticComplexity ?: 0,
                     fanIn = fullProjectResult.methodCallGraph.methodCallTargets[methodKey] ?: 0,
-                    fanOut = fullProjectResult.methodCallGraph.methodCalls[methodKey]?.size ?: 0
+                    fanOut = fullProjectResult.methodCallGraph.methodCalls[methodKey]?.size ?: 0,
+                    source = methodSource,
+                    packageName = packageName
                 )
             }
         }
 
         val edges = fullProjectResult.methodCallGraph.methodCalls.flatMap { (fromMethod, calls) ->
             calls.map { call ->
+                val targetMethodSource = MethodSourceAnalyzer.analyzeMethodSourceByClassName(
+                    MethodSourceAnalyzer.extractClassNameFromMethodSignature(call.toMethod),
+                    projectPackage
+                )
+                val targetPackage = MethodSourceAnalyzer.extractPackageName(
+                    MethodSourceAnalyzer.extractClassNameFromMethodSignature(call.toMethod)
+                )
+
                 MethodEdge(
                     source = fromMethod,
                     target = call.toMethod,
-                    type = call.callType
+                    type = call.callType, // 直接使用字符串类型
+                    targetMethodSource = targetMethodSource, // 新增字段：目标方法来源
+                    targetPackage = targetPackage // 新增字段：目标方法包
                 )
             }
         }
@@ -252,6 +276,21 @@ class SimpleAnalysisExecutor(private val project: Project) {
             nodes = nodes,
             edges = edges
         )
+    }
+
+    /**
+     * 从类名推断项目包路径
+     */
+    private fun getProjectPackageFromClassName(className: String): String {
+        val packages = className.split(".")
+        if (packages.size >= 2) {
+            return when {
+                packages.size >= 4 -> "${packages[0]}.${packages[1]}.${packages[2]}"
+                packages.size >= 3 -> "${packages[0]}.${packages[1]}"
+                else -> packages[0]
+            }
+        }
+        return ""
     }
 
     /**
@@ -389,11 +428,15 @@ data class MethodNode(
     val className: String,
     val complexity: Int,
     val fanIn: Int,
-    val fanOut: Int
+    val fanOut: Int,
+    val source: MethodSource = MethodSource.INTERNAL, // 新增字段：方法来源
+    val packageName: String = "" // 新增字段：方法所在包
 )
 
 data class MethodEdge(
     val source: String,
     val target: String,
-    val type: String
+    val type: String,
+    val targetMethodSource: MethodSource = MethodSource.INTERNAL, // 新增字段：目标方法来源
+    val targetPackage: String = "" // 新增字段：目标方法包
 )

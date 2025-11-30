@@ -30,10 +30,14 @@ class DependencyCodeAnalyzer(private val project: Project) {
     private val javaPsiFacade = JavaPsiFacade.getInstance(project)
     private val psiManager = PsiManager.getInstance(project)
 
+    // 🆕 接口实现映射分析器
+    private val interfaceAnalyzer = InterfaceImplementationAnalyzer(project)
+
     // 缓存分析结果，避免重复计算
     private val classCache = ConcurrentHashMap<String, ClassDependency>()
     private val methodCallCache = ConcurrentHashMap<String, MutableList<MethodCall>>()
     private val complexityCache = ConcurrentHashMap<String, ClassComplexityMetrics>()
+    private val interfaceMappingCache = ConcurrentHashMap<String, String>() // 缓存接口到实现类的映射
 
     /**
      * 执行完整的依赖分析
@@ -535,6 +539,27 @@ class DependencyCodeAnalyzer(private val project: Project) {
     }
 
     /**
+     * 获取项目包路径
+     */
+    private fun getProjectPackage(psiClass: PsiClass): String {
+        // 基于类的包名推断项目根包路径
+        val className = psiClass.qualifiedName ?: return ""
+
+        // 寻找可能的根包路径
+        val packages = className.split(".")
+        if (packages.size >= 2) {
+            // 通常项目根包是前2-3个包路径段
+            return when {
+                packages.size >= 4 -> "${packages[0]}.${packages[1]}.${packages[2]}"
+                packages.size >= 3 -> "${packages[0]}.${packages[1]}"
+                else -> packages[0]
+            }
+        }
+
+        return ""
+    }
+
+    /**
      * 提取方法调用
      */
     private fun extractMethodCalls(
@@ -548,43 +573,130 @@ class DependencyCodeAnalyzer(private val project: Project) {
             return
         }
 
-        val visitor = object : JavaRecursiveElementVisitor() {
+        try {
+            val projectPackage = getProjectPackage(callerClass)
+
+            // 使用新的MethodCallAnalyzer提取方法调用，包含来源信息
+            val enhancedCalls = if (config.enableChainCallDecomposition) {
+                MethodCallAnalyzer.extractMethodCallsWithSource(
+                    callerClass, method, projectPackage
+                )
+            } else {
+                // 降级到简单分析模式
+                extractSimpleMethodCalls(callerClass, method, projectPackage, config)
+            }
+
+            // 🆕 增强方法调用，添加接口实现映射信息
+            val callsWithInterfaceMapping = enhancedCalls.map { methodCall ->
+                interfaceAnalyzer.analyzeMethodCallWithInterfaceMapping(methodCall)
+            }
+
+            // 根据配置决定是否包含外部方法
+            val filteredCalls = if (config.includeExternalMethodsInCallChain) {
+                callsWithInterfaceMapping
+            } else {
+                callsWithInterfaceMapping.filter { it.sourceMethod == MethodSource.INTERNAL }
+            }
+
+            // 限制外部方法显示数量
+            val limitedCalls = if (config.includeExternalMethodsInCallChain &&
+                                   filteredCalls.count { it.sourceMethod == MethodSource.EXTERNAL } > config.externalMethodDisplayLimit) {
+                val internalCalls = filteredCalls.filter { it.sourceMethod == MethodSource.INTERNAL }
+                val externalCalls = filteredCalls.filter { it.sourceMethod == MethodSource.EXTERNAL }
+                    .take(config.externalMethodDisplayLimit)
+                internalCalls + externalCalls
+            } else {
+                filteredCalls
+            }
+
+            methodCalls.addAll(limitedCalls)
+
+            logger.debug("DependencyCodeAnalyzer", "提取方法调用完成", mapOf(
+                "method" to "${callerClass.qualifiedName}.${method.name}",
+                "totalCalls" to enhancedCalls.size,
+                "internalCalls" to enhancedCalls.count { it.sourceMethod == MethodSource.INTERNAL },
+                "externalCalls" to enhancedCalls.count { it.sourceMethod == MethodSource.EXTERNAL },
+                "addedCalls" to limitedCalls.size
+            ))
+
+        } catch (e: Exception) {
+            logger.error("DependencyCodeAnalyzer", "方法调用提取失败", mapOf(
+                "method" to "${callerClass.qualifiedName}.${method.name}",
+                "error" to e.message
+            ))
+        }
+    }
+
+    /**
+     * 简单方法调用提取（降级模式）
+     */
+    private fun extractSimpleMethodCalls(
+        callerClass: PsiClass,
+        method: PsiMethod,
+        projectPackage: String,
+        config: AnalysisConfig
+    ): List<MethodCall> {
+        val methodCalls = mutableListOf<MethodCall>()
+
+        method.accept(object : JavaRecursiveElementVisitor() {
             override fun visitMethodCallExpression(expression: PsiMethodCallExpression) {
                 super.visitMethodCallExpression(expression)
 
                 try {
-                    val resolveResult = expression.resolveMethod()
-                    if (resolveResult != null) {
-                        // 过滤掉外部框架方法
-                        if (!isExternalFrameworkMethod(resolveResult, config)) {
-                            val calleeClass = resolveResult.containingClass
-                            if (calleeClass != null && isIncludedClass(calleeClass, config)) {
+                    val resolvedMethod = expression.resolveMethod()
+                    if (resolvedMethod != null) {
+                        val calleeClass = resolvedMethod.containingClass
+                        if (calleeClass != null) {
+                            val methodSource = MethodSourceAnalyzer.analyzeMethodSource(resolvedMethod, projectPackage)
+
+                            // 根据配置决定是否包含
+                            val shouldInclude = when (methodSource) {
+                                MethodSource.INTERNAL -> true
+                                MethodSource.EXTERNAL -> config.includeExternalMethodsInCallChain
+                            }
+
+                            if (shouldInclude) {
                                 val methodCall = MethodCall(
-                                    callerClass = callerClass.qualifiedName!!,
+                                    callerClass = callerClass.qualifiedName ?: "",
                                     callerMethod = method.name,
-                                    calleeClass = calleeClass.qualifiedName!!,
-                                    calleeMethod = resolveResult.name,
+                                    calleeClass = calleeClass.qualifiedName ?: "",
+                                    calleeMethod = resolvedMethod.name,
                                     callType = determineCallType(expression),
                                     location = SourceLocation(
-                                        filePath = expression.containingFile.virtualFile.path,
-                                        lineNumber = expression.containingFile.viewProvider.document.getLineNumber(expression.textRange.startOffset) + 1,
+                                        filePath = expression.containingFile.virtualFile?.path ?: expression.containingFile.name,
+                                        lineNumber = getLineNumber(expression),
                                         columnNumber = 0
                                     ),
-                                    callDepth = currentDepth
+                                    callDepth = 0,
+                                    sourceMethod = methodSource
                                 )
                                 methodCalls.add(methodCall)
                             }
-                        } else {
-                            logger.debug("DependencyCodeAnalyzer", "过滤外部框架方法调用: ${resolveResult.containingClass?.qualifiedName}.${resolveResult.name}")
                         }
                     }
                 } catch (e: Exception) {
                     logger.debug("DependencyCodeAnalyzer", "无法解析方法调用: ${expression.text}", mapOf("error" to e.message))
                 }
             }
-        }
+        })
 
-        method.accept(visitor)
+        return methodCalls
+    }
+
+    /**
+     * 获取PSI元素的行号
+     */
+    private fun getLineNumber(element: PsiElement): Int {
+        val file = element.containingFile
+        val virtualFile = file.virtualFile
+        return if (virtualFile != null) {
+            val document = com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().getDocument(virtualFile)
+            document?.getLineNumber(element.textOffset)?.plus(1) ?: 0
+        } else {
+            // 如果没有VirtualFile，使用文本计算行号
+            val text = file.text.substring(0, element.textOffset)
+            text.count { it == '\n' } + 1
+        }
     }
 
     /**
@@ -1455,7 +1567,7 @@ class DependencyCodeAnalyzer(private val project: Project) {
         }
 
         // 检查是否属于配置中排除的框架包
-        return config.excludedFrameworkPackages.any { packageName ->
+        return config.excludeFrameworkPackages.any { packageName ->
             className.startsWith("$packageName.") || className == packageName
         }
     }
