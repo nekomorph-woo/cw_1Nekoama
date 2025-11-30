@@ -3,8 +3,6 @@ package com.cw2.nekoama.core.analysis
 import com.cw2.nekoama.ai.model.dependency.*
 import com.cw2.nekoama.core.logging.NekoamaLogger
 import com.cw2.nekoama.core.reporting.DependencyReportGenerator
-import com.cw2.nekoama.core.reporting.ReportGenerationResult
-import com.cw2.nekoama.integrations.psi.BatchAnalysisProcessor
 import com.cw2.nekoama.integrations.psi.MethodSourceAnalyzer
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager

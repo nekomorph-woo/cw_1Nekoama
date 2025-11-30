@@ -2,7 +2,8 @@ package com.cw2.nekoama.core.analysis
 
 import com.cw2.nekoama.ai.model.dependency.*
 import com.cw2.nekoama.core.logging.NekoamaLogger
-import com.cw2.nekoama.integrations.psi.*
+import com.cw2.nekoama.integrations.psi.BoundaryEntryPointDetector
+import com.cw2.nekoama.integrations.psi.ComplexityCalculator
 import com.intellij.openapi.fileTypes.StdFileTypes
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
@@ -10,7 +11,9 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.*
 import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.GlobalSearchScope
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * 全项目代码分析引擎
@@ -29,11 +32,7 @@ import kotlinx.coroutines.*
 class CodeAnalysisEngine(private val project: Project) {
 
     private val logger = NekoamaLogger
-    private val dependencyAnalyzer = DependencyCodeAnalyzer(project)
     private val complexityCalculator = ComplexityCalculator()
-    private val javaDependencyExtractor = JavaDependencyExtractor()
-    private val complexityScorer = ComplexityScorer()
-    private val scopeController = AnalysisScopeController(project)
     private val entryPointDetector = BoundaryEntryPointDetector(project)
 
     /**
@@ -140,16 +139,17 @@ class CodeAnalysisEngine(private val project: Project) {
     /**
      * 提取所有类信息
      */
-    private suspend fun extractAllClasses(psiFiles: List<PsiJavaFile>): List<PsiClass> = withContext(Dispatchers.Default) {
-        return@withContext com.intellij.openapi.application.ReadAction.compute<List<PsiClass>, com.intellij.openapi.progress.ProcessCanceledException> {
-            ProgressManager.checkCanceled()
-
-            psiFiles.flatMap { psiFile ->
+    private suspend fun extractAllClasses(psiFiles: List<PsiJavaFile>): List<PsiClass> =
+        withContext(Dispatchers.Default) {
+            return@withContext com.intellij.openapi.application.ReadAction.compute<List<PsiClass>, com.intellij.openapi.progress.ProcessCanceledException> {
                 ProgressManager.checkCanceled()
-                psiFile.classes.toList()
+
+                psiFiles.flatMap { psiFile ->
+                    ProgressManager.checkCanceled()
+                    psiFile.classes.toList()
+                }
             }
         }
-    }
 
     /**
      * 提取所有方法信息
@@ -168,53 +168,55 @@ class CodeAnalysisEngine(private val project: Project) {
     /**
      * 构建方法调用关系图
      */
-    private suspend fun buildMethodCallGraph(allMethods: List<PsiMethod>): MethodCallGraph = withContext(Dispatchers.Default) {
-        val methodCalls = mutableMapOf<String, MutableList<MethodCall>>()
-        val methodCallTargets = mutableMapOf<String, Int>() // fanIn统计
+    private suspend fun buildMethodCallGraph(allMethods: List<PsiMethod>): MethodCallGraph =
+        withContext(Dispatchers.Default) {
+            val methodCalls = mutableMapOf<String, MutableList<MethodCall>>()
+            val methodCallTargets = mutableMapOf<String, Int>() // fanIn统计
 
-        allMethods.forEach { method ->
-            ProgressManager.checkCanceled()
+            allMethods.forEach { method ->
+                ProgressManager.checkCanceled()
 
-            val methodKey = getMethodKey(method)
-            methodCalls[methodKey] = mutableListOf()
+                val methodKey = getMethodKey(method)
+                methodCalls[methodKey] = mutableListOf()
 
-            // 分析方法体内的调用关系 - 需要在read-action中执行
-            val calls = com.intellij.openapi.application.ReadAction.compute<List<MethodCall>, com.intellij.openapi.progress.ProcessCanceledException> {
-                val localCalls = mutableListOf<MethodCall>()
-                method.body?.accept(object : JavaRecursiveElementVisitor() {
-                    override fun visitMethodCallExpression(expression: PsiMethodCallExpression) {
-                        super.visitMethodCallExpression(expression)
+                // 分析方法体内的调用关系 - 需要在read-action中执行
+                val calls =
+                    com.intellij.openapi.application.ReadAction.compute<List<MethodCall>, com.intellij.openapi.progress.ProcessCanceledException> {
+                        val localCalls = mutableListOf<MethodCall>()
+                        method.body?.accept(object : JavaRecursiveElementVisitor() {
+                            override fun visitMethodCallExpression(expression: PsiMethodCallExpression) {
+                                super.visitMethodCallExpression(expression)
 
-                        val targetMethod = expression.resolveMethod()
-                        if (targetMethod != null) {
-                            val targetKey = getMethodKey(targetMethod)
+                                val targetMethod = expression.resolveMethod()
+                                if (targetMethod != null) {
+                                    val targetKey = getMethodKey(targetMethod)
 
-                            val call = MethodCall(
-                                fromMethod = methodKey,
-                                toMethod = targetKey,
-                                callType = "method_call",
-                                line = getLineNumber(expression)
-                            )
+                                    val call = MethodCall(
+                                        fromMethod = methodKey,
+                                        toMethod = targetKey,
+                                        callType = "method_call",
+                                        line = getLineNumber(expression)
+                                    )
 
-                            localCalls.add(call)
-                        }
+                                    localCalls.add(call)
+                                }
+                            }
+                        })
+                        localCalls
                     }
-                })
-                localCalls
+
+                // 在read-action外处理结果
+                methodCalls[methodKey]?.addAll(calls)
+                calls.forEach { call ->
+                    methodCallTargets[call.toMethod] = methodCallTargets.getOrDefault(call.toMethod, 0) + 1
+                }
             }
 
-            // 在read-action外处理结果
-            methodCalls[methodKey]?.addAll(calls)
-            calls.forEach { call ->
-                methodCallTargets[call.toMethod] = methodCallTargets.getOrDefault(call.toMethod, 0) + 1
-            }
+            MethodCallGraph(
+                methodCalls = methodCalls,
+                methodCallTargets = methodCallTargets
+            )
         }
-
-        MethodCallGraph(
-            methodCalls = methodCalls,
-            methodCallTargets = methodCallTargets
-        )
-    }
 
     /**
      * 计算复杂度指标
@@ -233,9 +235,10 @@ class CodeAnalysisEngine(private val project: Project) {
             val cyclomaticComplexity = complexityCalculator.calculateMethodCyclomaticComplexity(method)
             val cognitiveComplexity = complexityCalculator.calculateMethodCognitiveComplexity(method)
             val linesOfCode = countLinesOfCode(method)
-            val parameters = com.intellij.openapi.application.ReadAction.compute<Int, com.intellij.openapi.progress.ProcessCanceledException> {
-                method.parameters.size
-            }
+            val parameters =
+                com.intellij.openapi.application.ReadAction.compute<Int, com.intellij.openapi.progress.ProcessCanceledException> {
+                    method.parameters.size
+                }
 
             metrics[methodKey] = ComplexityMetrics(
                 cyclomaticComplexity = cyclomaticComplexity,
@@ -249,9 +252,10 @@ class CodeAnalysisEngine(private val project: Project) {
         classes.forEach { psiClass ->
             ProgressManager.checkCanceled()
 
-            val classKey = com.intellij.openapi.application.ReadAction.compute<String, com.intellij.openapi.progress.ProcessCanceledException> {
-                psiClass.qualifiedName ?: ""
-            }
+            val classKey =
+                com.intellij.openapi.application.ReadAction.compute<String, com.intellij.openapi.progress.ProcessCanceledException> {
+                    psiClass.qualifiedName ?: ""
+                }
             val classMethods = metrics.keys.filter { it.startsWith("$classKey.") }
 
             if (classMethods.isNotEmpty()) {
@@ -285,21 +289,25 @@ class CodeAnalysisEngine(private val project: Project) {
             ProgressManager.checkCanceled()
 
             if (metrics.cyclomaticComplexity > 30) {
-                codeSmells.add(CodeSmell(
-                    type = "HIGH_COMPLEXITY",
-                    element = methodKey,
-                    severity = "HIGH",
-                    description = "方法复杂度过高: ${metrics.cyclomaticComplexity}"
-                ))
+                codeSmells.add(
+                    CodeSmell(
+                        type = "HIGH_COMPLEXITY",
+                        element = methodKey,
+                        severity = "HIGH",
+                        description = "方法复杂度过高: ${metrics.cyclomaticComplexity}"
+                    )
+                )
             }
 
             if (metrics.parameters > 8) {
-                codeSmells.add(CodeSmell(
-                    type = "TOO_MANY_PARAMETERS",
-                    element = methodKey,
-                    severity = "MEDIUM",
-                    description = "方法参数过多: ${metrics.parameters}"
-                ))
+                codeSmells.add(
+                    CodeSmell(
+                        type = "TOO_MANY_PARAMETERS",
+                        element = methodKey,
+                        severity = "MEDIUM",
+                        description = "方法参数过多: ${metrics.parameters}"
+                    )
+                )
             }
         }
 
@@ -307,34 +315,41 @@ class CodeAnalysisEngine(private val project: Project) {
         classes.forEach { psiClass ->
             ProgressManager.checkCanceled()
 
-            val classMetrics = com.intellij.openapi.application.ReadAction.compute<Pair<Int, Int>, com.intellij.openapi.progress.ProcessCanceledException> {
-                Pair(psiClass.allMethods.size, psiClass.allFields.size)
-            }
+            val classMetrics =
+                com.intellij.openapi.application.ReadAction.compute<Pair<Int, Int>, com.intellij.openapi.progress.ProcessCanceledException> {
+                    Pair(psiClass.allMethods.size, psiClass.allFields.size)
+                }
             val classMethods = classMetrics.first
             val classFields = classMetrics.second
 
             if (classMethods > 20) {
-                val className = com.intellij.openapi.application.ReadAction.compute<String, com.intellij.openapi.progress.ProcessCanceledException> {
-                    psiClass.qualifiedName ?: ""
-                }
-                codeSmells.add(CodeSmell(
-                    type = "TOO_MANY_METHODS",
-                    element = className,
-                    severity = "MEDIUM",
-                    description = "类方法过多: $classMethods"
-                ))
+                val className =
+                    com.intellij.openapi.application.ReadAction.compute<String, com.intellij.openapi.progress.ProcessCanceledException> {
+                        psiClass.qualifiedName ?: ""
+                    }
+                codeSmells.add(
+                    CodeSmell(
+                        type = "TOO_MANY_METHODS",
+                        element = className,
+                        severity = "MEDIUM",
+                        description = "类方法过多: $classMethods"
+                    )
+                )
             }
 
             if (classFields > 15) {
-                val className = com.intellij.openapi.application.ReadAction.compute<String, com.intellij.openapi.progress.ProcessCanceledException> {
-                    psiClass.qualifiedName ?: ""
-                }
-                codeSmells.add(CodeSmell(
-                    type = "TOO_MANY_FIELDS",
-                    element = className,
-                    severity = "MEDIUM",
-                    description = "类字段过多: $classFields"
-                ))
+                val className =
+                    com.intellij.openapi.application.ReadAction.compute<String, com.intellij.openapi.progress.ProcessCanceledException> {
+                        psiClass.qualifiedName ?: ""
+                    }
+                codeSmells.add(
+                    CodeSmell(
+                        type = "TOO_MANY_FIELDS",
+                        element = className,
+                        severity = "MEDIUM",
+                        description = "类字段过多: $classFields"
+                    )
+                )
             }
         }
 
@@ -344,56 +359,59 @@ class CodeAnalysisEngine(private val project: Project) {
     /**
      * 构建依赖关系图
      */
-    private suspend fun buildDependencyGraph(classes: List<PsiClass>): List<ClassDependency> = withContext(Dispatchers.Default) {
-        val dependencies = mutableListOf<ClassDependency>()
+    private suspend fun buildDependencyGraph(classes: List<PsiClass>): List<ClassDependency> =
+        withContext(Dispatchers.Default) {
+            val dependencies = mutableListOf<ClassDependency>()
 
-        classes.forEach { sourceClass ->
-            ProgressManager.checkCanceled()
+            classes.forEach { sourceClass ->
+                ProgressManager.checkCanceled()
 
-            // 分析类的依赖关系 - 需要在read-action中执行
-            val classDeps = com.intellij.openapi.application.ReadAction.compute<List<ClassDependency>, com.intellij.openapi.progress.ProcessCanceledException> {
-                val localDependencies = mutableListOf<ClassDependency>()
-                sourceClass.accept(object : JavaRecursiveElementVisitor() {
-                    override fun visitReferenceElement(reference: PsiJavaCodeReferenceElement) {
-                        super.visitReferenceElement(reference)
+                // 分析类的依赖关系 - 需要在read-action中执行
+                val classDeps =
+                    com.intellij.openapi.application.ReadAction.compute<List<ClassDependency>, com.intellij.openapi.progress.ProcessCanceledException> {
+                        val localDependencies = mutableListOf<ClassDependency>()
+                        sourceClass.accept(object : JavaRecursiveElementVisitor() {
+                            override fun visitReferenceElement(reference: PsiJavaCodeReferenceElement) {
+                                super.visitReferenceElement(reference)
 
-                        val targetClass = reference.resolve() as? PsiClass
-                        if (targetClass != null && targetClass != sourceClass) {
-                            val sourceQualifiedName = sourceClass?.qualifiedName ?: ""
-                            val targetQualifiedName = targetClass?.qualifiedName ?: ""
+                                val targetClass = reference.resolve() as? PsiClass
+                                if (targetClass != null && targetClass != sourceClass) {
+                                    val sourceQualifiedName = sourceClass?.qualifiedName ?: ""
+                                    val targetQualifiedName = targetClass?.qualifiedName ?: ""
 
-                            val dependency = ClassDependency(
-                                className = sourceQualifiedName,
-                                packageName = sourceQualifiedName.substringBeforeLast(".", ""),
-                                superClass = sourceClass?.superClass?.qualifiedName,
-                                interfaces = sourceClass?.interfaces?.mapNotNull { it.qualifiedName } ?: emptyList(),
-                                dependencies = listOf(
-                                    ClassReference(
-                                        className = targetQualifiedName,
-                                        referenceType = ReferenceType.ASSOCIATION,
-                                        location = SourceLocation("", 0, 0)
+                                    val dependency = ClassDependency(
+                                        className = sourceQualifiedName,
+                                        packageName = sourceQualifiedName.substringBeforeLast(".", ""),
+                                        superClass = sourceClass?.superClass?.qualifiedName,
+                                        interfaces = sourceClass?.interfaces?.mapNotNull { it.qualifiedName }
+                                            ?: emptyList(),
+                                        dependencies = listOf(
+                                            ClassReference(
+                                                className = targetQualifiedName,
+                                                referenceType = ReferenceType.ASSOCIATION,
+                                                location = SourceLocation("", 0, 0)
+                                            )
+                                        ),
+                                        dependents = emptyList(),
+                                        dependencyCount = 1,
+                                        isPojo = false,
+                                        isController = false,
+                                        isService = false,
+                                        isRepository = false
                                     )
-                                ),
-                                dependents = emptyList(),
-                                dependencyCount = 1,
-                                isPojo = false,
-                                isController = false,
-                                isService = false,
-                                isRepository = false
-                            )
-                            localDependencies.add(dependency)
-                        }
+                                    localDependencies.add(dependency)
+                                }
+                            }
+                        })
+                        localDependencies
                     }
-                })
-                localDependencies
+
+                // 在read-action外合并结果
+                dependencies.addAll(classDeps)
             }
 
-            // 在read-action外合并结果
-            dependencies.addAll(classDeps)
+            dependencies.distinctBy { "${it.className}->${it.dependencies.firstOrNull()?.className}" }
         }
-
-        dependencies.distinctBy { "${it.className}->${it.dependencies.firstOrNull()?.className}" }
-    }
 
     // 辅助方法
     private fun getMethodKey(method: PsiMethod): String {

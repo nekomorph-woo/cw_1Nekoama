@@ -620,25 +620,22 @@ class CodeSmellDetector {
         psiClass: PsiClass?,
         config: AnalysisConfig
     ): List<CodeSmell> {
+        if (psiClass == null)
+            return emptyList()
+
         val codeSmells = mutableListOf<CodeSmell>()
 
         var totalMagicNumbers = 0
         var worstMethodInfo: Pair<String, Int> = "" to 0
 
-        if (psiClass != null) {
-            // 精确统计每个方法的魔法数字
-            for (method in psiClass.methods) {
-                val magicCount = complexityCalculator.countMethodMagicNumbers(method)
-                totalMagicNumbers += magicCount
+        // 精确统计每个方法的魔法数字
+        for (method in psiClass.methods) {
+            val magicCount = complexityCalculator.countMethodMagicNumbers(method)
+            totalMagicNumbers += magicCount
 
-                if (magicCount > worstMethodInfo.second) {
-                    worstMethodInfo = method.name to magicCount
-                }
+            if (magicCount > worstMethodInfo.second) {
+                worstMethodInfo = method.name to magicCount
             }
-        } else {
-            // 回退到估计方法
-            totalMagicNumbers = estimateMagicNumberCount(metrics)
-            worstMethodInfo = metrics.mostComplexMethod.methodName to totalMagicNumbers
         }
 
         val threshold = 5 // 文档建议的阈值
@@ -674,25 +671,22 @@ class CodeSmellDetector {
         psiClass: PsiClass?,
         config: AnalysisConfig
     ): List<CodeSmell> {
+        if (psiClass == null)
+            return emptyList()
+
         val codeSmells = mutableListOf<CodeSmell>()
 
         var totalLongLines = 0
         var worstMethodInfo: Pair<String, Int> = "" to 0
 
-        if (psiClass != null) {
-            // 精确统计每个方法的长行
-            for (method in psiClass.methods) {
-                val longLineCount = complexityCalculator.countMethodLongLines(method)
-                totalLongLines += longLineCount
+        // 精确统计每个方法的长行
+        for (method in psiClass.methods) {
+            val longLineCount = complexityCalculator.countMethodLongLines(method)
+            totalLongLines += longLineCount
 
-                if (longLineCount > worstMethodInfo.second) {
-                    worstMethodInfo = method.name to longLineCount
-                }
+            if (longLineCount > worstMethodInfo.second) {
+                worstMethodInfo = method.name to longLineCount
             }
-        } else {
-            // 回退到估计方法
-            totalLongLines = estimateLongLineCount(metrics)
-            worstMethodInfo = metrics.mostComplexMethod.methodName to totalLongLines
         }
 
         val threshold = 1 // 有长行就算问题
@@ -728,25 +722,22 @@ class CodeSmellDetector {
         psiClass: PsiClass?,
         config: AnalysisConfig
     ): List<CodeSmell> {
+        if (psiClass == null)
+            return emptyList()
+
         val codeSmells = mutableListOf<CodeSmell>()
 
         var totalBooleanParams = 0
         var worstMethodInfo: Pair<String, Int> = "" to 0
 
-        if (psiClass != null) {
-            // 精确统计每个方法的布尔参数
-            for (method in psiClass.methods) {
-                val booleanParamCount = complexityCalculator.countMethodBooleanParameters(method)
-                totalBooleanParams += booleanParamCount
+        // 精确统计每个方法的布尔参数
+        for (method in psiClass.methods) {
+            val booleanParamCount = complexityCalculator.countMethodBooleanParameters(method)
+            totalBooleanParams += booleanParamCount
 
-                if (booleanParamCount > worstMethodInfo.second) {
-                    worstMethodInfo = method.name to booleanParamCount
-                }
+            if (booleanParamCount > worstMethodInfo.second) {
+                worstMethodInfo = method.name to booleanParamCount
             }
-        } else {
-            // 回退到估计方法
-            totalBooleanParams = estimateBooleanParameterCount(metrics)
-            worstMethodInfo = metrics.mostComplexMethod.methodName to totalBooleanParams
         }
 
         val threshold = 2 // 文档建议的阈值
@@ -782,25 +773,22 @@ class CodeSmellDetector {
         psiClass: PsiClass?,
         config: AnalysisConfig
     ): List<CodeSmell> {
+        if (psiClass == null)
+            return emptyList()
+
         val codeSmells = mutableListOf<CodeSmell>()
 
         var totalReturnStatements = 0
         var worstMethodInfo: Pair<String, Int> = "" to 0
 
-        if (psiClass != null) {
-            // 精确统计每个方法的return语句
-            for (method in psiClass.methods) {
-                val returnCount = complexityCalculator.countMethodReturnStatements(method)
-                totalReturnStatements += returnCount
+        // 精确统计每个方法的return语句
+        for (method in psiClass.methods) {
+            val returnCount = complexityCalculator.countMethodReturnStatements(method)
+            totalReturnStatements += returnCount
 
-                if (returnCount > worstMethodInfo.second) {
-                    worstMethodInfo = method.name to returnCount
-                }
+            if (returnCount > worstMethodInfo.second) {
+                worstMethodInfo = method.name to returnCount
             }
-        } else {
-            // 回退到估计方法
-            totalReturnStatements = estimateReturnStatementCount(metrics)
-            worstMethodInfo = metrics.mostComplexMethod.methodName to totalReturnStatements
         }
 
         val threshold = 5 // 文档建议的阈值
@@ -896,40 +884,6 @@ class CodeSmellDetector {
         }
 
         return codeSmells
-    }
-
-    /**
-     * 估计魔法数字数量（启发式方法）
-     * 实际实现中应该遍历PSI元素来精确计数
-     */
-    private fun estimateMagicNumberCount(metrics: ClassComplexityMetrics): Int {
-        // 基于复杂度和代码长度的启发式估计
-        // 实际实现应该使用PSI访问器来统计硬编码数字
-        return (metrics.lineOfCode / 20).coerceAtMost(metrics.cyclomaticComplexity * 2)
-    }
-
-    /**
-     * 估计长行代码数量（启发式方法）
-     */
-    private fun estimateLongLineCount(metrics: ClassComplexityMetrics): Int {
-        // 基于方法长度和复杂度的启发式估计
-        return (metrics.longestMethod.lineOfCode / 30).coerceAtMost(5)
-    }
-
-    /**
-     * 估计布尔参数数量（启发式方法）
-     */
-    private fun estimateBooleanParameterCount(metrics: ClassComplexityMetrics): Int {
-        // 基于总参数数的启发式估计
-        return (metrics.parameterCount / 4).coerceAtMost(metrics.mostComplexMethod.parameterCount)
-    }
-
-    /**
-     * 估计return语句数量（启发式方法）
-     */
-    private fun estimateReturnStatementCount(metrics: ClassComplexityMetrics): Int {
-        // 基于圈复杂度的启发式估计
-        return metrics.cyclomaticComplexity / 2
     }
 
     /**
