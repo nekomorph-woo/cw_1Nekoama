@@ -70,7 +70,7 @@ body {
 }
 
 .container {
-    max-width: 1400px;
+    max-width: 1600px;
     margin: 0 auto;
     background-color: var(--bg-primary);
     min-height: 100vh;
@@ -1887,4 +1887,278 @@ section h2 i {
         padding: 6px 12px;
         font-size: 13px;
     }
+}
+
+/* ===== 方法来源图例样式 ===== */
+.method-source-legend {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-sm);
+}
+
+.method-source-legend h5 {
+    margin: 0 0 12px 0;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.method-source-legend h5 i {
+    color: var(--info-color);
+    font-size: 12px;
+}
+
+.legend-content {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.legend-item:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+.legend-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.legend-item.internal .legend-color {
+    background: #1890ff;
+    border-color: #0050b3;
+}
+
+.legend-item.external .legend-color {
+    background: #95de64;
+    border-color: #389e0d;
+}
+
+.legend-item span {
+    color: var(--text-secondary);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* 复杂度级别图例 */
+.complexity-legend {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+}
+
+.complexity-legend-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.complexity-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.complexity-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.complexity-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    border: 1px solid var(--border-color);
+}
+
+/* 暗色主题适配 */
+@media (prefers-color-scheme: dark) {
+    .method-source-legend {
+        background: var(--bg-tertiary);
+        border-color: var(--border-color);
+    }
+
+    .legend-item {
+        background: var(--bg-secondary);
+        border-color: var(--border-color);
+    }
+
+    .legend-item:hover {
+        background: var(--bg-primary);
+    }
+}
+
+/* ===== 径向布局调用链图增强样式 ===== */
+.method-callchain .g6-container {
+    background: radial-gradient(circle at center,
+        rgba(24, 144, 255, 0.05) 0%,
+        rgba(255, 255, 255, 0) 70%);
+    border-radius: 8px;
+    box-shadow: inset 0 0 20px rgba(24, 144, 255, 0.1);
+}
+
+/* 调用链节点样式增强 */
+.g6-node {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    cursor: pointer !important;
+}
+
+.g6-node:hover {
+    transform: scale(1.1) !important;
+    z-index: 10 !important;
+    filter: brightness(1.1) !important;
+}
+
+.g6-node.selected {
+    transform: scale(1.15) !important;
+    z-index: 20 !important;
+    filter: brightness(1.2) drop-shadow(0 0 10px rgba(24, 144, 255, 0.6)) !important;
+}
+
+/* 调用链边样式增强 */
+.g6-edge {
+    transition: all 0.2s ease !important;
+}
+
+.g6-edge:hover {
+    stroke-width: 3 !important;
+    filter: brightness(1.2) !important;
+}
+
+.g6-edge.selected {
+    stroke-width: 4 !important;
+    filter: brightness(1.3) drop-shadow(0 0 8px rgba(255, 77, 79, 0.6)) !important;
+}
+
+/* 节点标签样式 */
+.g6-label {
+    pointer-events: none !important;
+    user-select: none !important;
+    font-weight: 500 !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* 外部方法节点特殊样式 */
+.g6-node[data-is-external="true"] {
+    stroke-dasharray: 5, 3 !important;
+    animation: dashRotate 20s linear infinite !important;
+}
+
+@keyframes dashRotate {
+    to {
+        stroke-dashoffset: -80;
+    }
+}
+
+/* 径向布局中心节点突出 */
+.g6-node[data-depth="0"] {
+    z-index: 30 !important;
+    box-shadow: 0 0 20px rgba(24, 144, 255, 0.3) !important;
+}
+
+/* 复杂度指示器 */
+.complexity-indicator {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: linear-gradient(135deg, #ff4d4f 0%, #fa8c16 100%);
+    color: white;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    z-index: 40;
+}
+
+/* 调用链深度指示器 */
+.depth-indicator {
+    position: absolute;
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 9px;
+    font-weight: 500;
+    opacity: 0.8;
+    transition: opacity 0.2s ease;
+}
+
+.g6-node:hover .depth-indicator {
+    opacity: 1;
+}
+
+/* 调用链统计信息增强 */
+.callchain-stats {
+    background: linear-gradient(135deg,
+        rgba(24, 144, 255, 0.1) 0%,
+        rgba(149, 222, 100, 0.1) 100%);
+    border: 1px solid rgba(24, 144, 255, 0.2);
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 16px;
+}
+
+/* 动画效果 */
+@keyframes nodeAppear {
+    from {
+        opacity: 0;
+        transform: scale(0);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.g6-node {
+    animation: nodeAppear 0.5s ease-out forwards !important;
+}
+
+@keyframes edgeAppear {
+    from {
+        opacity: 0;
+        stroke-dashoffset: 100;
+    }
+    to {
+        opacity: 1;
+        stroke-dashoffset: 0;
+    }
+}
+
+.g6-edge {
+    animation: edgeAppear 0.8s ease-out forwards !important;
+    stroke-dasharray: 100;
 }

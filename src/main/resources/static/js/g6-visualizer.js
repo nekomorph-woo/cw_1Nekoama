@@ -457,6 +457,27 @@ class DependencyVisualizer {
             }
         });
 
+        // 🆕 添加入口方法下拉框change事件监听器
+        const entryMethodSelect = document.getElementById('entry-method-select');
+        if (entryMethodSelect) {
+            entryMethodSelect.addEventListener('change', (e) => {
+                const selectedMethodId = e.target.value;
+                if (selectedMethodId) {
+                    console.log('🎯 入口方法选择变化:', selectedMethodId);
+                    // 清空搜索框
+                    const searchInput = document.getElementById('method-search-input');
+                    if (searchInput) {
+                        searchInput.value = '';
+                    }
+                    // 直接触发调用链分析
+                    this.analyzeCallChain(selectedMethodId);
+                } else {
+                    // 如果选择为空，清空图表
+                    this.clearCallChainGraph();
+                }
+            });
+        }
+
         // 方法详情面板关闭按钮
         const closeBtn = document.getElementById('close-details');
         if (closeBtn) {
@@ -640,9 +661,6 @@ class DependencyVisualizer {
 
         // 类级关系图
         this.initClassGraph();
-
-        // 场景分析图
-        this.initSceneGraph();
     }
 
     /**
@@ -774,47 +792,6 @@ class DependencyVisualizer {
         // 绑定节点点击事件
         this.graphs.class.on('node:click', (e) => {
             this.showClassDetails(e.item.getModel());
-        });
-    }
-
-    /**
-     * 初始化场景分析图
-     */
-    initSceneGraph() {
-        const container = document.getElementById('scene-graph');
-        if (!container) return;
-
-        this.graphs.scene = new G6.Graph({
-            container: 'scene-graph',
-            width: container.clientWidth,
-            height: container.clientHeight,
-            modes: {
-                default: [
-                    'drag-canvas',
-                    'zoom-canvas',
-                    'drag-node',
-                    'tooltip'
-                ]
-            },
-            defaultNode: {
-                size: 50,
-                style: {
-                    fill: '#FFE7BA',
-                    stroke: '#FA8C16',
-                    lineWidth: 2
-                }
-            },
-            defaultEdge: {
-                style: {
-                    stroke: '#e2e2e2',
-                    lineWidth: 2,
-                    endArrow: true
-                }
-            },
-            layout: {
-                type: 'dagre',
-                rankdir: 'TB'
-            }
         });
     }
 
@@ -1176,6 +1153,72 @@ class DependencyVisualizer {
     }
 
     /**
+     * 获取方法节点样式 - 支持来源感知的颜色编码
+     */
+    getMethodNodeStyle(node) {
+        const isInternal = node.isInternal || false;
+        const source = node.source || 'INTERNAL';
+
+        let fillColor, borderColor;
+
+        switch (source) {
+            case 'INTERNAL':
+                // 项目内部方法 - 基于复杂度的蓝色系
+                fillColor = this.getMethodComplexityColor(node.complexity || 0);
+                borderColor = '#1890ff';
+                break;
+            case 'EXTERNAL':
+                // 外部方法 - 绿色
+                fillColor = '#95de64';
+                borderColor = '#389e0d';
+                break;
+            default:
+                fillColor = '#f5f5f5';
+                borderColor = '#d9d9d9';
+        }
+
+        return {
+            fill: fillColor,
+            stroke: borderColor,
+            lineWidth: 2
+        };
+    }
+
+    /**
+     * 获取边的样式 - 基于方法来源的样式区分
+     */
+    getEdgeStyle(edge) {
+        const isInternal = edge.isInternal || false;
+        const targetMethodSource = edge.targetMethodSource || 'EXTERNAL';
+        const isInterfaceCall = edge.isInterfaceCall || false;
+
+        // 🆕 接口调用使用特殊样式
+        let strokeColor, lineWidth;
+
+        if (isInterfaceCall) {
+            strokeColor = '#52c41a'; // 绿色表示接口调用
+            lineWidth = 3; // 更粗的线突出接口调用
+        } else if (isInternal) {
+            strokeColor = '#1890ff'; // 蓝色表示普通内部调用
+            lineWidth = 2;
+        } else {
+            strokeColor = '#999999'; // 灰色表示外部调用
+            lineWidth = 1;
+        }
+
+        return {
+            stroke: strokeColor,
+            lineWidth: lineWidth,
+            lineDash: isInterfaceCall ? [5, 3] : null, // 接口调用使用虚线
+            endArrow: {
+                path: 'M 0,0 L 8,4 L 16,0',
+                fill: strokeColor,
+                d: 10
+            }
+        };
+    }
+
+    /**
      * 显示包详情
      */
     showPackageDetails(packageModel) {
@@ -1283,6 +1326,9 @@ class DependencyVisualizer {
         if (methodControls) {
             methodControls.style.display = 'flex';
         }
+
+        // 显示方法来源图例
+        this.showMethodSourceLegend();
 
         // 默认启动调用关系图模式
         this.initCallGraphMode();
@@ -1808,30 +1854,26 @@ class DependencyVisualizer {
     // ========================= 方法调用分析功能 =========================
 
     /**
-     * 转换方法调用图数据
+     * 转换方法调用图数据 - 支持外部方法节点
      */
     convertToMethodCallGraphData() {
         console.log('转换方法调用图数据，方法数量:', this.currentData.methodCallGraph?.nodes?.length || 0);
 
-        // 修复：查找正确的数据路径
         if (!this.currentData.methodCallGraph || !this.currentData.methodCallGraph.edges) {
             console.warn('缺少方法调用图数据');
             return { nodes: [], edges: [] };
         }
 
-        // 获取筛选条件
-        const callCountThreshold = parseInt(document.getElementById('call-count-filter')?.value || '1');
-        const complexityFilter = document.getElementById('complexity-filter')?.value;
-        const callTypeFilter = document.getElementById('call-type-filter')?.value;
-
-        // 直接从methodCallGraph获取数据
         const nodes = [];
         const edges = [];
+        const allMethodNodes = new Map();
 
-        // 添加方法节点
+        // 1. 添加项目内部方法节点
         if (this.currentData.methodCallGraph.nodes) {
+            console.log('添加项目内部方法节点，数量:', this.currentData.methodCallGraph.nodes.length);
+
             this.currentData.methodCallGraph.nodes.forEach(method => {
-                nodes.push({
+                const nodeData = {
                     id: method.id,
                     label: method.name,
                     type: 'METHOD',
@@ -1839,59 +1881,278 @@ class DependencyVisualizer {
                     complexity: method.complexity || 0,
                     fanIn: method.fanIn || 0,
                     fanOut: method.fanOut || 0,
-                    style: {
-                        fill: this.getMethodComplexityColor(method.complexity),
-                        stroke: '#666'
-                    }
-                });
+                    source: method.source || 'INTERNAL',
+                    packageName: method.packageName || '',
+                    isInternal: method.source === 'INTERNAL',
+                    isExternal: method.source !== 'INTERNAL',
+                    style: this.getMethodNodeStyle(method)
+                };
+
+                allMethodNodes.set(method.id, nodeData);
             });
         }
 
-        // 添加方法调用边，并进行数据验证
+        // 2. 从边中提取并创建外部方法节点
         if (this.currentData.methodCallGraph.edges) {
             console.log('开始处理方法调用边数据，原始边数量:', this.currentData.methodCallGraph.edges.length);
 
-            const nodeIds = new Set(nodes.map(node => node.id));
             let validEdges = 0;
             let invalidEdges = 0;
+            let externalNodesCreated = 0;
 
-            this.currentData.methodCallGraph.edges.forEach((call, index) => {
+            this.currentData.methodCallGraph.edges.forEach((edge, index) => {
                 // 验证边的source和target
-                if (!call.source || !call.target) {
-                    console.warn(`方法调用边数据缺少source或target [索引${index}]:`, call);
+                if (!edge.source || !edge.target) {
+                    console.warn(`方法调用边数据缺少source或target [索引${index}]:`, edge);
                     invalidEdges++;
                     return;
                 }
 
-                // 检查source节点是否存在
-                if (!nodeIds.has(call.source)) {
-                    console.warn(`方法调用边的source节点不存在 [索引${index}]: ${call.source}`, call);
-                    invalidEdges++;
-                    return;
+                // 检查source节点是否存在，不存在则创建外部节点
+                if (!allMethodNodes.has(edge.source)) {
+                    const sourceNode = this.createExternalMethodNode(edge.source, edge);
+                    allMethodNodes.set(edge.source, sourceNode);
+                    console.log(`创建外部source节点: ${edge.source}`);
+                    externalNodesCreated++;
                 }
 
-                // 检查target节点是否存在
-                if (!nodeIds.has(call.target)) {
-                    console.warn(`方法调用边的target节点不存在 [索引${index}]: ${call.target}`, call);
-                    invalidEdges++;
-                    return;
+                // 检查target节点是否存在，不存在则创建外部节点
+                if (!allMethodNodes.has(edge.target)) {
+                    const targetMethodSource = edge.targetMethodSource || this.determineMethodSource(edge.target);
+                    const targetNode = this.createExternalMethodNode(edge.target, edge, targetMethodSource);
+                    allMethodNodes.set(edge.target, targetNode);
+                    console.log(`创建外部target节点: ${edge.target} (${targetMethodSource})`);
+                    externalNodesCreated++;
                 }
 
-                // 边数据有效
-                edges.push({
-                    source: call.source,
-                    target: call.target,
-                    type: call.type || 'method_call',
-                    label: '调用'
-                });
-                validEdges++;
+                // 添加有效的边
+                const sourceNode = allMethodNodes.get(edge.source);
+                const targetNode = allMethodNodes.get(edge.target);
+
+                if (sourceNode && targetNode) {
+                    edges.push({
+                        source: edge.source,
+                        target: edge.target,
+                        type: edge.type || 'method_call',
+                        label: '调用',
+                        targetMethodSource: targetNode.source,
+                        isInternal: targetNode.isInternal,
+                        style: this.getEdgeStyle({
+                            isInternal: targetNode.isInternal,
+                            targetMethodSource: targetNode.source
+                        })
+                    });
+                    validEdges++;
+                } else {
+                    console.warn(`无法找到source或target节点 [索引${index}]: source=${edge.source}, target=${edge.target}`);
+                    invalidEdges++;
+                }
             });
 
-            console.log(`方法调用边数据处理完成: 有效边 ${validEdges} 条, 无效边 ${invalidEdges} 条`);
+            console.log(`方法调用边数据处理完成: 有效边 ${validEdges} 条, 无效边 ${invalidEdges} 条, 外部节点创建 ${externalNodesCreated} 个`);
         }
 
-        console.log('方法调用图数据转换完成:', { nodeCount: nodes.length, edgeCount: edges.length });
+        // 3. 将所有节点添加到最终结果
+        allMethodNodes.forEach(node => {
+            nodes.push(node);
+        });
+
+        const totalNodes = nodes.length;
+        const internalNodes = nodes.filter(n => n.isInternal).length;
+        const externalNodes = nodes.filter(n => n.isExternal).length;
+
+        console.log(`方法调用图数据转换完成:`, {
+            totalNodes: totalNodes,
+            internalNodes: internalNodes,
+            externalNodes: externalNodes,
+            edges: edges.length
+        });
+
         return { nodes, edges };
+    }
+
+    /**
+     * 创建外部方法节点
+     */
+    createExternalMethodNode(methodId, edge, methodSource = null) {
+        const source = methodSource || this.determineMethodSource(methodId);
+        const className = this.extractClassName(methodId);
+        const methodName = this.extractMethodName(methodId);
+        const packageName = this.extractPackageName(className);
+
+        return {
+            id: methodId,
+            label: methodName,
+            type: 'EXTERNAL_METHOD',
+            className: className,
+            complexity: 0, // 外部方法默认复杂度为0
+            fanIn: 0,
+            fanOut: 0,
+            source: source,
+            packageName: packageName,
+            isInternal: source === 'INTERNAL',
+            isExternal: true,
+            style: this.getMethodNodeStyle({
+                source: source,
+                complexity: 0,
+                isInternal: source === 'INTERNAL',
+                isExternal: true
+            })
+        };
+    }
+
+    /**
+     * 🆕 智能查找实现类中的对应方法
+     * @param {string} implementingClass 实现类名
+     * @param {string} methodName 方法名
+     * @param {string} originalInterfaceMethodId 原始接口方法ID（用于回退）
+     * @returns {string|null} 找到的实现方法ID，如果没找到则返回null
+     */
+    findImplementationMethod(implementingClass, methodName, originalInterfaceMethodId) {
+        try {
+            // 构建可能的方法ID格式
+            const possibleMethodIds = [
+                `${implementingClass}.${methodName}`, // 最常见的格式
+                `${implementingClass}::${methodName}`, // C++风格的格式
+                `${implementingClass}.${methodName}()`, // 带括号的格式
+                methodName // 如果已经在实现类上下文中
+            ];
+
+            console.log(`🔍 查找实现方法: ${implementingClass}.${methodName}`);
+            console.log(`🔍 尝试的方法ID:`, possibleMethodIds);
+
+            // 从所有节点中查找匹配的方法
+            const allNodes = this.currentData.methodCallGraph?.nodes || [];
+
+            for (const methodId of possibleMethodIds) {
+                const foundNode = allNodes.find(node =>
+                    node.id === methodId ||
+                    node.id.endsWith(`.${methodName}`) ||
+                    (node.className === implementingClass && node.name === methodName)
+                );
+
+                if (foundNode) {
+                    console.log(`✅ 找到实现方法: ${foundNode.id}`);
+                    return foundNode.id;
+                }
+            }
+
+            // 如果精确匹配失败，尝试模糊匹配
+            for (const node of allNodes) {
+                if (node.className === implementingClass &&
+                    (node.name === methodName || node.id.includes(methodName))) {
+                    console.log(`✅ 模糊匹配找到实现方法: ${node.id}`);
+                    return node.id;
+                }
+            }
+
+            console.warn(`❌ 未找到实现方法: ${implementingClass}.${methodName}`);
+            return null;
+
+        } catch (error) {
+            console.error(`🚨 查找实现方法时出错:`, error);
+            return null;
+        }
+    }
+
+    /**
+     * 确定方法来源
+     */
+    determineMethodSource(methodId) {
+        const className = this.extractClassName(methodId);
+
+        // 检查是否为项目内部方法
+        if (this.isInternalClass(className)) {
+            return 'INTERNAL';
+        }
+
+        // 检查是否为框架方法
+        if (this.isFrameworkClass(className)) {
+            return 'EXTERNAL'; // 简化版本，只有INTERNAL/EXTERNAL
+        }
+
+        // 其他外部库方法
+        return 'EXTERNAL';
+    }
+
+    /**
+     * 判断是否为内部类
+     */
+    isInternalClass(className) {
+        if (!className) return false;
+
+        // 检查是否以项目包路径开头
+        const projectPackage = this.getProjectPackage();
+        if (projectPackage && className.startsWith(projectPackage)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * 判断是否为框架类
+     */
+    isFrameworkClass(className) {
+        if (!className) return false;
+
+        const frameworkPackages = [
+            'java.', 'javax.', 'kotlin.',
+            'org.springframework.', 'org.apache.',
+            'com.fasterxml.', 'org.slf4j', 'lombok.',
+            'org.junit', 'org.mockito'
+        ];
+
+        return frameworkPackages.some(pkg => className.startsWith(pkg));
+    }
+
+    /**
+     * 获取项目包路径
+     */
+    getProjectPackage() {
+        // 从当前数据中推断项目包路径
+        if (this.currentData.projectInfo?.rootPackage) {
+            return this.currentData.projectInfo.rootPackage;
+        }
+
+        // 从分析方法中推断
+        if (this.currentData.methodCallGraph?.nodes?.length > 0) {
+            const firstNode = this.currentData.methodCallGraph.nodes[0];
+            if (firstNode.packageName) {
+                const packages = firstNode.packageName.split('.');
+                if (packages.length >= 2) {
+                    return packages.slice(0, 2).join('.');
+                }
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * 提取类名
+     */
+    extractClassName(methodId) {
+        const lastDotIndex = methodId.lastIndexOf('.');
+        return lastDotIndex > 0 ? methodId.substring(0, lastDotIndex) : methodId;
+    }
+
+    /**
+     * 提取方法名
+     */
+    extractMethodName(methodId) {
+        const lastDotIndex = methodId.lastIndexOf('.');
+        return lastDotIndex >= 0 && lastDotIndex < methodId.length - 1
+            ? methodId.substring(lastDotIndex + 1)
+            : methodId;
+    }
+
+    /**
+     * 提取包名
+     */
+    extractPackageName(className) {
+        const lastDotIndex = className.lastIndexOf('.');
+        return lastDotIndex > 0 ? className.substring(0, lastDotIndex) : '';
     }
 
     /**
@@ -2049,49 +2310,74 @@ class DependencyVisualizer {
         this.callChainGraph = new G6.Graph({
             container: container,
             modes: {
-                default: ['drag-canvas', 'zoom-canvas']
+                default: ['drag-canvas', 'zoom-canvas', 'drag-node']
             },
             layout: {
-                type: 'dagre',
-                rankdir: 'TB'
+                type: 'radial',
+                unitRadius: 150,           // 单元半径
+                center: [container.clientWidth / 2, container.clientHeight / 2],
+                preventOverlap: true,
+                nodeSize: 40,
+                nodeSpacing: 30,
+                linkDistance: 100
             },
+            animate: true,
             defaultNode: {
                 type: 'circle',
-                size: [60, 60],
+                size: [40, 40],
                 style: {
-                    fill: '#1890ff',
+                    fill: '#e6f7ff',
                     stroke: '#1890ff',
                     lineWidth: 2
                 },
                 labelCfg: {
+                    position: 'bottom',
+                    offset: 5,
                     style: {
-                        fill: '#fff',
-                        fontSize: 12
+                        fill: '#333',
+                        fontSize: 11,
+                        fontWeight: 'bold',
+                        textAlign: 'center'
                     }
+                },
+                iconCfg: {
+                    show: true,
+                    size: 8,
+                    position: 'top'
                 }
             },
             defaultEdge: {
-                type: 'polyline',
+                type: 'line',
                 style: {
-                    stroke: '#1890ff',
-                    lineWidth: 2,
+                    stroke: '#ccc',
+                    lineWidth: 1,
                     endArrow: {
-                        path: G6.Arrow.triangle(10, 12, 25),
-                        d: 25,
-                        fill: '#1890ff'
+                        path: G6.Arrow.triangle(8, 10, 20),
+                        d: 20,
+                        fill: '#999'
                     }
+                }
+            },
+            nodeStateStyles: {
+                hover: {
+                    lineWidth: 3,
+                    shadowColor: '#1890ff',
+                    shadowBlur: 10
                 },
-                labelCfg: {
-                    style: {
-                        fill: '#666',
-                        fontSize: 10,
-                        background: {
-                            fill: '#fff',
-                            stroke: '#999',
-                            padding: [2, 4, 2, 4],
-                            radius: 4
-                        }
-                    }
+                selected: {
+                    lineWidth: 4,
+                    shadowColor: '#ff4d4f',
+                    shadowBlur: 15
+                }
+            },
+            edgeStateStyles: {
+                hover: {
+                    lineWidth: 3,
+                    stroke: '#1890ff'
+                },
+                selected: {
+                    lineWidth: 3,
+                    stroke: '#ff4d4f'
                 }
             }
         });
@@ -2146,21 +2432,82 @@ class DependencyVisualizer {
         this.buildCallChainDFS(entryMethodId, visited, nodes, edges, 0, 10);
 
         // 转换为G6格式
-        const g6Nodes = Array.from(nodes.values()).map(node => ({
-            id: node.id,
-            label: `${node.className}.${node.name}`,
-            data: node,
-            style: {
-                fill: this.getNodeColorByDepth(node.depth),
-                size: Math.max(30, Math.min(80, 30 + node.callCount * 5))
-            }
-        }));
+        const g6Nodes = Array.from(nodes.values()).map(node => {
+            const nodeStyle = this.getMethodNodeStyle(node);
+            const isRootNode = node.depth === 0;
+            const nodeSize = isRootNode ? 50 : Math.max(30, Math.min(45, 35 + (node.callCount || 0) * 2));
 
-        return { nodes: g6Nodes, edges };
+            return {
+                id: node.id,
+                label: node.name, // 只显示方法名，更简洁
+                data: node,
+                size: [nodeSize, nodeSize],
+                style: {
+                    fill: nodeStyle.fill,
+                    stroke: nodeStyle.stroke,
+                    lineWidth: nodeStyle.lineWidth,
+                    cursor: 'pointer'
+                },
+                labelCfg: {
+                    position: isRootNode ? 'center' : 'bottom',
+                    offset: isRootNode ? 0 : 8,
+                    style: {
+                        fill: node.isInternal ? '#fff' : '#333',
+                        fontSize: isRootNode ? 12 : 10,
+                        fontWeight: isRootNode ? 'bold' : 'normal',
+                        textAlign: 'center',
+                        textBaseline: isRootNode ? 'middle' : 'top'
+                    }
+                },
+                // 添加图标标识内部/外部方法
+                iconCfg: {
+                    show: true,
+                    type: node.isInternal ? 'circle' : 'diamond',
+                    size: 6,
+                    position: isRootNode ? 'center' : 'top',
+                    style: {
+                        fill: node.isInternal ? '#fff' : '#389e0d',
+                        stroke: node.isInternal ? '#1890ff' : '#389e0d'
+                    }
+                }
+            };
+        });
+
+        // 转换边数据，应用样式
+        const g6Edges = edges.map(edge => {
+            const edgeStyle = this.getEdgeStyle(edge);
+            return {
+                id: edge.id,
+                source: edge.source,
+                target: edge.target,
+                label: '', // 径向布局中不显示边标签，更简洁
+                style: {
+                    stroke: edgeStyle.stroke,
+                    lineWidth: edgeStyle.lineWidth,
+                    endArrow: edgeStyle.endArrow,
+                    lineDash: edge.isInternal ? [] : [5, 5], // 虚线表示外部方法
+                    opacity: edge.isInternal ? 1 : 0.8
+                },
+                labelCfg: {
+                    style: {
+                        fill: '#666',
+                        fontSize: 9,
+                        background: {
+                            fill: 'rgba(255, 255, 255, 0.9)',
+                            stroke: '#ddd',
+                            padding: [2, 4, 2, 4],
+                            radius: 3
+                        }
+                    }
+                }
+            };
+        });
+
+        return { nodes: g6Nodes, edges: g6Edges };
     }
 
     /**
-     * 构建调用链（深度优先搜索）
+     * 构建调用链（来源感知的深度优先搜索）
      */
     buildCallChainDFS(methodId, visited, nodes, edges, depth, maxDepth) {
         console.log(`[${depth}] DFS调用: ${methodId}, 已访问: ${Array.from(visited).join(', ')}`);
@@ -2177,51 +2524,113 @@ class DependencyVisualizer {
 
         visited.add(methodId);
 
-        // 修复：从methodCallGraph.nodes中查找方法
-        const method = this.currentData.methodCallGraph?.nodes?.find(m => m.id === methodId);
+        // 首先从内部方法节点中查找
+        let method = this.currentData.methodCallGraph?.nodes?.find(m => m.id === methodId);
+
+        // 如果没找到，说明是外部方法，需要创建外部方法节点
         if (!method) {
-            console.error(`[${depth}] 未找到方法节点: ${methodId}`);
-            console.error(`[${depth}] 可用的节点ID前5个:`, this.currentData.methodCallGraph?.nodes?.slice(0, 5).map(n => n.id));
-            return;
+            const methodSource = this.determineMethodSource(methodId);
+            const className = this.extractClassName(methodId);
+            const methodName = this.extractMethodName(methodId);
+
+            console.log(`[${depth}] 创建外部方法节点: ${methodId} (${methodSource})`);
+            method = {
+                id: methodId,
+                name: methodName,
+                className: className,
+                complexity: 0,
+                source: methodSource,
+                packageName: this.extractPackageName(className),
+                isInternal: methodSource === 'INTERNAL',
+                isExternal: methodSource !== 'INTERNAL'
+            };
         }
 
-        console.log(`[${depth}] 找到方法: ${method.className}.${method.name}`);
+        console.log(`[${depth}] 处理方法: ${method.className}.${method.name} (${method.source || 'UNKNOWN'})`);
 
-        // 添加节点 - 修复数据路径
+        // 添加当前节点
         const callCount = this.currentData.methodCallGraph?.edges?.filter(e => e.source === methodId).length || 0;
         const node = {
             id: methodId,
             name: method.name,
             className: method.className,
             complexity: method.complexity || 0,
-            callCount: callCount,
+            fanIn: method.fanIn || 0,
+            fanOut: method.fanOut || 0,
+            isInternal: method.isInternal || (method.source === 'INTERNAL'),
+            isExternal: method.isExternal || (method.source !== 'INTERNAL'),
+            source: method.source || 'INTERNAL',
+            packageName: method.packageName || '',
             depth: depth
         };
         nodes.set(methodId, node);
 
-        // 处理调用关系 - 修复数据路径
+        // 处理出边
         const outgoingCalls = this.currentData.methodCallGraph?.edges?.filter(e => e.source === methodId) || [];
-        console.log(`[${depth}] 找到 ${outgoingCalls.length} 个出边:`, outgoingCalls.map(e => ({from: e.source, to: e.target})));
+        console.log(`[${depth}] 找到 ${outgoingCalls.length} 个出边:`, outgoingCalls.map(e => ({from: e.source, to: e.target, source: e.targetMethodSource})));
 
         outgoingCalls.forEach((edge, index) => {
             if (!visited.has(edge.target)) {
-                console.log(`[${depth}] 添加边: ${edge.source} → ${edge.target}`);
-                edges.push({
-                    id: `${edge.source}-${edge.target}`,
-                    source: edge.source,
-                    target: edge.target,
-                    label: `调用`,
-                    style: {
-                        stroke: '#1890ff',
-                        lineWidth: 2
+                // 🆕 处理接口映射
+                let actualTarget = edge.target;
+                let targetMethodSource = edge.targetMethodSource || this.determineMethodSource(edge.target);
+                let isInternal = targetMethodSource === 'INTERNAL';
+                let isInterfaceCall = false;
+
+                // 检查是否为接口调用，并映射到实际实现类
+                if (edge.isInterfaceCall && edge.actualImplementingClass) {
+                    console.log(`[${depth}] 🔄 接口映射: ${edge.target} -> ${edge.actualImplementingClass}`);
+
+                    // 🆕 智能查找实现类中的对应方法
+                    const interfaceMethodName = edge.target.split('.').pop();
+                    actualTarget = this.findImplementationMethod(edge.actualImplementingClass, interfaceMethodName, edge.target);
+
+                    if (actualTarget) {
+                        isInterfaceCall = true;
+                        console.log(`[${depth}] ✅ 找到实现方法: ${actualTarget}`);
+                    } else {
+                        console.warn(`[${depth}] ❌ 未找到实现方法: ${edge.actualImplementingClass}.${interfaceMethodName}`);
+                        actualTarget = edge.target; // 回退到原始目标
                     }
+
+                    // 更新目标方法来源
+                    targetMethodSource = this.determineMethodSource(actualTarget);
+                    isInternal = targetMethodSource === 'INTERNAL';
+
+                    // 添加映射信息到边
+                    edge.interfaceMapping = {
+                        originalInterface: edge.target,
+                        actualImplementation: actualTarget,
+                        allImplementations: edge.implementingClasses || []
+                    };
+                }
+
+                edges.push({
+                    id: `${edge.source}-${actualTarget}`,
+                    source: edge.source,
+                    target: actualTarget,
+                    label: isInterfaceCall ? '接口调用' : '调用',
+                    targetMethodSource: targetMethodSource,
+                    isInternal: isInternal,
+                    isInterfaceCall: isInterfaceCall,
+                    originalInterfaceCall: isInterfaceCall ? edge.target : null,
+                    interfaceMapping: edge.interfaceMapping,
+                    style: this.getEdgeStyle({
+                        isInternal: isInternal,
+                        targetMethodSource: targetMethodSource,
+                        isInterfaceCall: isInterfaceCall
+                    })
                 });
 
-                // 递归处理被调用方法
-                console.log(`[${depth}] 递归调用目标方法: ${edge.target}`);
-                this.buildCallChainDFS(edge.target, visited, nodes, edges, depth + 1, maxDepth);
+                // 只对内部方法进行递归
+                if (isInternal) {
+                    console.log(`[${depth}] 递归处理内部方法: ${actualTarget}`);
+                    this.buildCallChainDFS(actualTarget, visited, nodes, edges, depth + 1, maxDepth);
+                } else {
+                    console.log(`[${depth}] 停止递归，外部方法: ${actualTarget} (${targetMethodSource})`);
+                }
             } else {
-                console.log(`[${depth}] 目标方法已访问，跳过: ${edge.target}`);
+                console.log(`[${depth}] 目标方法已访问: ${edge.target}`);
             }
         });
 
@@ -2369,7 +2778,74 @@ class DependencyVisualizer {
         // 节点点击事件 - 显示方法详情
         this.callChainGraph.on('node:click', (evt) => {
             const node = evt.item;
-            this.showMethodDetails(node.getModel());
+            const model = node.getModel();
+
+            // 高亮选中节点和相关边
+            this.highlightNodeAndEdges(model.id);
+
+            // 显示方法详情
+            this.showMethodDetails(model);
+        });
+
+        // 节点悬停事件
+        this.callChainGraph.on('node:mouseenter', (evt) => {
+            const node = evt.item;
+            this.callChainGraph.setItemState(node, 'hover');
+        });
+
+        this.callChainGraph.on('node:mouseleave', (evt) => {
+            const node = evt.item;
+            this.callChainGraph.setItemState(node, 'hover', false);
+        });
+
+        // 边悬停事件
+        this.callChainGraph.on('edge:mouseenter', (evt) => {
+            const edge = evt.item;
+            this.callChainGraph.setItemState(edge, 'hover');
+        });
+
+        this.callChainGraph.on('edge:mouseleave', (evt) => {
+            const edge = evt.item;
+            this.callChainGraph.setItemState(edge, 'hover', false);
+        });
+
+        // 画布点击事件 - 清除高亮
+        this.callChainGraph.on('canvas:click', () => {
+            this.clearHighlight();
+        });
+    }
+
+    /**
+     * 高亮节点和相关边
+     */
+    highlightNodeAndEdges(nodeId) {
+        // 清除之前的高亮
+        this.clearHighlight();
+
+        // 高亮选中节点
+        const node = this.callChainGraph.findById(nodeId);
+        if (node) {
+            this.callChainGraph.setItemState(node, 'selected');
+        }
+
+        // 高亮相关的边
+        this.callChainGraph.getEdges().forEach(edge => {
+            const edgeModel = edge.getModel();
+            if (edgeModel.source === nodeId || edgeModel.target === nodeId) {
+                this.callChainGraph.setItemState(edge, 'selected');
+            }
+        });
+    }
+
+    /**
+     * 清除所有高亮状态
+     */
+    clearHighlight() {
+        this.callChainGraph.getNodes().forEach(node => {
+            this.callChainGraph.setItemState(node, 'selected', false);
+        });
+        this.callChainGraph.getEdges().forEach(edge => {
+            this.callChainGraph.setItemState(edge, 'selected', false);
         });
     }
 
@@ -3246,6 +3722,30 @@ class DependencyVisualizer {
      * 分析指定方法的完整调用链
      * @param {string} methodId 方法ID
      */
+    /**
+     * 清空调用链图表
+     */
+    clearCallChainGraph() {
+        const container = document.getElementById('call-chain-graph');
+        if (container) {
+            // 清空容器内容
+            container.innerHTML = '<div class="empty-state">请选择入口方法以分析调用链</div>';
+        }
+
+        // 清空调用链图形容器
+        const graphContainer = document.getElementById('call-chain-graph');
+        if (graphContainer && this.graphs?.callChainGraph) {
+            this.graphs.callChainGraph.destroy();
+            this.graphs.callChainGraph = null;
+        }
+
+        // 重置调用链统计信息
+        document.getElementById('chain-length').textContent = '0';
+        document.getElementById('chain-complexity').textContent = '0';
+
+        console.log('🧹 调用链图表已清空');
+    }
+
     analyzeCallChain(methodId) {
         if (!this.currentData?.methodCallGraph?.nodes) {
             this.showMessage('没有可用的方法调用数据');
@@ -3299,13 +3799,33 @@ class DependencyVisualizer {
         while (nodesToProcess.length > 0) {
             const currentMethodId = nodesToProcess.pop();
 
-            // 获取当前方法的所有直接调用
-            const outgoingCalls = this.getOutgoingCalls(currentMethodId);
+            // 🆕 获取当前方法的所有直接调用（使用edges数据，包含接口映射信息）
+            const outgoingCalls = this.getOutgoingCallsWithInterfaceMapping(currentMethodId);
 
             outgoingCalls.forEach(call => {
-                const targetMethodId = call.toMethod;
+                let targetMethodId = call.target;
+                let isInterfaceCall = false;
 
-                // 先检查目标节点是否存在
+                // 🆕 处理接口映射
+                if (call.isInterfaceCall && call.actualImplementingClass) {
+                    console.log(`🔄 buildCompleteCallChain 接口映射: ${call.target} -> ${call.actualImplementingClass}`);
+
+                    // 🆕 智能查找实现类中的对应方法
+                    const interfaceMethodName = call.target.split('.').pop();
+                    const foundImplementationMethod = this.findImplementationMethod(call.actualImplementingClass, interfaceMethodName, call.target);
+
+                    if (foundImplementationMethod) {
+                        targetMethodId = foundImplementationMethod;
+                        isInterfaceCall = true;
+                        console.log(`🔄 buildCompleteCallChain ✅ 找到实现方法: ${foundImplementationMethod}`);
+                    } else {
+                        console.warn(`🔄 buildCompleteCallChain ❌ 未找到实现方法: ${call.actualImplementingClass}.${interfaceMethodName}`);
+                        // 保持原始目标，但仍然标记为接口调用
+                        isInterfaceCall = true;
+                    }
+                }
+
+                // 先检查目标节点是否存在（使用映射后的目标）
                 const targetNode = this.findMethodNode(targetMethodId);
                 if (targetNode) {
                     // 只有当目标节点存在时才添加边
@@ -3315,7 +3835,16 @@ class DependencyVisualizer {
                             source: currentMethodId,
                             target: targetMethodId,
                             callType: call.callType || 'method_call',
-                            line: call.line || 0
+                            line: call.line || 0,
+                            label: isInterfaceCall ? '接口调用' : '调用',
+                            isInterfaceCall: isInterfaceCall,
+                            originalInterfaceCall: isInterfaceCall ? call.target : null,
+                            interfaceMapping: call.interfaceMapping,
+                            style: this.getEdgeStyle({
+                                isInternal: targetNode.isInternal,
+                                targetMethodSource: targetNode.source,
+                                isInterfaceCall: isInterfaceCall
+                            })
                         });
                     }
 
@@ -3357,6 +3886,26 @@ class DependencyVisualizer {
     getOutgoingCalls(methodId) {
         const methodCalls = this.currentData.methodCallGraph?.methodCalls || {};
         return methodCalls[methodId] || [];
+    }
+
+    /**
+     * 🆕 获取方法的直接调用，包含接口映射信息（使用edges数据）
+     * @param {string} methodId 方法ID
+     * @returns {Array} 调用关系数组，包含接口映射信息
+     */
+    getOutgoingCallsWithInterfaceMapping(methodId) {
+        // 使用edges数据而不是methodCalls，因为edges包含接口映射信息
+        const edges = this.currentData.methodCallGraph?.edges || [];
+        return edges.filter(edge => edge.source === methodId).map(edge => ({
+            target: edge.target,
+            callType: edge.type || 'method_call',
+            line: edge.line || 0,
+            // 🆕 接口映射相关字段
+            isInterfaceCall: edge.isInterfaceCall || false,
+            actualImplementingClass: edge.actualImplementingClass || '',
+            interfaceMapping: edge.interfaceMapping || null,
+            targetMethodSource: edge.targetMethodSource || 'EXTERNAL'
+        }));
     }
 
     /**
@@ -3426,12 +3975,14 @@ class DependencyVisualizer {
             width: container.clientWidth,
             height: 500,
             layout: {
-                type: 'force', // 固定使用力导向布局
+                type: 'radial', // 🔄 统一使用radial布局，与initCallChainMode保持一致
+                unitRadius: 150,
+                center: [container.clientWidth / 2, 250],
                 preventOverlap: true,
-                nodeSize: 20,
+                nodeSize: 40,
+                nodeSpacing: 30,
                 linkDistance: 100,
-                nodeStrength: -50,
-                edgeStrength: 0.1,
+                strictRadial: false // 允许非严格径向布局以适应复杂调用链
             },
             modes: {
                 default: [
@@ -3618,23 +4169,7 @@ class DependencyVisualizer {
         currentPath.pop();
     }
 
-    /**
-     * 初始化调用链模式
-     */
-    initCallChainMode() {
-        const container = document.getElementById('call-chain-graph');
-        if (!container) return;
-
-        // 如果还没有数据，显示提示
-        if (!this.currentData?.methodCallGraph) {
-            container.innerHTML = '<div class="empty-state">请选择方法并点击"分析调用链"按钮</div>';
-            return;
-        }
-
-        // 填充入口方法下拉框
-        this.populateEntryMethodSelect();
-    }
-
+  
     /**
      * 填充入口方法下拉框
      */
@@ -3667,6 +4202,98 @@ class DependencyVisualizer {
             });
         }
     }
+
+    /**
+     * 显示方法来源图例
+     */
+    showMethodSourceLegend() {
+        const legendContainer = document.getElementById('method-source-legend');
+        const legendContent = document.getElementById('legend-content');
+
+        if (!legendContainer || !legendContent) return;
+
+        console.log('生成方法来源图例');
+
+        // 方法来源图例数据
+        const methodSourceLegend = [
+            {
+                type: 'INTERNAL',
+                label: '项目内部方法',
+                description: '递归分析，完整调用链'
+            },
+            {
+                type: 'EXTERNAL',
+                label: '项目外部方法',
+                description: '显示但不递归，作为叶子节点'
+            }
+        ];
+
+        // 复杂度级别图例数据
+        const complexityLegend = [
+            {
+                color: '#1890FF',
+                label: '很低 (≤5)',
+                description: '低复杂度'
+            },
+            {
+                color: '#52C41A',
+                label: '低 (6-10)',
+                description: '低复杂度'
+            },
+            {
+                color: '#FAAD14',
+                label: '中 (11-20)',
+                description: '中等复杂度'
+            },
+            {
+                color: '#FA8C16',
+                label: '高 (21-30)',
+                description: '中高复杂度'
+            },
+            {
+                color: '#FF4D4F',
+                label: '很高 (>30)',
+                description: '高复杂度'
+            }
+        ];
+
+        // 生成方法来源图例HTML
+        const sourceLegendHtml = methodSourceLegend.map(item => `
+            <div class="legend-item ${item.type.toLowerCase()}">
+                <span class="legend-color"></span>
+                <span>${item.label}</span>
+            </div>
+        `).join('');
+
+        // 生成复杂度图例HTML
+        const complexityLegendHtml = `
+            <div class="complexity-legend">
+                <div class="complexity-legend-title">复杂度级别（内部方法）</div>
+                <div class="complexity-items">
+                    ${complexityLegend.map(item => `
+                        <div class="complexity-item">
+                            <span class="complexity-color" style="background-color: ${item.color}"></span>
+                            <span>${item.label}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+
+        // 设置图例内容
+        legendContent.innerHTML = `
+            <div class="source-legend-section">
+                ${sourceLegendHtml}
+            </div>
+            ${complexityLegendHtml}
+        `;
+
+        // 显示图例容器
+        legendContainer.style.display = 'block';
+
+        console.log('方法来源图例显示完成');
+    }
+
 }
 
 // 添加数组的groupBy和mapValues polyfill
