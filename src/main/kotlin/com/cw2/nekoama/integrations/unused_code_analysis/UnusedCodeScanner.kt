@@ -1,24 +1,33 @@
-package com.cw2.nekoama.integrations.psi
+package com.cw2.nekoama.integrations.unused_code_analysis
 
+import com.cw2.nekoama.core.exception.NekoamaError
 import com.cw2.nekoama.core.logging.NekoamaLogger
 import com.cw2.nekoama.core.result.Result
-import com.cw2.nekoama.core.exception.NekoamaError
 import com.cw2.nekoama.presentation.messages.NekoamaBundle
+import com.intellij.ide.highlighter.JavaFileType
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileManager
-import com.intellij.psi.*
+import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiJavaFile
+import com.intellij.psi.PsiManager
 import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.searches.ReferencesSearch
 import org.jetbrains.kotlin.idea.KotlinFileType
-import com.intellij.ide.highlighter.JavaFileType
-import org.jetbrains.kotlin.psi.*
+import org.jetbrains.kotlin.psi.KtClass
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtProperty
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
 
 /**
  * 未使用代码扫描器
@@ -52,7 +61,7 @@ internal object UnusedCodeScanner {
      * 启动一个后台任务执行扫描，并将结果以 Result 返回至回调。
      */
     fun scanInBackground(project: Project, onFinish: (Result<Report>) -> Unit) {
-        DumbService.getInstance(project).runWhenSmart {
+        DumbService.Companion.getInstance(project).runWhenSmart {
             ProgressManager.getInstance().run(object : Task.Backgroundable(project, NekoamaBundle.message("action.analyzeUnused.text"), true) {
                 override fun run(indicator: ProgressIndicator) {
                     val res = try {
@@ -77,11 +86,11 @@ internal object UnusedCodeScanner {
         val scope = GlobalSearchScope.projectScope(project)
 
         val psiManager = PsiManager.getInstance(project)
-        val allVFiles = mutableListOf<com.intellij.openapi.vfs.VirtualFile>()
+        val allVFiles = mutableListOf<VirtualFile>()
 
         // 仅扫描 Kotlin 与 Java 源文件（索引访问需在 ReadAction 内）
-        val indexedFiles = ReadAction.compute<List<com.intellij.openapi.vfs.VirtualFile>, Throwable> {
-            val list = mutableListOf<com.intellij.openapi.vfs.VirtualFile>()
+        val indexedFiles = ReadAction.compute<List<VirtualFile>, Throwable> {
+            val list = mutableListOf<VirtualFile>()
             list += FileTypeIndex.getFiles(KotlinFileType.INSTANCE, scope)
             list += FileTypeIndex.getFiles(JavaFileType.INSTANCE, scope)
             list
@@ -265,7 +274,7 @@ internal object UnusedCodeScanner {
         if (!outDir.exists()) outDir.mkdirs()
 
         // 生成带时间戳的文件名
-        val timestamp = java.text.SimpleDateFormat("yyyyMMdd-HHmmss").format(java.util.Date())
+        val timestamp = SimpleDateFormat("yyyyMMdd-HHmmss").format(Date())
         val fileName = "neko-unused-report-$timestamp.txt"
         val out = File(outDir, fileName)
         out.printWriter().use { pw ->

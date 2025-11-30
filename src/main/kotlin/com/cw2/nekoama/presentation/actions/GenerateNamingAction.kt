@@ -7,7 +7,7 @@ import com.cw2.nekoama.core.logging.NekoamaLogger
 import com.cw2.nekoama.data.settings.NekoamaSecureStorage
 import com.cw2.nekoama.data.settings.NekoamaSettings
 import com.cw2.nekoama.core.metrics.ActionType
-import com.cw2.nekoama.integrations.psi.UniversalCodeAnalyzer
+import com.cw2.nekoama.integrations.unused_code_analysis.UniversalCodeAnalyzer
 import com.cw2.nekoama.presentation.messages.NekoamaBundle
 import com.cw2.nekoama.presentation.notifications.NekoamaNotifier
 import com.intellij.openapi.actionSystem.AnActionEvent

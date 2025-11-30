@@ -1,4 +1,4 @@
-package com.cw2.nekoama.integrations.psi
+package com.cw2.nekoama.integrations.unused_code_analysis
 
 import com.intellij.psi.*
 import com.cw2.nekoama.ai.model.*

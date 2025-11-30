@@ -2,15 +2,14 @@ package com.cw2.nekoama.presentation.actions
 
 import com.cw2.nekoama.core.metrics.ActionType
 import com.cw2.nekoama.core.unusedcode.UnusedCodeAnalyzer
-import com.cw2.nekoama.presentation.notifications.NekoamaNotifier
 import com.cw2.nekoama.presentation.messages.NekoamaBundle
+import com.cw2.nekoama.presentation.notifications.NekoamaNotifier
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.vfs.VirtualFile
 import java.nio.file.Files
 import java.nio.file.Paths
 
@@ -49,8 +48,10 @@ internal class AnalyzeUnusedCodeAction : BaseAction() {
 
                     // 询问是否打开报告
                     com.intellij.openapi.application.invokeLater {
-                        val message = NekoamaBundle.message("unusedCode.analysis.complete",
-                            result.unusedClasses.size, result.unusedMethods.size, result.unusedFields.size)
+                        val message = NekoamaBundle.message(
+                            "unusedCode.analysis.complete",
+                            result.unusedClasses.size, result.unusedMethods.size, result.unusedFields.size
+                        )
                         val openReport = com.intellij.openapi.ui.Messages.showYesNoDialog(
                             project,
                             "$message\n\n报告已保存至：$reportPath\n\n是否立即查看报告？",
@@ -76,8 +77,12 @@ internal class AnalyzeUnusedCodeAction : BaseAction() {
     /**
      * 生成未使用代码分析报告
      */
-    private fun generateUnusedCodeReport(project: Project, result: com.cw2.nekoama.core.unusedcode.UnusedCodeAnalysisResult): java.nio.file.Path {
-        val timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"))
+    private fun generateUnusedCodeReport(
+        project: Project,
+        result: com.cw2.nekoama.core.unusedcode.UnusedCodeAnalysisResult
+    ): java.nio.file.Path {
+        val timestamp =
+            java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"))
         val reportFileName = "unused-code-analysis-${timestamp}.html"
         val projectBasePath = Paths.get(project.basePath!!)
         val reportsDir = projectBasePath.resolve("nekoama-reports")
@@ -100,7 +105,12 @@ internal class AnalyzeUnusedCodeAction : BaseAction() {
             appendLine("    <div class=\"container\">")
             appendLine("        <header class=\"header\">")
             appendLine("            <h1>${project.name} - 未使用代码分析报告</h1>")
-            appendLine("            <p>生成时间: ${java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))}</p>")
+            appendLine(
+                "            <p>生成时间: ${
+                    java.time.LocalDateTime.now()
+                        .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+                }</p>"
+            )
             appendLine("        </header>")
 
             appendLine("        <section class=\"summary\">")

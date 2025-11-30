@@ -1,29 +1,21 @@
 package com.cw2.nekoama.presentation.actions
 
-import com.cw2.nekoama.ai.model.CodeContext
-import com.cw2.nekoama.ai.model.MethodContext
-import com.cw2.nekoama.ai.model.ProgrammingLanguage
-import com.cw2.nekoama.ai.model.SurroundingContext
-import com.cw2.nekoama.ai.model.TypeInfo
-import com.cw2.nekoama.ai.provider.custom.CustomAPIProvider
 import com.cw2.nekoama.ai.provider.custom.CustomAPIConfig
+import com.cw2.nekoama.ai.provider.custom.CustomAPIProvider
 import com.cw2.nekoama.core.logging.NekoamaLogger
-import com.cw2.nekoama.data.settings.NekoamaSettings
-import com.cw2.nekoama.data.settings.NekoamaSecureStorage
 import com.cw2.nekoama.core.metrics.ActionType
-import com.cw2.nekoama.integrations.psi.UniversalCodeAnalyzer
-import com.cw2.nekoama.presentation.notifications.NekoamaNotifier
+import com.cw2.nekoama.data.settings.NekoamaSecureStorage
+import com.cw2.nekoama.data.settings.NekoamaSettings
 import com.cw2.nekoama.presentation.messages.NekoamaBundle
+import com.cw2.nekoama.presentation.notifications.NekoamaNotifier
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
-import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
-import com.intellij.psi.PsiFile
 import kotlinx.coroutines.runBlocking
 
 /**
@@ -44,77 +36,85 @@ internal class CustomGenerateAction : BaseAction() {
         }
 
         val psiFile = e.getData(CommonDataKeys.PSI_FILE)
-        
-        ProgressManager.getInstance().run(object : Task.Backgroundable(project, NekoamaBundle.message("action.customGenerate.text"), true) {
-            override fun run(indicator: ProgressIndicator) {
-                indicator.isIndeterminate = true
-                indicator.text = NekoamaBundle.message("progress.parsingCustomPrompt")
 
-                try {
-                    // 创建AI Provider实例
-                    val provider = createAIProvider()
-                    if (provider == null) {
-                        NekoamaNotifier.warn(NekoamaBundle.message("settings.api.notConfigured"))
-                        return
-                    }
+        ProgressManager.getInstance()
+            .run(object : Task.Backgroundable(project, NekoamaBundle.message("action.customGenerate.text"), true) {
+                override fun run(indicator: ProgressIndicator) {
+                    indicator.isIndeterminate = true
+                    indicator.text = NekoamaBundle.message("progress.parsingCustomPrompt")
 
-                    // 提取自定义提示内容
-                    val customPrompt = extractCustomPrompt(selection)
-                    if (customPrompt.isBlank()) {
-                        NekoamaNotifier.warn(NekoamaBundle.message("action.custom.invalidPrompt"))
-                        return
-                    }
+                    try {
+                        // 创建AI Provider实例
+                        val provider = createAIProvider()
+                        if (provider == null) {
+                            NekoamaNotifier.warn(NekoamaBundle.message("settings.api.notConfigured"))
+                            return
+                        }
 
-                    if (indicator.isCanceled) return
+                        // 提取自定义提示内容
+                        val customPrompt = extractCustomPrompt(selection)
+                        if (customPrompt.isBlank()) {
+                            NekoamaNotifier.warn(NekoamaBundle.message("action.custom.invalidPrompt"))
+                            return
+                        }
 
-                    indicator.text = NekoamaBundle.message("progress.analyzingContext")
+                        if (indicator.isCanceled) return
 
-                    // 构建代码上下文（可选）
+                        indicator.text = NekoamaBundle.message("progress.analyzingContext")
+
+                        // 构建代码上下文（可选）
 //                    val codeContext = psiFile?.let { buildCodeContext(project, editor, it, indicator) }
 
-                    if (indicator.isCanceled) return
+                        if (indicator.isCanceled) return
 
-                    indicator.text = NekoamaBundle.message("progress.generatingCustom")
+                        indicator.text = NekoamaBundle.message("progress.generatingCustom")
 
-                    // 调用AI进行自定义生成
-                    val result = runBlocking {
-                        provider.generateCustom(customPrompt, null)
-                    }
+                        // 调用AI进行自定义生成
+                        val result = runBlocking {
+                            provider.generateCustom(customPrompt, null)
+                        }
 
-                    if (indicator.isCanceled) return
+                        if (indicator.isCanceled) return
 
-                    // 处理结果：将AI返回内容以行注释的方式插入到选中内容的上方
-                    if (result.isSuccess) {
-                        val generatedContent = result.getOrNull() ?: NekoamaBundle.message("action.custom.emptyResult")
-                        val lineComment = generatedContent
-                            .lines()
-                            .joinToString(separator = "\n// ") { it.trimEnd() }
-                            .let { "// $it" }
-                        WriteCommandAction.runWriteCommandAction(project, NekoamaBundle.message("action.customGenerate.text"), null, Runnable {
-                            val document = editor!!.document
-                            val startOffset = editor!!.selectionModel.selectionStart
-                            val lineNumber = document.getLineNumber(startOffset)
-                            val insertionOffset = document.getLineStartOffset(lineNumber)
-                            document.insertString(insertionOffset, "$lineComment\n\n")
-                        })
-                        NekoamaNotifier.info(NekoamaBundle.message("action.comment.generatedOk"))
-                    } else {
-                        val error = result.errorOrNull()
-                        val errMsg = error?.message ?: NekoamaBundle.message("common.unknownError")
-                        NekoamaNotifier.warn(NekoamaBundle.message("action.common.failed", errMsg))
-                    }
+                        // 处理结果：将AI返回内容以行注释的方式插入到选中内容的上方
+                        if (result.isSuccess) {
+                            val generatedContent =
+                                result.getOrNull() ?: NekoamaBundle.message("action.custom.emptyResult")
+                            val lineComment = generatedContent
+                                .lines()
+                                .joinToString(separator = "\n// ") { it.trimEnd() }
+                                .let { "// $it" }
+                            WriteCommandAction.runWriteCommandAction(
+                                project,
+                                NekoamaBundle.message("action.customGenerate.text"),
+                                null,
+                                Runnable {
+                                    val document = editor!!.document
+                                    val startOffset = editor!!.selectionModel.selectionStart
+                                    val lineNumber = document.getLineNumber(startOffset)
+                                    val insertionOffset = document.getLineStartOffset(lineNumber)
+                                    document.insertString(insertionOffset, "$lineComment\n\n")
+                                })
+                            NekoamaNotifier.info(NekoamaBundle.message("action.comment.generatedOk"))
+                        } else {
+                            val error = result.errorOrNull()
+                            val errMsg = error?.message ?: NekoamaBundle.message("common.unknownError")
+                            NekoamaNotifier.warn(NekoamaBundle.message("action.common.failed", errMsg))
+                        }
 
-                } catch (t: Throwable) {
-                    NekoamaLogger.logError("CustomGenerateAction",
-                        com.cw2.nekoama.core.exception.NekoamaError.APIError.ServerError("自定义生成异常: ${t.message}"),
-                        mapOf("exception" to (t.message ?: "unknown")))
-                    run {
-                        val errMsg = t.message ?: NekoamaBundle.message("common.unknownError")
-                        NekoamaNotifier.warn(NekoamaBundle.message("action.common.failed", errMsg))
+                    } catch (t: Throwable) {
+                        NekoamaLogger.logError(
+                            "CustomGenerateAction",
+                            com.cw2.nekoama.core.exception.NekoamaError.APIError.ServerError("自定义生成异常: ${t.message}"),
+                            mapOf("exception" to (t.message ?: "unknown"))
+                        )
+                        run {
+                            val errMsg = t.message ?: NekoamaBundle.message("common.unknownError")
+                            NekoamaNotifier.warn(NekoamaBundle.message("action.common.failed", errMsg))
+                        }
                     }
                 }
-            }
-        })
+            })
         return 0 // TODO: 需要从AI响应中获取实际Token数量
     }
 
@@ -124,7 +124,8 @@ internal class CustomGenerateAction : BaseAction() {
     private fun createAIProvider(): com.cw2.nekoama.ai.provider.AIProvider? {
         val settings = NekoamaSettings.getInstance()
         val secureKey = NekoamaSecureStorage.getApiKeySync()
-        val resolvedKey = if (secureKey.isNotBlank()) secureKey else settings.apiKey.ifBlank { System.getenv("OPENAI_API_KEY") ?: "" }
+        val resolvedKey =
+            if (secureKey.isNotBlank()) secureKey else settings.apiKey.ifBlank { System.getenv("OPENAI_API_KEY") ?: "" }
 
         if (resolvedKey.isBlank() || settings.apiEndpoint.isBlank()) return null
 
@@ -155,83 +156,6 @@ internal class CustomGenerateAction : BaseAction() {
             }
         }
         return selection.trim()
-    }
-
-    /**
-     * 构建代码上下文（轻量级版本）
-     */
-    private fun buildCodeContext(project: Project, editor: Editor?, psiFile: PsiFile, indicator: ProgressIndicator): CodeContext? {
-        return try {
-            ReadAction.compute<CodeContext?, Throwable> {
-                val analyzer = UniversalCodeAnalyzer(project)
-                val offset = editor!!.caretModel.offset
-                val element = psiFile.findElementAt(offset)
-                
-                if (element == null) {
-                    // 创建基础上下文
-                    MethodContext(
-                        language = ProgrammingLanguage.OTHER,
-                        projectInfo = analyzer.getProjectInfo(),
-                        surroundingContext = SurroundingContext(
-                            precedingCode = emptyList(),
-                            followingCode = emptyList(),
-                            imports = emptyList(),
-                            packageDeclaration = null,
-                            fileComments = emptyList(),
-                            siblingElements = emptyList(),
-                            namingPatterns = null,
-                            codeStyleAnalysis = null
-                        ),
-                        methodName = null,
-                        parameters = emptyList(),
-                        returnType = TypeInfo("Any"),
-                        modifiers = emptyList(),
-                        annotations = emptyList(),
-                        exceptions = emptyList(),
-                        methodBody = null,
-                        isConstructor = false,
-                        isAbstract = false,
-                        containingClass = null
-                    )
-                } else {
-                    val language = analyzer.detectLanguage(element)
-                    val projectInfo = analyzer.getProjectInfo()
-                    val surroundingContext = analyzer.extractSurroundingContext(element).getOrNull() ?: 
-                        SurroundingContext(
-                            precedingCode = emptyList(),
-                            followingCode = emptyList(),
-                            imports = emptyList(),
-                            packageDeclaration = null,
-                            fileComments = emptyList(),
-                            siblingElements = emptyList(),
-                            namingPatterns = null,
-                            codeStyleAnalysis = null
-                        )
-
-                    // 创建通用上下文
-                    MethodContext(
-                        language = language,
-                        projectInfo = projectInfo,
-                        surroundingContext = surroundingContext,
-                        methodName = null,
-                        parameters = emptyList(),
-                        returnType = TypeInfo("Any"),
-                        modifiers = emptyList(),
-                        annotations = emptyList(),
-                        exceptions = emptyList(),
-                        methodBody = editor!!.selectionModel.selectedText,
-                        isConstructor = false,
-                        isAbstract = false,
-                        containingClass = null
-                    )
-                }
-            }
-        } catch (t: Throwable) {
-            NekoamaLogger.logError("buildCodeContext",
-                com.cw2.nekoama.core.exception.NekoamaError.ParseError.InvalidConfiguration(NekoamaBundle.message("action.build.context.failed", t.message ?: "")),
-                mapOf("exception" to (t.message ?: "unknown")))
-            null
-        }
     }
 
     override fun getActionType(): ActionType = ActionType.CUSTOM_GENERATE

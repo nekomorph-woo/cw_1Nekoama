@@ -3,7 +3,7 @@ package com.cw2.nekoama.presentation.templates
 import com.cw2.nekoama.ai.model.CodeContext
 import com.cw2.nekoama.core.logging.NekoamaLogger
 import com.cw2.nekoama.data.settings.NekoamaSettings
-import com.cw2.nekoama.integrations.psi.UniversalCodeAnalyzer
+import com.cw2.nekoama.integrations.unused_code_analysis.UniversalCodeAnalyzer
 import com.cw2.nekoama.presentation.messages.NekoamaBundle
 import com.intellij.codeInsight.template.Expression
 import com.intellij.codeInsight.template.ExpressionContext

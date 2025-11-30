@@ -1,4 +1,4 @@
-package com.cw2.nekoama.integrations.psi
+package com.cw2.nekoama.integrations.unused_code_analysis
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.application.ReadAction
@@ -7,6 +7,7 @@ import org.jetbrains.kotlin.psi.*
 import com.cw2.nekoama.ai.model.*
 import com.cw2.nekoama.core.result.Result
 import com.cw2.nekoama.core.exception.NekoamaError
+import org.jetbrains.kotlin.lexer.KtTokens
 
 /**
  * Kotlin代码分析器
@@ -41,16 +42,16 @@ class KotlinCodeAnalyzer(private val project: Project) {
                 )
 
                 val modifiers = mutableListOf<String>().apply {
-                    if (function.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.PUBLIC_KEYWORD)) add("public")
-                    if (function.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.PRIVATE_KEYWORD)) add("private")
-                    if (function.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.PROTECTED_KEYWORD)) add("protected")
-                    if (function.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.INTERNAL_KEYWORD)) add("internal")
-                    if (function.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.ABSTRACT_KEYWORD)) add("abstract")
-                    if (function.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.FINAL_KEYWORD)) add("final")
-                    if (function.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.OPEN_KEYWORD)) add("open")
-                    if (function.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.OVERRIDE_KEYWORD)) add("override")
-                    if (function.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.SUSPEND_KEYWORD)) add("suspend")
-                    if (function.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.INLINE_KEYWORD)) add("inline")
+                    if (function.hasModifier(KtTokens.PUBLIC_KEYWORD)) add("public")
+                    if (function.hasModifier(KtTokens.PRIVATE_KEYWORD)) add("private")
+                    if (function.hasModifier(KtTokens.PROTECTED_KEYWORD)) add("protected")
+                    if (function.hasModifier(KtTokens.INTERNAL_KEYWORD)) add("internal")
+                    if (function.hasModifier(KtTokens.ABSTRACT_KEYWORD)) add("abstract")
+                    if (function.hasModifier(KtTokens.FINAL_KEYWORD)) add("final")
+                    if (function.hasModifier(KtTokens.OPEN_KEYWORD)) add("open")
+                    if (function.hasModifier(KtTokens.OVERRIDE_KEYWORD)) add("override")
+                    if (function.hasModifier(KtTokens.SUSPEND_KEYWORD)) add("suspend")
+                    if (function.hasModifier(KtTokens.INLINE_KEYWORD)) add("inline")
                 }
 
                 val methodContext = MethodContext(
@@ -72,8 +73,8 @@ class KotlinCodeAnalyzer(private val project: Project) {
                     },
                     exceptions = emptyList(), // Kotlin doesn't have checked exceptions
                     methodBody = function.bodyExpression?.text ?: function.bodyBlockExpression?.text,
-                    isConstructor = function is org.jetbrains.kotlin.psi.KtConstructor<*>,
-                    isAbstract = function.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.ABSTRACT_KEYWORD)
+                    isConstructor = function is KtConstructor<*>,
+                    isAbstract = function.hasModifier(KtTokens.ABSTRACT_KEYWORD)
                 )
 
                 Result.success(methodContext)
@@ -87,7 +88,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
         return try {
             ReadAction.compute<Result<ClassContext>, Throwable> {
                 val superClass = clazz.superTypeListEntries
-                    .filterIsInstance<org.jetbrains.kotlin.psi.KtSuperTypeCallEntry>()
+                    .filterIsInstance<KtSuperTypeCallEntry>()
                     .firstOrNull()?.let { superEntry ->
                         TypeInfo(
                             typeName = superEntry.typeReference?.text ?: "",
@@ -96,7 +97,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
                     }
 
                 val interfaces = clazz.superTypeListEntries
-                    .filterIsInstance<org.jetbrains.kotlin.psi.KtSuperTypeEntry>()
+                    .filterIsInstance<KtSuperTypeEntry>()
                     .map { interfaceEntry ->
                         TypeInfo(
                             typeName = interfaceEntry.typeReference?.text ?: "",
@@ -105,16 +106,16 @@ class KotlinCodeAnalyzer(private val project: Project) {
                     }
 
                 val modifiers = mutableListOf<String>().apply {
-                    if (clazz.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.PUBLIC_KEYWORD)) add("public")
-                    if (clazz.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.PRIVATE_KEYWORD)) add("private")
-                    if (clazz.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.PROTECTED_KEYWORD)) add("protected")
-                    if (clazz.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.INTERNAL_KEYWORD)) add("internal")
-                    if (clazz.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.ABSTRACT_KEYWORD)) add("abstract")
-                    if (clazz.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.FINAL_KEYWORD)) add("final")
-                    if (clazz.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.OPEN_KEYWORD)) add("open")
-                    if (clazz.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.DATA_KEYWORD)) add("data")
-                    if (clazz.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.SEALED_KEYWORD)) add("sealed")
-                    if (clazz.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.INLINE_KEYWORD)) add("inline")
+                    if (clazz.hasModifier(KtTokens.PUBLIC_KEYWORD)) add("public")
+                    if (clazz.hasModifier(KtTokens.PRIVATE_KEYWORD)) add("private")
+                    if (clazz.hasModifier(KtTokens.PROTECTED_KEYWORD)) add("protected")
+                    if (clazz.hasModifier(KtTokens.INTERNAL_KEYWORD)) add("internal")
+                    if (clazz.hasModifier(KtTokens.ABSTRACT_KEYWORD)) add("abstract")
+                    if (clazz.hasModifier(KtTokens.FINAL_KEYWORD)) add("final")
+                    if (clazz.hasModifier(KtTokens.OPEN_KEYWORD)) add("open")
+                    if (clazz.hasModifier(KtTokens.DATA_KEYWORD)) add("data")
+                    if (clazz.hasModifier(KtTokens.SEALED_KEYWORD)) add("sealed")
+                    if (clazz.hasModifier(KtTokens.INLINE_KEYWORD)) add("inline")
                 }
 
                 val properties = clazz.getProperties().map { property ->
@@ -125,10 +126,10 @@ class KotlinCodeAnalyzer(private val project: Project) {
                             fullQualifiedName = property.typeReference?.text ?: "Any"
                         ),
                         modifiers = mutableListOf<String>().apply {
-                            if (property.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.PUBLIC_KEYWORD)) add("public")
-                            if (property.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.PRIVATE_KEYWORD)) add("private")
-                            if (property.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.PROTECTED_KEYWORD)) add("protected")
-                            if (property.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.INTERNAL_KEYWORD)) add("internal")
+                            if (property.hasModifier(KtTokens.PUBLIC_KEYWORD)) add("public")
+                            if (property.hasModifier(KtTokens.PRIVATE_KEYWORD)) add("private")
+                            if (property.hasModifier(KtTokens.PROTECTED_KEYWORD)) add("protected")
+                            if (property.hasModifier(KtTokens.INTERNAL_KEYWORD)) add("internal")
                             if (property.isVar()) add("var") else add("val")
                         },
                         annotations = property.annotationEntries.map {
@@ -155,12 +156,12 @@ class KotlinCodeAnalyzer(private val project: Project) {
                             )
                         },
                         modifiers = mutableListOf<String>().apply {
-                            if (function.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.PUBLIC_KEYWORD)) add("public")
-                            if (function.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.PRIVATE_KEYWORD)) add("private")
-                            if (function.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.PROTECTED_KEYWORD)) add("protected")
-                            if (function.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.INTERNAL_KEYWORD)) add("internal")
-                            if (function.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.OVERRIDE_KEYWORD)) add("override")
-                            if (function.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.SUSPEND_KEYWORD)) add("suspend")
+                            if (function.hasModifier(KtTokens.PUBLIC_KEYWORD)) add("public")
+                            if (function.hasModifier(KtTokens.PRIVATE_KEYWORD)) add("private")
+                            if (function.hasModifier(KtTokens.PROTECTED_KEYWORD)) add("protected")
+                            if (function.hasModifier(KtTokens.INTERNAL_KEYWORD)) add("internal")
+                            if (function.hasModifier(KtTokens.OVERRIDE_KEYWORD)) add("override")
+                            if (function.hasModifier(KtTokens.SUSPEND_KEYWORD)) add("suspend")
                         },
                         annotations = function.annotationEntries.map {
                             AnnotationInfo(it.shortName?.asString() ?: "", it.typeReference?.text)
@@ -194,12 +195,12 @@ class KotlinCodeAnalyzer(private val project: Project) {
                                 if (packageName.isRoot) innerClass.name else "${packageName.asString()}.${innerClass.name}"
                             } ?: innerClass.name,
                             isInterface = innerClass.isInterface(),
-                            isAbstract = innerClass.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.ABSTRACT_KEYWORD),
+                            isAbstract = innerClass.hasModifier(KtTokens.ABSTRACT_KEYWORD),
                             isEnum = innerClass.isEnum()
                         )
                     },
                     isInterface = clazz.isInterface(),
-                    isAbstract = clazz.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.ABSTRACT_KEYWORD),
+                    isAbstract = clazz.hasModifier(KtTokens.ABSTRACT_KEYWORD),
                     isEnum = clazz.isEnum(),
                     packageName = clazz.containingKtFile.packageDirective?.fqName?.asString() ?: ""
                 )
@@ -221,13 +222,13 @@ class KotlinCodeAnalyzer(private val project: Project) {
                 )
 
                 val modifiers = mutableListOf<String>().apply {
-                    if (property.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.PUBLIC_KEYWORD)) add("public")
-                    if (property.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.PRIVATE_KEYWORD)) add("private")
-                    if (property.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.PROTECTED_KEYWORD)) add("protected")
-                    if (property.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.INTERNAL_KEYWORD)) add("internal")
-                    if (property.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.CONST_KEYWORD)) add("const")
-                    if (property.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.LATEINIT_KEYWORD)) add("lateinit")
-                    if (property.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.OVERRIDE_KEYWORD)) add("override")
+                    if (property.hasModifier(KtTokens.PUBLIC_KEYWORD)) add("public")
+                    if (property.hasModifier(KtTokens.PRIVATE_KEYWORD)) add("private")
+                    if (property.hasModifier(KtTokens.PROTECTED_KEYWORD)) add("protected")
+                    if (property.hasModifier(KtTokens.INTERNAL_KEYWORD)) add("internal")
+                    if (property.hasModifier(KtTokens.CONST_KEYWORD)) add("const")
+                    if (property.hasModifier(KtTokens.LATEINIT_KEYWORD)) add("lateinit")
+                    if (property.hasModifier(KtTokens.OVERRIDE_KEYWORD)) add("override")
                     if (property.isVar()) add("var") else add("val")
                 }
 
@@ -251,7 +252,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
                     },
                     initializer = property.initializer?.text,
                     scope = if (property.isTopLevel) VariableScope.GLOBAL else VariableScope.FIELD,
-                    isConstant = property.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.CONST_KEYWORD) || !property.isVar(),
+                    isConstant = property.hasModifier(KtTokens.CONST_KEYWORD) || !property.isVar(),
                     isStatic = property.isTopLevel,
                     containingClass = containingClass?.let { cls ->
                         ClassInfo(
@@ -260,7 +261,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
                                 if (packageName.isRoot) cls.name else "${packageName.asString()}.${cls.name}"
                             } ?: cls.name,
                             isInterface = cls.isInterface(),
-                            isAbstract = cls.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.ABSTRACT_KEYWORD)
+                            isAbstract = cls.hasModifier(KtTokens.ABSTRACT_KEYWORD)
                         )
                     }
                 )
@@ -282,9 +283,9 @@ class KotlinCodeAnalyzer(private val project: Project) {
                 )
 
                 val modifiers = mutableListOf<String>().apply {
-                    if (parameter.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.VARARG_KEYWORD)) add("vararg")
-                    if (parameter.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.NOINLINE_KEYWORD)) add("noinline")
-                    if (parameter.hasModifier(org.jetbrains.kotlin.lexer.KtTokens.CROSSINLINE_KEYWORD)) add("crossinline")
+                    if (parameter.hasModifier(KtTokens.VARARG_KEYWORD)) add("vararg")
+                    if (parameter.hasModifier(KtTokens.NOINLINE_KEYWORD)) add("noinline")
+                    if (parameter.hasModifier(KtTokens.CROSSINLINE_KEYWORD)) add("crossinline")
                     if (parameter.isMutable) add("var") else add("val")
                 }
 
