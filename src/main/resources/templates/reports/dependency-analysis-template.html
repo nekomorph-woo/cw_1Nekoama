@@ -159,8 +159,8 @@
                             <button id="export-graph" class="btn btn-outline">导出图片</button>
                         </div>
 
-                        <!-- 调用链分析模式的控件 -->
-                        <div id="callchain-controls" class="control-group callchain-mode-controls" style="display: none;">
+                        <!-- 方法分析控件 - 仅调用链分析模式展示 -->
+                        <div id="method-controls" class="control-group method-analysis-controls">
                             <!-- 入口方法下拉框 -->
                             <label class="control-label">入口方法:</label>
                             <select id="entry-method-select" class="control-select">
@@ -178,6 +178,7 @@
                             </div>
 
                             <!-- 功能按钮 -->
+                            <br>
                             <button id="analyze-callchain" class="btn btn-primary">分析调用链</button>
                             <button id="clear-search" class="btn btn-outline">清空搜索</button>
                         </div>
@@ -215,10 +216,7 @@
                     <!-- 调用链分析容器 -->
                     <div id="callchain-container" class="method-callchain" style="display: none;">
                         <div id="call-chain-graph" class="graph-canvas"></div>
-                        <div id="chain-details" class="chain-details">
-                            <h5>调用链详情</h5>
-                            <div id="chain-steps" class="chain-steps"></div>
-                        </div>
+                        <!-- 移除调用链详情列表，只保留G6图形 -->
                     </div>
 
                     <!-- 方法详情面板 -->

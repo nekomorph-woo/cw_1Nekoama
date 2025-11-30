@@ -1238,6 +1238,31 @@ section h2 i {
     word-break: break-all;
 }
 
+/* 复杂度颜色指示器 */
+.info-value.complexity-high {
+    color: #ff4d4f;
+    background-color: rgba(255, 77, 79, 0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 77, 79, 0.3);
+}
+
+.info-value.complexity-medium {
+    color: #fa8c16;
+    background-color: rgba(250, 140, 22, 0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(250, 140, 22, 0.3);
+}
+
+.info-value.complexity-low {
+    color: #52c41a;
+    background-color: rgba(82, 196, 26, 0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(82, 196, 26, 0.3);
+}
+
 .calls-list,
 .called-by-list {
     display: flex;
@@ -1258,6 +1283,28 @@ section h2 i {
     cursor: pointer;
     transition: all 0.2s ease;
     line-height: 1.3;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.call-item .icon-arrow-right,
+.called-by-item .icon-arrow-left {
+    color: var(--accent-color);
+    font-size: 0.8rem;
+    min-width: 16px;
+}
+
+.call-count {
+    background: var(--accent-color);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    min-width: 32px;
+    text-align: center;
 }
 
 .call-item:hover,

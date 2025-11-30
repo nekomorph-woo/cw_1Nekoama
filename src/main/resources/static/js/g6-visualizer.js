@@ -53,14 +53,23 @@ class DependencyVisualizer {
      */
     loadAnalysisData() {
         try {
+            console.log('=== 开始加载分析数据 ===');
             const dataElement = document.getElementById('analysis-data');
             if (dataElement) {
                 const rawData = JSON.parse(dataElement.textContent);
-                console.log('原始数据加载成功:', rawData);
+                console.log('原始JSON数据结构键值:', Object.keys(rawData));
+                console.log('classGraph存在:', !!rawData.classGraph);
+                console.log('methodCallGraph存在:', !!rawData.methodCallGraph);
+                console.log('projectInfo存在:', !!rawData.projectInfo);
 
                 // 兼容新旧数据结构，转换为标准格式
                 this.currentData = this.normalizeDataStructure(rawData);
-                console.log('标准化后数据:', this.currentData);
+                console.log('标准化后数据结构键值:', Object.keys(this.currentData));
+                console.log('最终数据 - classGraph节点数量:', this.currentData.classGraph?.nodes?.length || 0);
+                console.log('最终数据 - methodCallGraph节点数量:', this.currentData.methodCallGraph?.nodes?.length || 0);
+
+                // 验证数据完整性
+                this.validateDataIntegrity();
 
                 // 更新项目名称和路径
                 const projectNameElement = document.getElementById('project-name');
@@ -73,6 +82,8 @@ class DependencyVisualizer {
                 if (projectPathElement && this.currentData.projectInfo) {
                     projectPathElement.textContent = this.currentData.projectInfo.location || 'Unknown Location';
                 }
+
+                console.log('=== 分析数据加载完成 ===');
             } else {
                 console.error('找不到分析数据元素');
                 this.showDataError('找不到分析数据元素');
@@ -190,6 +201,83 @@ class DependencyVisualizer {
         });
 
         return hasPackages || hasClasses;
+    }
+
+    /**
+     * 数据完整性验证
+     */
+    validateDataIntegrity() {
+        console.log('=== 开始数据完整性验证 ===');
+
+        const requiredFields = ['projectInfo', 'classGraph', 'methodCallGraph'];
+        const warnings = [];
+        const errors = [];
+
+        // 检查必需字段
+        for (const field of requiredFields) {
+            if (!this.currentData[field]) {
+                errors.push(`缺少必要字段: ${field}`);
+            } else {
+                console.log(`✓ ${field} 字段存在`);
+            }
+        }
+
+        // 检查图数据结构
+        if (this.currentData.classGraph) {
+            if (!this.currentData.classGraph.nodes || !Array.isArray(this.currentData.classGraph.nodes)) {
+                errors.push('classGraph.nodes 字段缺失或格式错误');
+            } else {
+                console.log(`✓ classGraph 包含 ${this.currentData.classGraph.nodes.length} 个节点`);
+
+                // 检查节点数据完整性
+                const invalidNodes = this.currentData.classGraph.nodes.filter(node => !node.id || !node.name);
+                if (invalidNodes.length > 0) {
+                    warnings.push(`发现 ${invalidNodes.length} 个无效的类节点`);
+                }
+            }
+
+            if (!this.currentData.classGraph.edges || !Array.isArray(this.currentData.classGraph.edges)) {
+                warnings.push('classGraph.edges 字段缺失或格式错误');
+            } else {
+                console.log(`✓ classGraph 包含 ${this.currentData.classGraph.edges.length} 条边`);
+
+                // 检查边数据完整性
+                const invalidEdges = this.currentData.classGraph.edges.filter(edge => !edge.source || !edge.target);
+                if (invalidEdges.length > 0) {
+                    warnings.push(`发现 ${invalidEdges.length} 条无效的类边`);
+                }
+            }
+        }
+
+        if (this.currentData.methodCallGraph) {
+            if (!this.currentData.methodCallGraph.nodes || !Array.isArray(this.currentData.methodCallGraph.nodes)) {
+                errors.push('methodCallGraph.nodes 字段缺失或格式错误');
+            } else {
+                console.log(`✓ methodCallGraph 包含 ${this.currentData.methodCallGraph.nodes.length} 个节点`);
+            }
+
+            if (!this.currentData.methodCallGraph.edges || !Array.isArray(this.currentData.methodCallGraph.edges)) {
+                warnings.push('methodCallGraph.edges 字段缺失或格式错误');
+            } else {
+                console.log(`✓ methodCallGraph 包含 ${this.currentData.methodCallGraph.edges.length} 条边`);
+            }
+        }
+
+        // 输出验证结果
+        if (errors.length > 0) {
+            console.error('❌ 数据完整性验证失败:', errors);
+            this.showDataError('数据完整性验证失败: ' + errors.join(', '));
+        } else {
+            console.log('✅ 数据完整性验证通过');
+        }
+
+        if (warnings.length > 0) {
+            console.warn('⚠️ 数据完整性警告:', warnings);
+        }
+
+        console.log('=== 数据完整性验证完成 ===');
+
+        return errors.length === 0;
     }
 
     /**
@@ -368,6 +456,14 @@ class DependencyVisualizer {
                 this.showMessage('请选择入口方法或输入搜索关键词');
             }
         });
+
+        // 方法详情面板关闭按钮
+        const closeBtn = document.getElementById('close-details');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                this.hideMethodDetails();
+            });
+        }
     }
 
     /**
@@ -395,7 +491,7 @@ class DependencyVisualizer {
         const callgraphModeBtn = document.getElementById('callgraph-mode');
         const callchainModeBtn = document.getElementById('callchain-mode');
         const callgraphControls = document.getElementById('callgraph-controls');
-        const callchainControls = document.getElementById('callchain-controls');
+        const methodControls = document.getElementById('method-controls');
         const callgraphContainer = document.getElementById('callgraph-container');
         const callchainContainer = document.getElementById('callchain-container');
 
@@ -414,15 +510,9 @@ class DependencyVisualizer {
             }
         }
 
-        // 切换控件显示
-        if (callgraphControls && callchainControls) {
-            if (mode === 'callgraph') {
-                callgraphControls.style.display = 'flex';
-                callchainControls.style.display = 'none';
-            } else {
-                callgraphControls.style.display = 'none';
-                callchainControls.style.display = 'flex';
-            }
+        // 方法分析控件在两种模式下都显示
+        if (methodControls) {
+            methodControls.style.display = 'flex';
         }
 
         // 切换图表容器显示
@@ -673,9 +763,11 @@ class DependencyVisualizer {
                 }
             },
             layout: {
-                type: 'force',
-                preventOverlap: true,
-                nodeSize: 40
+                type: 'dagre',
+                rankdir: 'TB',  // 从上到下的布局
+                nodesep: 50,    // 节点间水平间距
+                ranksep: 100,   // 层级间垂直间距
+                controlPoints: true
             }
         });
 
@@ -732,9 +824,32 @@ class DependencyVisualizer {
     updatePackageGraph() {
         if (!this.currentData || !this.graphs.package) return;
 
+        const renderStartTime = performance.now();
+        console.log('=== 开始更新包级依赖图 ===', `[${renderStartTime.toFixed(2)}ms]`);
+
+        const dataStartTime = performance.now();
         const data = this.convertToPackageGraphData(this.currentData);
+        const dataEndTime = performance.now();
+        console.log(`包级图数据转换完成: ${data.nodes.length} 个节点, ${data.edges.length} 条边`,
+                    `[${(dataEndTime - dataStartTime).toFixed(2)}ms]`);
+
+        if (data.nodes.length === 0) {
+            console.warn('包级图没有节点数据，图形将显示为空');
+        }
+
+        const renderStartTime2 = performance.now();
         this.graphs.package.data(data);
         this.graphs.package.render();
+        const renderEndTime = performance.now();
+
+        const totalRenderTime = renderEndTime - renderStartTime;
+        const graphRenderTime = renderEndTime - renderStartTime2;
+
+        console.log(`📊 包级图渲染完成:`,
+                   `- 数据转换: ${(dataEndTime - dataStartTime).toFixed(2)}ms`,
+                   `- 图形渲染: ${graphRenderTime.toFixed(2)}ms`,
+                   `- 总耗时: ${totalRenderTime.toFixed(2)}ms`);
+        console.log('=== 包级依赖图更新完成 ===');
     }
 
     /**
@@ -743,9 +858,32 @@ class DependencyVisualizer {
     updateClassGraph() {
         if (!this.currentData || !this.graphs.class) return;
 
+        const renderStartTime = performance.now();
+        console.log('=== 开始更新类级关系图 ===', `[${renderStartTime.toFixed(2)}ms]`);
+
+        const dataStartTime = performance.now();
         const data = this.convertToClassGraphData(this.currentData);
+        const dataEndTime = performance.now();
+        console.log(`类级图数据转换完成: ${data.nodes.length} 个节点, ${data.edges.length} 条边`,
+                    `[${(dataEndTime - dataStartTime).toFixed(2)}ms]`);
+
+        if (data.nodes.length === 0) {
+            console.warn('类级图没有节点数据，图形将显示为空');
+        }
+
+        const renderStartTime2 = performance.now();
         this.graphs.class.data(data);
         this.graphs.class.render();
+        const renderEndTime = performance.now();
+
+        const totalRenderTime = renderEndTime - renderStartTime;
+        const graphRenderTime = renderEndTime - renderStartTime2;
+
+        console.log(`📊 类级图渲染完成:`,
+                   `- 数据转换: ${(dataEndTime - dataStartTime).toFixed(2)}ms`,
+                   `- 图形渲染: ${graphRenderTime.toFixed(2)}ms`,
+                   `- 总耗时: ${totalRenderTime.toFixed(2)}ms`);
+        console.log('=== 类级关系图更新完成 ===');
     }
 
     /**
@@ -755,36 +893,70 @@ class DependencyVisualizer {
         const nodes = [];
         const edges = [];
 
-        console.log('转换包级图数据，包数量:', analysisData.packages?.length || 0);
+        console.log('转换包级图数据，类数量:', analysisData.classGraph?.nodes?.length || 0);
 
-        // 添加包节点
-        if (analysisData.packages && Array.isArray(analysisData.packages)) {
-            analysisData.packages.forEach(pkg => {
-                const complexity = this.calculatePackageComplexity(pkg, analysisData);
+        // 从类节点聚合包级别数据
+        if (analysisData.classGraph && analysisData.classGraph.nodes) {
+            const packageMap = new Map();
+
+            // 聚合包数据
+            analysisData.classGraph.nodes.forEach(cls => {
+                const packageName = cls.packagePath || 'default';
+                if (!packageMap.has(packageName)) {
+                    packageMap.set(packageName, {
+                        id: packageName,
+                        name: packageName === 'default' ? '默认包' : packageName,
+                        classes: [],
+                        totalComplexity: 0,
+                        classCount: 0
+                    });
+                }
+
+                const pkg = packageMap.get(packageName);
+                pkg.classes.push(cls);
+                pkg.totalComplexity += cls.complexity || 0;
+                pkg.classCount++;
+            });
+
+            // 创建包节点
+            packageMap.forEach(pkg => {
                 nodes.push({
-                    id: pkg.id || pkg.name || 'unknown',
-                    label: pkg.name || 'Unknown Package',
-                    classCount: pkg.classCount || 0,
-                    dependencyCount: pkg.metrics?.fanOut || 0,
-                    complexity: complexity,
+                    id: pkg.id,
+                    label: pkg.name,
+                    classCount: pkg.classCount,
+                    dependencyCount: 0, // 将在后面计算
+                    complexity: pkg.totalComplexity,
                     style: {
-                        fill: this.getComplexityColor(complexity)
+                        fill: this.getPackageColor(pkg),
+                        stroke: '#666'
                     }
                 });
             });
         }
 
-        // 添加依赖边
-        if (analysisData.packageDependencies && Array.isArray(analysisData.packageDependencies)) {
-            analysisData.packageDependencies.forEach(dep => {
-                if (dep.dependencies && Array.isArray(dep.dependencies)) {
-                    dep.dependencies.forEach(targetPkg => {
-                        edges.push({
-                            source: dep.packageName,
-                            target: typeof targetPkg === 'string' ? targetPkg : targetPkg.className,
-                            label: `${dep.dependencyCount || '依赖'}`
-                        });
-                    });
+        // 创建包间依赖关系
+        if (analysisData.classGraph && analysisData.classGraph.edges) {
+            const packageEdges = new Set();
+            analysisData.classGraph.edges.forEach(edge => {
+                const sourceClass = analysisData.classGraph.nodes.find(cls => cls.id === edge.source);
+                const targetClass = analysisData.classGraph.nodes.find(cls => cls.id === edge.target);
+
+                if (sourceClass && targetClass) {
+                    const sourcePackage = sourceClass.packagePath || 'default';
+                    const targetPackage = targetClass.packagePath || 'default';
+
+                    if (sourcePackage !== targetPackage) {
+                        const edgeKey = `${sourcePackage}-${targetPackage}`;
+                        if (!packageEdges.has(edgeKey)) {
+                            packageEdges.add(edgeKey);
+                            edges.push({
+                                source: sourcePackage,
+                                target: targetPackage,
+                                type: 'PACKAGE_DEPENDENCY',
+                                label: '包依赖'
+                            });
+                        }
+                    }
                 }
             });
         }
@@ -815,18 +987,21 @@ class DependencyVisualizer {
         const nodes = [];
         const edges = [];
 
-        console.log('转换类级图数据，类数量:', analysisData.classes?.length || 0);
+        console.log('转换类级图数据，类数量:', analysisData.classGraph?.nodes?.length || 0);
 
-        // 添加类节点
-        if (analysisData.classes && Array.isArray(analysisData.classes)) {
-            analysisData.classes.forEach(cls => {
-                const complexity = cls.metrics?.complexityScore || 0;
+        // 修复：查找正确的数据路径
+        if (analysisData.classGraph && analysisData.classGraph.nodes) {
+            analysisData.classGraph.nodes.forEach(cls => {
+                const complexity = cls.complexity || 0;
                 nodes.push({
-                    id: cls.id || cls.qualifiedName || 'unknown',
-                    label: cls.name || 'Unknown Class',
-                    type: cls.type?.toString() || 'CLASS',
+                    id: cls.id,
+                    label: cls.name,
+                    type: cls.type || 'CLASS',
                     complexity: complexity,
-                    methodCount: cls.metrics?.methodCount || 0,
+                    methodCount: 0, // 当前数据结构中没有方法数量信息
+                    packagePath: cls.packagePath,
+                    isController: cls.isController || false,
+                    isService: cls.isService || false,
                     style: {
                         fill: this.getClassTypeColor(cls),
                         stroke: this.getComplexityBorderColor(complexity)
@@ -835,20 +1010,69 @@ class DependencyVisualizer {
             });
         }
 
-        // 添加依赖边
-        if (analysisData.classDependencies && Array.isArray(analysisData.classDependencies)) {
-            analysisData.classDependencies.forEach(dep => {
-                if (dep.dependencies && Array.isArray(dep.dependencies)) {
-                    dep.dependencies.forEach(ref => {
-                        edges.push({
-                            source: dep.className || dep.classId,
-                            target: ref.className || ref.qualifiedName || ref.classId,
-                            label: ref.referenceType?.toString() || '依赖'
-                        });
-                    });
+        // 修复：查找正确的边数据路径，并进行数据验证
+        if (analysisData.classGraph && analysisData.classGraph.edges) {
+            console.log('开始处理类级边数据，原始边数量:', analysisData.classGraph.edges.length);
+
+            // 创建节点ID集合用于验证
+            const nodeIds = new Set(nodes.map(node => node.id));
+            let validEdges = 0;
+            let invalidEdges = 0;
+
+            analysisData.classGraph.edges.forEach((dep, index) => {
+                // 验证边的source和target是否存在
+                if (!dep.source || !dep.target) {
+                    console.warn(`边数据缺少source或target [索引${index}]:`, dep);
+                    invalidEdges++;
+                    return;
                 }
+
+                // 检查source节点是否存在
+                if (!nodeIds.has(dep.source)) {
+                    console.warn(`边的source节点不存在 [索引${index}]: ${dep.source}`, dep);
+                    invalidEdges++;
+                    return;
+                }
+
+                // 检查target节点是否存在
+                if (!nodeIds.has(dep.target)) {
+                    console.warn(`边的target节点不存在 [索引${index}]: ${dep.target}`, dep);
+                    invalidEdges++;
+                    return;
+                }
+
+                // 边数据有效，添加到结果中
+                edges.push({
+                    source: dep.source,
+                    target: dep.target,
+                    type: dep.type || 'ASSOCIATION',
+                    label: dep.type || '依赖'
+                });
+                validEdges++;
             });
+
+            console.log(`类级边数据处理完成: 有效边 ${validEdges} 条, 无效边 ${invalidEdges} 条`);
         }
+
+        // 最终数据完整性验证
+        console.log(`类级图数据转换完成:`, {
+            nodes: nodes.length,
+            edges: edges.length,
+            nodeIds: nodes.map(n => n.id).slice(0, 5), // 显示前5个节点ID用于调试
+            edgeSamples: edges.slice(0, 3) // 显示前3条边用于调试
+        });
+
+        // 确保边都指向存在的节点
+        const finalNodeIds = new Set(nodes.map(n => n.id));
+        const finalValidEdges = edges.filter(edge => {
+            if (!finalNodeIds.has(edge.source) || !finalNodeIds.has(edge.target)) {
+                console.warn('最终验证发现无效边:', edge);
+                return false;
+            }
+            return true;
+        });
+
+        console.log(`最终验证结果: 有效边 ${finalValidEdges.length} 条，总边 ${edges.length} 条`);
 
         // 如果没有数据，创建一个占位节点
         if (nodes.length === 0) {
@@ -865,8 +1089,8 @@ class DependencyVisualizer {
             });
         }
 
-        console.log('类级图数据转换完成:', { nodeCount: nodes.length, edgeCount: edges.length });
-        return { nodes, edges };
+        console.log('类级图数据转换完成:', { nodeCount: nodes.length, edgeCount: finalValidEdges.length });
+        return { nodes, edges: finalValidEdges };
     }
 
     /**
@@ -917,6 +1141,41 @@ class DependencyVisualizer {
     }
 
     /**
+     * 根据包特征获取包颜色
+     */
+    getPackageColor(pkg) {
+        // 根据包的复杂度和类型返回不同颜色
+        const complexity = pkg.totalComplexity || 0;
+        const classCount = pkg.classCount || 0;
+
+        // 高复杂度包使用红色系
+        if (complexity > 100 || classCount > 20) {
+            return '#FF7875';
+        }
+        // 中等复杂度包使用橙色系
+        if (complexity > 50 || classCount > 10) {
+            return '#FFA940';
+        }
+        // 低复杂度包使用蓝色系
+        if (complexity > 20 || classCount > 5) {
+            return '#69C0FF';
+        }
+        // 简单包使用绿色系
+        return '#95DE64';
+    }
+
+    /**
+     * 根据方法复杂度获取方法颜色
+     */
+    getMethodComplexityColor(complexity) {
+        if (complexity > 30) return '#FF4D4F'; // 高复杂度 - 红色
+        if (complexity > 20) return '#FA8C16'; // 中高复杂度 - 橙色
+        if (complexity > 10) return '#FAAD14'; // 中等复杂度 - 金色
+        if (complexity > 5) return '#52C41A';  // 低复杂度 - 绿色
+        return '#1890FF'; // 很低复杂度 - 蓝色
+    }
+
+    /**
      * 显示包详情
      */
     showPackageDetails(packageModel) {
@@ -951,38 +1210,52 @@ class DependencyVisualizer {
      * 显示类详情
      */
     showClassDetails(classModel) {
+        console.log('=== 显示类详情 ===', classModel);
         const detailsContainer = document.getElementById('class-details');
-        if (!detailsContainer || !this.currentData) return;
+        if (!detailsContainer || !this.currentData) {
+            console.error('类详情容器或数据未找到');
+            return;
+        }
 
-        const classData = this.currentData.classes?.find(c => c.id === classModel.id);
-        if (!classData) return;
+        // 修复：从正确的数据路径查找类数据
+        const classData = this.currentData.classGraph?.nodes?.find(c => c.id === classModel.id);
+        if (!classData) {
+            console.error('未找到类数据:', classModel.id);
+            return;
+        }
 
-        const metrics = classData.metrics;
+        console.log('找到类数据:', classData);
+
+        // 使用新的数据结构
         const html = `
             <h5>${classData.name}</h5>
+            <div class="detail-item">
+                <strong>全限定名:</strong> ${classData.id}
+            </div>
+            <div class="detail-item">
+                <strong>包路径:</strong> ${classData.packagePath || 'default'}
+            </div>
+            <div class="detail-item">
+                <strong>复杂度:</strong>
+                <span class="complexity-${classData.complexity > 30 ? 'high' : classData.complexity > 15 ? 'medium' : 'low'}">
+                    ${classData.complexity || 0}
+                </span>
+            </div>
             <div class="detail-item">
                 <strong>类型:</strong> ${this.getClassTypeLabel(classData)}
             </div>
             <div class="detail-item">
-                <strong>复杂度评分:</strong> ${metrics?.complexityScore || 0}
-            </div>
-            <div class="detail-item">
                 <strong>基本信息:</strong>
                 <ul>
-                    <li>方法数: ${metrics?.methodCount || 0}</li>
-                    <li>字段数: ${metrics?.fieldCount || 0}</li>
-                    <li>代码行数: ${metrics?.linesOfCode || 0}</li>
+                    <li>方法数: ${classData.methods?.length || 0}</li>
+                    <li>是否为Controller: ${classData.isController ? '是' : '否'}</li>
+                    <li>是否为Service: ${classData.isService ? '是' : '否'}</li>
                 </ul>
-            </div>
-            <div class="detail-item">
-                <strong>重构优先级:</strong>
-                <span class="priority-${metrics?.refactoringPriority?.level || 'low'}">
-                    ${metrics?.refactoringPriority?.level || 'LOW'}
-                </span>
             </div>
         `;
 
         detailsContainer.innerHTML = html;
+        console.log('类详情已更新到容器');
     }
 
     /**
@@ -1004,6 +1277,12 @@ class DependencyVisualizer {
 
         // 初始化方法分析控件
         this.setupMethodAnalysisControls();
+
+        // 确保方法分析控件始终显示
+        const methodControls = document.getElementById('method-controls');
+        if (methodControls) {
+            methodControls.style.display = 'flex';
+        }
 
         // 默认启动调用关系图模式
         this.initCallGraphMode();
@@ -1532,7 +1811,11 @@ class DependencyVisualizer {
      * 转换方法调用图数据
      */
     convertToMethodCallGraphData() {
-        if (!this.currentData.callGraph || !this.currentData.callGraph.edges) {
+        console.log('转换方法调用图数据，方法数量:', this.currentData.methodCallGraph?.nodes?.length || 0);
+
+        // 修复：查找正确的数据路径
+        if (!this.currentData.methodCallGraph || !this.currentData.methodCallGraph.edges) {
+            console.warn('缺少方法调用图数据');
             return { nodes: [], edges: [] };
         }
 
@@ -1541,57 +1824,74 @@ class DependencyVisualizer {
         const complexityFilter = document.getElementById('complexity-filter')?.value;
         const callTypeFilter = document.getElementById('call-type-filter')?.value;
 
-        // 聚合和筛选调用关系
-        const nodeMap = new Map();
+        // 直接从methodCallGraph获取数据
+        const nodes = [];
         const edges = [];
-        const edgeIdMap = new Map(); // 用于跟踪重复的边ID
-        let edgeIndex = 0; // 边的索引计数器
 
-        this.currentData.callGraph.edges.forEach((edge, index) => {
-            // 应用筛选条件
-            if (edge.callContext?.callCount < callCountThreshold) return;
-            if (callTypeFilter !== 'all' && !this.matchesCallType(edge.type, callTypeFilter)) return;
+        // 添加方法节点
+        if (this.currentData.methodCallGraph.nodes) {
+            this.currentData.methodCallGraph.nodes.forEach(method => {
+                nodes.push({
+                    id: method.id,
+                    label: method.name,
+                    type: 'METHOD',
+                    className: method.className,
+                    complexity: method.complexity || 0,
+                    fanIn: method.fanIn || 0,
+                    fanOut: method.fanOut || 0,
+                    style: {
+                        fill: this.getMethodComplexityColor(method.complexity),
+                        stroke: '#666'
+                    }
+                });
+            });
+        }
 
-            // 构建节点和边
-            this.buildMethodNode(nodeMap, edge.source, this.currentData);
-            this.buildMethodNode(nodeMap, edge.target, this.currentData);
+        // 添加方法调用边，并进行数据验证
+        if (this.currentData.methodCallGraph.edges) {
+            console.log('开始处理方法调用边数据，原始边数量:', this.currentData.methodCallGraph.edges.length);
 
-            // 生成唯一的边ID
-            let edgeId = `${edge.source}-${edge.target}`;
-            if (edgeIdMap.has(edgeId)) {
-                // 如果已存在相同的边，添加索引确保唯一性
-                const existingCount = edgeIdMap.get(edgeId);
-                edgeId = `${edge.source}-${edge.target}-${existingCount}`;
-                edgeIdMap.set(`${edge.source}-${edge.target}`, existingCount + 1);
-            } else {
-                edgeIdMap.set(edgeId, 1);
-            }
+            const nodeIds = new Set(nodes.map(node => node.id));
+            let validEdges = 0;
+            let invalidEdges = 0;
 
-            edges.push({
-                id: edgeId,
-                source: edge.source,
-                target: edge.target,
-                label: `${edge.callContext?.callCount || 0}次`,
-                data: edge,
-                style: {
-                    stroke: this.getCallTypeColor(edge.type),
-                    lineWidth: Math.min((edge.weight || 1) / 2, 8)
+            this.currentData.methodCallGraph.edges.forEach((call, index) => {
+                // 验证边的source和target
+                if (!call.source || !call.target) {
+                    console.warn(`方法调用边数据缺少source或target [索引${index}]:`, call);
+                    invalidEdges++;
+                    return;
                 }
+
+                // 检查source节点是否存在
+                if (!nodeIds.has(call.source)) {
+                    console.warn(`方法调用边的source节点不存在 [索引${index}]: ${call.source}`, call);
+                    invalidEdges++;
+                    return;
+                }
+
+                // 检查target节点是否存在
+                if (!nodeIds.has(call.target)) {
+                    console.warn(`方法调用边的target节点不存在 [索引${index}]: ${call.target}`, call);
+                    invalidEdges++;
+                    return;
+                }
+
+                // 边数据有效
+                edges.push({
+                    source: call.source,
+                    target: call.target,
+                    type: call.type || 'method_call',
+                    label: '调用'
+                });
+                validEdges++;
             });
 
-            edgeIndex++;
-        });
+            console.log(`方法调用边数据处理完成: 有效边 ${validEdges} 条, 无效边 ${invalidEdges} 条`);
+        }
 
-        // 应用复杂度筛选
-        const filteredNodes = Array.from(nodeMap.values()).filter(node => {
-            if (complexityFilter === 'all') return true;
-            return this.matchesComplexity(node.complexity || 0, complexityFilter);
-        });
-
-        // 构建最终的节点数据
-        const finalNodes = filteredNodes.map(node => this.createMethodNode(node));
-
-        return { nodes: finalNodes, edges };
+        console.log('方法调用图数据转换完成:', { nodeCount: nodes.length, edgeCount: edges.length });
+        return { nodes, edges };
     }
 
     /**
@@ -1637,11 +1937,22 @@ class DependencyVisualizer {
      * 初始化调用关系图模式
      */
     initCallGraphMode() {
+        const renderStartTime = performance.now();
+        console.log('=== 开始初始化调用关系图模式 ===', `[${renderStartTime.toFixed(2)}ms]`);
         this.currentMethodMode = 'callgraph';
         const container = document.getElementById('method-call-graph');
         if (!container) return;
 
+        const dataStartTime = performance.now();
         const graphData = this.convertToMethodCallGraphData();
+        const dataEndTime = performance.now();
+        console.log(`方法调用图数据转换完成: ${graphData.nodes.length} 个节点, ${graphData.edges.length} 条边`,
+                    `[${(dataEndTime - dataStartTime).toFixed(2)}ms]`);
+
+        if (graphData.nodes.length === 0) {
+            console.warn('方法调用图没有节点数据，图形将显示为空');
+        }
+
         this.updateGraphStats(graphData);
 
         // 清理旧的图表实例
@@ -1689,25 +2000,45 @@ class DependencyVisualizer {
             }
         });
 
+        const renderStartTime2 = performance.now();
         this.methodCallGraph.data(graphData);
         this.methodCallGraph.render();
         this.setupCallGraphEvents();
+        const renderEndTime = performance.now();
+
+        const totalRenderTime = renderEndTime - renderStartTime;
+        const graphRenderTime = renderEndTime - renderStartTime2;
+
+        console.log(`📊 方法调用关系图渲染完成:`,
+                   `- 数据转换: ${(dataEndTime - dataStartTime).toFixed(2)}ms`,
+                   `- 图形渲染: ${graphRenderTime.toFixed(2)}ms`,
+                   `- 总耗时: ${totalRenderTime.toFixed(2)}ms`);
+        console.log('=== 调用关系图模式初始化完成 ===');
     }
 
     /**
      * 初始化调用链分析模式
      */
     initCallChainMode() {
+        const renderStartTime = performance.now();
+        console.log('=== 开始初始化调用链分析模式 ===', `[${renderStartTime.toFixed(2)}ms]`);
         this.currentMethodMode = 'callchain';
         const container = document.getElementById('call-chain-graph');
         const entryMethod = document.getElementById('entry-method-select')?.value;
+
+        console.log('调用链容器:', !!container);
+        console.log('选择的入口方法:', entryMethod);
 
         if (!entryMethod) {
             this.showMessage('请选择入口方法查看调用链');
             return;
         }
 
+        const dataStartTime = performance.now();
         const chainData = this.buildCallChainData(entryMethod);
+        const dataEndTime = performance.now();
+        console.log(`调用链数据构建完成: ${chainData.nodes.length} 个节点, ${chainData.edges.length} 条边`,
+                    `[${(dataEndTime - dataStartTime).toFixed(2)}ms]`);
         this.updateChainStats(chainData);
 
         // 清理旧的图表实例
@@ -1723,24 +2054,95 @@ class DependencyVisualizer {
             layout: {
                 type: 'dagre',
                 rankdir: 'TB'
+            },
+            defaultNode: {
+                type: 'circle',
+                size: [60, 60],
+                style: {
+                    fill: '#1890ff',
+                    stroke: '#1890ff',
+                    lineWidth: 2
+                },
+                labelCfg: {
+                    style: {
+                        fill: '#fff',
+                        fontSize: 12
+                    }
+                }
+            },
+            defaultEdge: {
+                type: 'polyline',
+                style: {
+                    stroke: '#1890ff',
+                    lineWidth: 2,
+                    endArrow: {
+                        path: G6.Arrow.triangle(10, 12, 25),
+                        d: 25,
+                        fill: '#1890ff'
+                    }
+                },
+                labelCfg: {
+                    style: {
+                        fill: '#666',
+                        fontSize: 10,
+                        background: {
+                            fill: '#fff',
+                            stroke: '#999',
+                            padding: [2, 4, 2, 4],
+                            radius: 4
+                        }
+                    }
+                }
             }
         });
 
+        const renderStartTime2 = performance.now();
         this.callChainGraph.data(chainData);
         this.callChainGraph.render();
         this.setupCallChainEvents(entryMethod);
-        this.displayChainDetails(chainData);
+        const renderEndTime = performance.now();
+
+        const totalRenderTime = renderEndTime - renderStartTime;
+        const graphRenderTime = renderEndTime - renderStartTime2;
+
+        console.log(`📊 调用链分析图渲染完成:`,
+                   `- 数据构建: ${(dataEndTime - dataStartTime).toFixed(2)}ms`,
+                   `- 图形渲染: ${graphRenderTime.toFixed(2)}ms`,
+                   `- 总耗时: ${totalRenderTime.toFixed(2)}ms`);
+        console.log('=== 调用链分析模式初始化完成 ===');
     }
 
     /**
      * 构建调用链数据
      */
     buildCallChainData(entryMethodId) {
+        console.log('=== 开始构建调用链数据 ===');
+        console.log('入口方法ID:', entryMethodId);
+        console.log('methodCallGraph数据结构检查:');
+        console.log('- 节点数量:', this.currentData.methodCallGraph?.nodes?.length || 0);
+        console.log('- 边数量:', this.currentData.methodCallGraph?.edges?.length || 0);
+
+        if (!this.currentData.methodCallGraph?.nodes?.length || !this.currentData.methodCallGraph?.edges?.length) {
+            console.error('methodCallGraph数据为空或格式错误');
+            return { nodes: [], edges: [] };
+        }
+
+        // 检查入口方法是否存在
+        const entryMethod = this.currentData.methodCallGraph.nodes.find(m => m.id === entryMethodId);
+        if (!entryMethod) {
+            console.error('入口方法不存在:', entryMethodId);
+            console.log('可用方法ID前10个:', this.currentData.methodCallGraph.nodes.slice(0, 10).map(n => n.id));
+            return { nodes: [], edges: [] };
+        }
+
+        console.log('找到入口方法:', entryMethod.className, entryMethod.name);
+
         const visited = new Set();
         const nodes = new Map();
         const edges = [];
 
         // 深度优先搜索构建调用链
+        console.log('开始深度优先搜索...');
         this.buildCallChainDFS(entryMethodId, visited, nodes, edges, 0, 10);
 
         // 转换为G6格式
@@ -1761,42 +2163,69 @@ class DependencyVisualizer {
      * 构建调用链（深度优先搜索）
      */
     buildCallChainDFS(methodId, visited, nodes, edges, depth, maxDepth) {
-        if (depth > maxDepth || visited.has(methodId)) return;
+        console.log(`[${depth}] DFS调用: ${methodId}, 已访问: ${Array.from(visited).join(', ')}`);
+
+        if (depth > maxDepth) {
+            console.log(`[${depth}] 达到最大深度限制: ${maxDepth}`);
+            return;
+        }
+
+        if (visited.has(methodId)) {
+            console.log(`[${depth}] 方法已访问，跳过循环依赖: ${methodId}`);
+            return;
+        }
 
         visited.add(methodId);
-        const method = this.currentData.methods?.find(m => m.id === methodId);
-        if (!method) return;
 
-        // 添加节点
-        const callCount = this.currentData.callGraph?.edges?.filter(e => e.source === methodId).length || 0;
+        // 修复：从methodCallGraph.nodes中查找方法
+        const method = this.currentData.methodCallGraph?.nodes?.find(m => m.id === methodId);
+        if (!method) {
+            console.error(`[${depth}] 未找到方法节点: ${methodId}`);
+            console.error(`[${depth}] 可用的节点ID前5个:`, this.currentData.methodCallGraph?.nodes?.slice(0, 5).map(n => n.id));
+            return;
+        }
+
+        console.log(`[${depth}] 找到方法: ${method.className}.${method.name}`);
+
+        // 添加节点 - 修复数据路径
+        const callCount = this.currentData.methodCallGraph?.edges?.filter(e => e.source === methodId).length || 0;
         const node = {
             id: methodId,
             name: method.name,
             className: method.className,
-            complexity: method.metrics?.complexityScore || 0,
+            complexity: method.complexity || 0,
             callCount: callCount,
             depth: depth
         };
         nodes.set(methodId, node);
 
-        // 处理调用关系
-        this.currentData.callGraph?.edges?.forEach(edge => {
-            if (edge.source === methodId && !visited.has(edge.target)) {
+        // 处理调用关系 - 修复数据路径
+        const outgoingCalls = this.currentData.methodCallGraph?.edges?.filter(e => e.source === methodId) || [];
+        console.log(`[${depth}] 找到 ${outgoingCalls.length} 个出边:`, outgoingCalls.map(e => ({from: e.source, to: e.target})));
+
+        outgoingCalls.forEach((edge, index) => {
+            if (!visited.has(edge.target)) {
+                console.log(`[${depth}] 添加边: ${edge.source} → ${edge.target}`);
                 edges.push({
                     id: `${edge.source}-${edge.target}`,
                     source: edge.source,
                     target: edge.target,
-                    label: `${edge.callContext?.callCount || 1}次`,
+                    label: `调用`,
                     style: {
                         stroke: '#1890ff',
-                        lineWidth: Math.min((edge.callContext?.callCount || 1), 5)
+                        lineWidth: 2
                     }
                 });
 
                 // 递归处理被调用方法
+                console.log(`[${depth}] 递归调用目标方法: ${edge.target}`);
                 this.buildCallChainDFS(edge.target, visited, nodes, edges, depth + 1, maxDepth);
+            } else {
+                console.log(`[${depth}] 目标方法已访问，跳过: ${edge.target}`);
             }
         });
+
+        console.log(`[${depth}] ${methodId} 处理完成`);
     }
 
     /**
@@ -1948,14 +2377,28 @@ class DependencyVisualizer {
      * 显示方法详情
      */
     showMethodDetails(nodeModel) {
+        console.log('=== 显示方法详情 ===', nodeModel);
+
         const panel = document.getElementById('method-details-panel');
         const info = document.getElementById('method-info');
         const calls = document.getElementById('calls-list');
         const calledBy = document.getElementById('called-by-list');
 
-        if (!panel || !info || !calls || !calledBy) return;
+        if (!panel || !info || !calls || !calledBy) {
+            console.error('方法详情面板元素未找到');
+            return;
+        }
 
-        const methodData = nodeModel.data;
+        // 修复：从新数据结构获取方法信息
+        const methodId = nodeModel.id;
+        const methodData = this.currentData.methodCallGraph?.nodes?.find(m => m.id === methodId);
+
+        if (!methodData) {
+            console.error('未找到方法数据:', methodId);
+            return;
+        }
+
+        console.log('找到方法数据:', methodData);
 
         // 更新基本信息
         info.innerHTML = `
@@ -1965,44 +2408,61 @@ class DependencyVisualizer {
             </div>
             <div class="info-item">
                 <span class="info-label">复杂度:</span>
-                <span class="info-value">${methodData.complexity}</span>
+                <span class="info-value complexity-${methodData.complexity > 20 ? 'high' : methodData.complexity > 10 ? 'medium' : 'low'}">${methodData.complexity || 0}</span>
             </div>
             <div class="info-item">
-                <span class="info-label">代码行数:</span>
-                <span class="info-value">${methodData.linesOfCode}</span>
+                <span class="info-label">扇入:</span>
+                <span class="info-value">${methodData.fanIn || 0}</span>
             </div>
             <div class="info-item">
-                <span class="info-label">参数个数:</span>
-                <span class="info-value">${methodData.parameterCount}</span>
+                <span class="info-label">扇出:</span>
+                <span class="info-value">${methodData.fanOut || 0}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">类名:</span>
+                <span class="info-value">${methodData.className}</span>
             </div>
         `;
 
-        // 更新调用关系
-        const methodCalls = this.currentData.callGraph?.edges?.filter(e => e.source === methodData.id) || [];
+        // 修复：从新数据结构获取调用关系
+        const methodCalls = this.currentData.methodCallGraph?.edges?.filter(e => e.source === methodId) || [];
+        console.log('找到调用关系:', methodCalls.length);
+
         calls.innerHTML = methodCalls.length > 0 ? methodCalls.map(call => {
-            const targetMethod = this.currentData.methods?.find(m => m.id === call.target);
+            const targetMethod = this.currentData.methodCallGraph?.nodes?.find(m => m.id === call.target);
+            const methodName = targetMethod ? `${targetMethod.className}.${targetMethod.name}` : 'Unknown';
             return `
-                <div class="call-item" onclick="dependencyVisualizer.focusMethod('${call.target}')">
-                    调用 ${targetMethod?.className || 'Unknown'}.${targetMethod?.name || 'Unknown'}
-                    (${call.callContext?.callCount || 1}次)
+                <div class="call-item" onclick="dependencyVisualizer.focusMethod('${call.target}')" title="点击跳转到: ${methodName}">
+                    <span>
+                        <span style="color: var(--accent-color); margin-right: 4px;">▶</span>
+                        调用 ${methodName}
+                    </span>
+                    <span class="call-count">1</span>
                 </div>
             `;
         }).join('') : '<div class="no-data">无调用关系</div>';
 
         // 更新被调用关系
-        const methodCalledBy = this.currentData.callGraph?.edges?.filter(e => e.target === methodData.id) || [];
+        const methodCalledBy = this.currentData.methodCallGraph?.edges?.filter(e => e.target === methodId) || [];
+        console.log('找到被调用关系:', methodCalledBy.length);
+
         calledBy.innerHTML = methodCalledBy.length > 0 ? methodCalledBy.map(call => {
-            const sourceMethod = this.currentData.methods?.find(m => m.id === call.source);
+            const sourceMethod = this.currentData.methodCallGraph?.nodes?.find(m => m.id === call.source);
+            const methodName = sourceMethod ? `${sourceMethod.className}.${sourceMethod.name}` : 'Unknown';
             return `
-                <div class="called-by-item" onclick="dependencyVisualizer.focusMethod('${call.source}')">
-                    被 ${sourceMethod?.className || 'Unknown'}.${sourceMethod?.name || 'Unknown'}
-                    调用 (${call.callContext?.callCount || 1}次)
+                <div class="called-by-item" onclick="dependencyVisualizer.focusMethod('${call.source}')" title="点击跳转到: ${methodName}">
+                    <span>
+                        <span style="color: var(--accent-color); margin-right: 4px;">◀</span>
+                        被 ${methodName} 调用
+                    </span>
+                    <span class="call-count">1</span>
                 </div>
             `;
         }).join('') : '<div class="no-data">无被调用关系</div>';
 
         // 显示面板
         panel.classList.add('show');
+        console.log('方法详情面板已显示');
     }
 
     /**
@@ -2805,9 +3265,6 @@ class DependencyVisualizer {
 
         // 渲染调用链图表
         this.renderCallChainGraph(callChain);
-
-        // 显示调用链详情
-        this.displayCallChainDetails(callChain);
 
         // 切换到调用链模式
         if (this.currentMethodMode !== 'callchain') {
