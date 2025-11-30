@@ -1,4 +1,4 @@
-package com.cw2.nekoama.core.universal_code_analyzer
+package com.cw2.nekoama.core.code_context_gather
 
 import com.intellij.psi.*
 import com.cw2.nekoama.ai.model.*
