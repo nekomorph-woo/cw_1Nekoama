@@ -1,14 +1,14 @@
-package com.cw2.nekoama.core.unusedcode
+package com.cw2.nekoama.integrations.unused_code_analysis
 
 import com.cw2.nekoama.core.logging.NekoamaLogger
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.editor.Document
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.psi.*
 import com.intellij.psi.search.FilenameIndex
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
-import com.intellij.util.indexing.FileBasedIndex
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -34,7 +34,7 @@ class UnusedCodeAnalyzer(private val project: Project) {
         indicator.fraction = 0.1
 
         // 获取所有Java/Kotlin文件
-        val psiFiles = com.intellij.openapi.application.ReadAction.compute<List<PsiFile>, com.intellij.openapi.progress.ProcessCanceledException> {
+        val psiFiles = ReadAction.compute<List<PsiFile>, ProcessCanceledException> {
             getAllJavaKotlinFiles(indicator)
         }
 
@@ -42,7 +42,7 @@ class UnusedCodeAnalyzer(private val project: Project) {
         indicator.fraction = 0.3
 
         // 构建使用关系
-        val usageInfo = com.intellij.openapi.application.ReadAction.compute<UsageInfo, com.intellij.openapi.progress.ProcessCanceledException> {
+        val usageInfo = ReadAction.compute<UsageInfo, ProcessCanceledException> {
             usageTracker.buildUsageInfo(psiFiles)
         }
 
@@ -50,7 +50,7 @@ class UnusedCodeAnalyzer(private val project: Project) {
         indicator.fraction = 0.6
 
         // 分析未使用的元素
-        val (unusedClasses, unusedMethods, unusedFields) = com.intellij.openapi.application.ReadAction.compute<Triple<List<UnusedClass>, List<UnusedMethod>, List<UnusedField>>, com.intellij.openapi.progress.ProcessCanceledException> {
+        val (unusedClasses, unusedMethods, unusedFields) = ReadAction.compute<Triple<List<UnusedClass>, List<UnusedMethod>, List<UnusedField>>, ProcessCanceledException> {
             Triple(
                 findUnusedClasses(usageInfo),
                 findUnusedMethods(usageInfo),

@@ -1,4 +1,4 @@
-package com.cw2.nekoama.core.unusedcode
+package com.cw2.nekoama.integrations.unused_code_analysis
 
 /**
  * 未使用代码分析结果

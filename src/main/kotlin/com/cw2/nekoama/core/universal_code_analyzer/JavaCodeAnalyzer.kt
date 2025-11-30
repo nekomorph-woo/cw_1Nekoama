@@ -1,4 +1,4 @@
-package com.cw2.nekoama.integrations.unused_code_analysis
+package com.cw2.nekoama.core.universal_code_analyzer
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.application.ReadAction

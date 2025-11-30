@@ -1,7 +1,8 @@
 package com.cw2.nekoama.presentation.actions
 
 import com.cw2.nekoama.core.metrics.ActionType
-import com.cw2.nekoama.core.unusedcode.UnusedCodeAnalyzer
+import com.cw2.nekoama.integrations.unused_code_analysis.UnusedCodeAnalyzer
+import com.cw2.nekoama.integrations.unused_code_analysis.UnusedCodeAnalysisResult
 import com.cw2.nekoama.presentation.messages.NekoamaBundle
 import com.cw2.nekoama.presentation.notifications.NekoamaNotifier
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -79,7 +80,7 @@ internal class AnalyzeUnusedCodeAction : BaseAction() {
      */
     private fun generateUnusedCodeReport(
         project: Project,
-        result: com.cw2.nekoama.core.unusedcode.UnusedCodeAnalysisResult
+        result: UnusedCodeAnalysisResult
     ): java.nio.file.Path {
         val timestamp =
             java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"))
