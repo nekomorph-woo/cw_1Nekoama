@@ -977,8 +977,8 @@ section h2 i {
     color: var(--accent-color);
 }
 
-/* 方法调用图容器 */
-.method-callgraph {
+/* 统一方法视图容器 */
+.method-unified-view {
     height: 600px;
     position: relative;
     background: var(--bg-primary);
@@ -992,13 +992,6 @@ section h2 i {
     height: 100%;
     min-height: 500px;
     background: var(--bg-primary);
-}
-
-/* 调用链分析容器 */
-.method-callchain {
-    display: flex;
-    gap: 1rem;
-    height: 600px;
 }
 
 .chain-controls {
@@ -1459,8 +1452,7 @@ section h2 i {
     animation: slideInRight 0.3s ease-out;
 }
 
-.method-callgraph,
-.method-callchain {
+.method-unified-view {
     animation: fadeIn 0.3s ease-out;
 }
 
@@ -1554,6 +1546,30 @@ section h2 i {
     color: white;
 }
 
+.method-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.method-class {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 1px;
+}
+
+.method-package {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.search-result-item.selected .method-name,
+.search-result-item.selected .method-class,
+.search-result-item.selected .method-package {
+    color: white;
+}
+
 .search-result-method {
     font-weight: 500;
     margin-bottom: 2px;
@@ -1569,6 +1585,112 @@ section h2 i {
     color: rgba(255, 255, 255, 0.8);
 }
 
+/* 方法来源图例样式 */
+.legend-external {
+    color: #ff4d4f;
+    margin-right: 8px;
+}
+
+.legend-internal {
+    color: #52c41a;
+    margin-right: 8px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px;
+    font-size: 12px;
+}
+
+.legend-item span {
+    color: var(--text-secondary);
+}
+
+/* 方法详情面板样式 */
+.method-signature {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+}
+
+.method-signature .method-name {
+    font-size: 16px;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.method-signature .method-class {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-family: 'Courier New', monospace;
+}
+
+.method-metrics {
+    margin-bottom: 12px;
+}
+
+.metric-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 13px;
+}
+
+.metric-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.metric-value {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.method-description {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    padding: 8px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    border-left: 3px solid var(--accent-color);
+}
+
+.call-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 8px;
+    margin-bottom: 4px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.call-target,
+.call-source {
+    color: var(--text-primary);
+    font-family: 'Courier New', monospace;
+    flex: 1;
+    margin-right: 8px;
+}
+
+.call-type {
+    color: var(--text-secondary);
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.empty-message {
+    color: var(--text-muted);
+    font-style: italic;
+    text-align: center;
+    padding: 20px;
+    font-size: 13px;
+}
+
 .search-no-results {
     padding: 12px;
     text-align: center;
@@ -1577,30 +1699,251 @@ section h2 i {
     font-style: italic;
 }
 
-/* 模式控件样式 */
-.callgraph-mode-controls,
-.callchain-mode-controls {
+/* 问题列表样式 */
+.issues-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0;
+}
+
+.issues-tab-btn {
+    padding: 0.75rem 1.25rem;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.issues-tab-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+}
+
+.issues-tab-btn.active {
+    color: var(--accent-color);
+    border-bottom-color: var(--accent-color);
+    background: transparent;
+}
+
+.issues-content {
+    min-height: 300px;
+}
+
+.issue-item {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.3s ease;
+}
+
+.issue-item:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+
+.issue-item.severity-critical {
+    border-left: 4px solid #ff4d4f;
+}
+
+.issue-item.severity-high {
+    border-left: 4px solid #fa8c16;
+}
+
+.issue-item.severity-medium {
+    border-left: 4px solid #fadb14;
+}
+
+.issue-item.severity-low {
+    border-left: 4px solid #52c41a;
+}
+
+.issue-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.issue-type {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+}
+
+.issue-severity {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.issue-item.severity-critical .issue-severity {
+    background: #ff4d4f;
+    color: white;
+}
+
+.issue-item.severity-high .issue-severity {
+    background: #fa8c16;
+    color: white;
+}
+
+.issue-item.severity-medium .issue-severity {
+    background: #fadb14;
+    color: var(--text-primary);
+}
+
+.issue-item.severity-low .issue-severity {
+    background: #52c41a;
+    color: white;
+}
+
+.issue-message {
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+}
+
+.issue-location {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+    font-family: 'Courier New', monospace;
+}
+
+.issue-description {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.empty-issues {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-secondary);
+}
+
+.empty-issues p {
+    margin-top: 1rem;
+    font-size: 1rem;
+}
+
+/* 类详情样式 */
+.node-details {
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    min-height: 200px;
+}
+
+.class-detail-item {
+    margin-bottom: 0.75rem;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.class-detail-item strong {
+    color: var(--text-primary);
+    margin-right: 0.5rem;
+}
+
+.class-detail-item:last-child {
+    margin-bottom: 0;
+}
+
+/* 图形容器样式 */
+.graph-container {
+    height: 600px;
+    position: relative;
+    background: var(--bg-primary);
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.graph-sidebar {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 250px;
+    height: 100%;
+    background: var(--bg-secondary);
+    border-left: 1px solid var(--border-color);
+    padding: 1rem;
+    overflow-y: auto;
+}
+
+.sidebar-section {
+    margin-bottom: 1.5rem;
+}
+
+.sidebar-section h4 {
+    margin: 0 0 1rem 0;
+    color: var(--text-primary);
+    font-size: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.5rem;
+}
+
+/* 统一方法分析控件样式 */
+.method-analysis-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding: 16px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.method-analysis-controls .control-group {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 12px;
 }
 
-.callgraph-mode-controls .control-label,
-.callchain-mode-controls .control-label {
+.method-analysis-controls .control-label {
     margin-right: 8px;
     margin-bottom: 0;
     white-space: nowrap;
+    font-weight: 500;
+    color: var(--text-primary);
 }
 
-.callgraph-mode-controls .control-select,
-.callchain-mode-controls .control-select {
+.method-analysis-controls .control-select {
     min-width: 150px;
+    padding: 6px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
 }
 
-.callgraph-mode-controls .btn,
-.callchain-mode-controls .btn {
+.method-analysis-controls .btn {
     margin-left: 8px;
+}
+
+.method-analysis-controls .search-controls {
+    position: relative;
 }
 
 /* 响应式调整 */
@@ -1609,15 +1952,13 @@ section h2 i {
         min-width: 200px;
     }
 
-    .callgraph-mode-controls,
-    .callchain-mode-controls {
+    .method-analysis-controls .control-group {
         flex-direction: column;
         align-items: flex-start;
         gap: 8px;
     }
 
-    .callgraph-mode-controls .control-select,
-    .callchain-mode-controls .control-select {
+    .method-analysis-controls .control-select {
         min-width: 100%;
     }
 }
@@ -2013,8 +2354,8 @@ section h2 i {
     }
 }
 
-/* ===== 径向布局调用链图增强样式 ===== */
-.method-callchain .g6-container {
+/* ===== 统一方法视图径向布局增强样式 ===== */
+.method-unified-view .g6-container {
     background: radial-gradient(circle at center,
         rgba(24, 144, 255, 0.05) 0%,
         rgba(255, 255, 255, 0) 70%);
