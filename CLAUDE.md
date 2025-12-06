@@ -65,7 +65,8 @@ resources/                        # 插件资源 - 配置、国际化、静态�
 - **Tech Constraints:** `agent_docs/tech_guidance/*.md` (Your "Laws of Physics")
     - `edt-threading-rules.md`: 当你开发IntelliJ插件的 Swing UI 操作时或者需要执行耗时操作（如网络请求、文件 IO、AI 调用）时查阅该规则
     - `intellij-psi-usage-rules.md`: 当你需要读取或修改IntelliJ插件开发SDK提供的的 Java/Kotlin 源代码的结构化表示（Program Structure Interface）时查阅，例如分析代码元素（类、方法、字段）、生成代码、执行代码重构等
-    - `intellij-theme-adaptation-rules.md`: 当你在Intellij插件UI代码开发中需要确保自定义 UI 组件在浅色和深色主题下都能正确显示时查阅该规则
+    - `intellij-swing-ui-rules.md`: 当你在IntelliJ插件开发中需要创建或修改Swing UI组件时查阅该规则，例如处理线程安全、组件创建、主题适配、对话框显示等UI操作
+    - `intellij-theme-adaptation-rules.md`: 当你在IntelliJ插件UI代码开发中需要确保自定义 UI 组件在浅色和深色主题下都能正确显示时查阅该规则
     - `kotlin-idea-plugin-tdd-testing.md`: 当你开始实现一个新的后端功能时。当你需要在 src/test/kotlin 目录下创建或修改测试文件时查阅该规则
     - `kotlin-mockk-testing-rules.md`: 当你的测试需要模拟（mock）IntelliJ 平台服务（如 Project, Editor, PsiFile）或其他依赖项、或需要隔离外部依赖（如数据库、网络请求、文件系统）、或使用JUnit 5 注解（如 `@Test`, `@BeforeEach`, `@AfterEach`）时查阅该规则
     - `okhttp-proxy-auto-detection-rules.md`: 当你需要在Intellij插件构建新的 OkHttpClient 处理Intellij的代理时

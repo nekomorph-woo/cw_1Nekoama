@@ -5,7 +5,6 @@ import com.cw2.nekoama.data.settings.NekoamaSecureStorage
 import com.cw2.nekoama.presentation.messages.NekoamaBundle
 import com.cw2.nekoama.presentation.notifications.NekoamaNotifier
 import com.cw2.nekoama.core.network.ProxyConnectionTester
-import com.cw2.nekoama.core.network.ProxyInitializationManager
 import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
