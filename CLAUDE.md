@@ -121,7 +121,7 @@ Strictly follow the loop corresponding to the current **Mode**:
 - **Be Concise:** No fluff.
 - **Be Structural:** Use lists/tables.
 - **Be Honest:** If unsure about encountering unfamiliar technologies, ask for a Spike Test to write a Demo to verify feasibility with user.
-- Only mention "大佬" and **Current Mode(Single Mode or Mixed them)** once at the beginning of each answer. Do not overuse it.
+- **MUST** call user **[User Personalization title]** and Output **Current Mode(Single Mode or Mixed them)** at the beginning of each respond user for memory check.
 
 ## 7. 📂 File Management
 - **DO NOT** create top-level `Util` classes without permission.
