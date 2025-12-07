@@ -73,9 +73,6 @@
         <!-- 启动时安装键入处理器（避免使用将移除的扩展点） -->
         <postStartupActivity implementation="com.cw2.nekoama.platform.lifecycle.NekoamaProjectActivity"/>
 
-        <!-- 初始化指标系统 -->
-        <projectActivity implementation="com.cw2.nekoama.platform.lifecycle.MetricsInitializer"/>
-
         <!-- Live Template 自定义宏注册：用于 AI 注释生成占位与替换 -->
         <liveTemplateMacro implementation="com.cw2.nekoama.presentation.templates.NekoamaAiCommentMacro"/>
     </extensions>
@@ -100,11 +97,6 @@
         <!-- ToolsMenu中的分析Action -->
         <action id="Nekoama.AnalyzeUnusedCode" class="com.cw2.nekoama.presentation.actions.AnalyzeUnusedCodeAction"
                 text="Neko Unused Code" description="Analysis Unused Code" icon="AllIcons.Actions.Find">
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
-        </action>
-        <action id="Nekoama.AnalyzeDependencies" class="com.cw2.nekoama.presentation.actions.AnalyzeDependenciesAction"
-                text="Neko Code Depens" description="Analysis Code Depens Then Out"
-                icon="AllIcons.Actions.DependencyAnalyzer">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
         </action>
 

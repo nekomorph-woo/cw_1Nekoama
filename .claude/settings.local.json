@@ -31,7 +31,8 @@
       "Bash(gradlew compileKotlin:*)",
       "Bash(rg:*)",
       "Bash(git add:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []
