@@ -37,10 +37,14 @@ resources/                        # 插件资源 - 配置、国际化、静态�
 
 ### ⬜ Mode 0: Inception (Requirement Analysis)
 - **Trigger:** User provides a raw idea, a one-sentence request, or asks for "brainstorming".
-- **Goal:** Transmute a vague thought into a concrete `docs/requirements/*.md` spec.
+- **Goal:** Transmute a vague thought into a concrete `agent_docs/requirements/*.md` spec.
 - **Constraint:**
     - **NO CODE GENERATION:** Do not write implementation code in this mode.
     - **Devil's Advocate:** You must aggressively identify **Blind Spots** (Performance bottlenecks, Technology limitations, Edge cases).
+    - **Protocol:**
+       1.  **Consult:** Ask clarifying questions if Tech Stack or Scope is ambiguous.
+       2.  **Plan:** Generate a plan strictly following the template: `agent_docs/_templates/feature_implementation_plan.md`.
+       3.  **Refine:** Wait for user approval on the plan before moving to Mode A.
     - **Options First:** Never assume one solution; always propose 3 variants (MVP / Balanced / Advanced).
 
 ### 🟦 Mode A: Backend (`*.kt`, PSI, Gradle)
@@ -85,7 +89,7 @@ Strictly follow the loop corresponding to the current **Mode**:
 ### For Mode 0 (The "Booster" Loop):
 1.  **Expansion:** Propose 3 implementation approaches with distinct User Experience flows.
 2.  **Critique:** Perform a "Technical Pre-mortem" (Identify risks, API pitfalls, and other issues).
-3.  **Convergence:** Upon user selection, generate a standardized requirement document in `docs/requirements/`.
+3.  **Convergence:** Upon user selection, generate a standardized requirement document in `agent_docs/requirements/`.
 
 ### For Mode A (Backend):
 1.  **Concept & Contract:** Translate Chinese logic to English Kotlin Interfaces.
