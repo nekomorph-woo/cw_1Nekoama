@@ -59,22 +59,19 @@
         <!-- ToolWindow 注册 -->
         <toolWindow id="Nekoama"
                     anchor="right"
-                    factoryClass="com.cw2.nekoama.presentation.toolwindow.NekoamaToolWindowFactory"
+                    factoryClass="com.cw2.nekoama.interfaces.intellij.tool_window.NekoamaToolWindowFactory"
                     icon="/icons/NekoamaToolWindow.svg"/>
 
         <!-- 设置页面注册 -->
         <applicationConfigurable id="Nekoama.settings" displayName="Nekoama"
-                                 instance="com.cw2.nekoama.presentation.settings.NekoamaConfigurable"/>
+                                 instance="com.cw2.nekoama.interfaces.intellij.settings.NekoamaConfigurable"/>
 
         <!-- 通知分组注册（使用稳定的分组ID，不随本地化变化） -->
         <notificationGroup id="Nekoama.Notifications" displayType="BALLOON" isLogByDefault="true"/>
 
 
         <!-- 启动时安装键入处理器（避免使用将移除的扩展点） -->
-        <postStartupActivity implementation="com.cw2.nekoama.platform.lifecycle.NekoamaProjectActivity"/>
-
-        <!-- Live Template 自定义宏注册：用于 AI 注释生成占位与替换 -->
-        <liveTemplateMacro implementation="com.cw2.nekoama.presentation.templates.NekoamaAiCommentMacro"/>
+        <postStartupActivity implementation="com.cw2.nekoama.shared.lifecycle.NekoamaProjectActivity"/>
     </extensions>
 
     <extensions defaultExtensionNs="org.jetbrains.kotlin">
@@ -84,32 +81,32 @@
     <actions>
         <!-- 顶层 Nekoama 组（可用于扩展） -->
         <group id="Nekoama.Actions" text="Nekoama" popup="true">
-            <action id="Nekoama.GenerateNaming" class="com.cw2.nekoama.presentation.actions.GenerateNamingAction"
+            <action id="Nekoama.GenerateNaming" class="com.cw2.nekoama.interfaces.intellij.actions.GenerateNamingAction"
                     text="Name for Any" description="Generate naming suggestions"
                     icon="AllIcons.Actions.GroupByModuleGroup"/>
-            <action id="Nekoama.GenerateComment" class="com.cw2.nekoama.presentation.actions.GenerateCommentAction"
+            <action id="Nekoama.GenerateComment" class="com.cw2.nekoama.interfaces.intellij.actions.GenerateCommentAction"
                     text="Comment for Me" description="Generate documentation" icon="AllIcons.Actions.Lightning"/>
-            <action id="Nekoama.CustomGenerate" class="com.cw2.nekoama.presentation.actions.CustomGenerateAction"
+            <action id="Nekoama.CustomGenerate" class="com.cw2.nekoama.interfaces.intellij.actions.CustomGenerateAction"
                     text="IDEA for Neko" description="Custom generate with context"
                     icon="AllIcons.Actions.EnableNewUi"/>
         </group>
 
         <!-- ToolsMenu中的分析Action -->
-        <action id="Nekoama.AnalyzeUnusedCode" class="com.cw2.nekoama.presentation.actions.AnalyzeUnusedCodeAction"
+        <action id="Nekoama.AnalyzeUnusedCode" class="com.cw2.nekoama.interfaces.intellij.actions.AnalyzeUnusedCodeAction"
                 text="Neko Unused Code" description="Analysis Unused Code" icon="AllIcons.Actions.Find">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
         </action>
 
         <!-- 右键菜单集成 -->
-        <action id="Nekoama.CustomGenerate.Popup" class="com.cw2.nekoama.presentation.actions.CustomGenerateAction"
+        <action id="Nekoama.CustomGenerate.Popup" class="com.cw2.nekoama.interfaces.intellij.actions.CustomGenerateAction"
                 text="IDEA for Neko" icon="AllIcons.Actions.EnableNewUi">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
         </action>
-        <action id="Nekoama.GenerateNaming.Popup" class="com.cw2.nekoama.presentation.actions.GenerateNamingAction"
+        <action id="Nekoama.GenerateNaming.Popup" class="com.cw2.nekoama.interfaces.intellij.actions.GenerateNamingAction"
                 text="Name for Any" icon="AllIcons.Actions.GroupByModuleGroup">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
         </action>
-        <action id="Nekoama.GenerateComment.Popup" class="com.cw2.nekoama.presentation.actions.GenerateCommentAction"
+        <action id="Nekoama.GenerateComment.Popup" class="com.cw2.nekoama.interfaces.intellij.actions.GenerateCommentAction"
                 text="Comment for Me" icon="AllIcons.Actions.Lightning">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
         </action>
