@@ -23,12 +23,20 @@ If a user request conflicts with `tech_guidance`, you must point it out immediat
 - **Key Directories:**
 ```
 src/main/kotlin/com/cw2/nekoama/
-├── ai/                           # AI 服务层 - 提供商接口、模型定义、响应处理
-├── core/                         # 核心工具层 - 日志、异常、网络、指标、报告生成
-├── data/                         # 数据持久化层 - 插件设置与 API 密钥安全存储
-├── integrations/                 # 平台集成层 - PSI 代码分析、编辑器键入处理
-├── platform/                     # 平台服务层 - 插件生命周期、后台任务调度
-└── presentation/                 # UI 表示层 - 用户动作、通知、设置界面、工具窗口
+├── application/                  # 应用服务层 - 业务流程编排、指标收集服务
+├── domain/                       # 领域模型层 - 核心业务逻辑、AI服务、代码分析、设置管理
+│   ├── ai/                      # AI领域 - 模型定义、提示服务、自定义AI
+│   ├── code_analysis/           # 代码分析领域 - Java/Kotlin分析器、未使用代码检测
+│   ├── editor/                  # 编辑器领域 - 键入处理
+│   ├── metrics/                 # 指标领域 - 指标模型定义
+│   └── settings/                # 设置领域 - 配置模型、安全存储
+├── infra/                        # 基础设施层 - AI客户端、网络代理、存储实现
+│   ├── ai/                      # AI基础设施 - OpenAI客户端、响应解析
+│   ├── network/                 # 网络基础设施 - HTTP客户端、代理配置、拦截器
+│   └── storage/                 # 存储基础设施 - 指标存储
+├── interfaces/                   # 接口适配层 - IntelliJ平台集成
+│   └── intellij/                # IntelliJ适配器 - 动作、设置界面、工具窗口
+├── shared/                       # 共享模块 - 异常、日志、工具类、生命周期管理
 resources/                        # 插件资源 - 配置、国际化、静态资源、报告模板
 ```
 
