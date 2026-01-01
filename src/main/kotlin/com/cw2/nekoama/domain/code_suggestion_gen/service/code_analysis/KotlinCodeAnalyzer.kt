@@ -26,9 +26,6 @@ import org.jetbrains.kotlin.lexer.KtTokens
  * 专门处理 Kotlin 语言元素的分析工作，包括分析类、属性等。
  */
 class KotlinCodeAnalyzer(private val project: Project) {
-    
-    // 说明：为了兼容 Kotlin K2 模式，遵循 PSI 线程安全规则，所有 PSI 读取都在 ReadAction 中执行
-
     fun analyzeKotlinFunction(function: KtFunction): Result<MethodContext> {
         return try {
             ReadAction.compute<Result<MethodContext>, Throwable> {

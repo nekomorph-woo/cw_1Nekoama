@@ -249,7 +249,6 @@ class HistoryViewer {
             ActionType.GENERATE_NAMING -> NekoamaBundle.message("action.type.naming")
             ActionType.GENERATE_COMMENT -> NekoamaBundle.message("action.type.comment")
             ActionType.CUSTOM_GENERATE -> NekoamaBundle.message("action.type.custom")
-            ActionType.ANALYZE_UNUSED_CODE -> NekoamaBundle.message("action.type.analyze")
             ActionType.ANALYZE_CODE_DEPS -> NekoamaBundle.message("action.type.analyze")
         }
     }

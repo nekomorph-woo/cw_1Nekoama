@@ -228,7 +228,6 @@ object NekoamaLogger {
                         "GENERATE_NAMING" -> ActionType.GENERATE_NAMING
                         "GENERATE_COMMENT" -> ActionType.GENERATE_COMMENT
                         "CUSTOM_GENERATE" -> ActionType.CUSTOM_GENERATE
-                        "ANALYZE_UNUSED_CODE" -> ActionType.ANALYZE_UNUSED_CODE
                         else -> ActionType.CUSTOM_GENERATE
                     }
 
@@ -258,7 +257,6 @@ object NekoamaLogger {
                     "GENERATE_NAMING" -> ActionType.GENERATE_NAMING
                     "GENERATE_COMMENT" -> ActionType.GENERATE_COMMENT
                     "CUSTOM_GENERATE" -> ActionType.CUSTOM_GENERATE
-                    "ANALYZE_UNUSED_CODE" -> ActionType.ANALYZE_UNUSED_CODE
                     else -> ActionType.CUSTOM_GENERATE
                 }
 
