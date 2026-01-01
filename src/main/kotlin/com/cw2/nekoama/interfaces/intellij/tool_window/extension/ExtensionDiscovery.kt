@@ -1,7 +1,6 @@
 package com.cw2.nekoama.interfaces.intellij.tool_window.extension
 
 import com.cw2.nekoama.shared.logging.NekoamaLogger
-import com.cw2.nekoama.interfaces.intellij.tool_window.extension.example.DemoTabExtension
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -60,12 +59,7 @@ class ExtensionDiscovery {
     private fun discoverBuiltinExtensions() {
         try {
             logger.debug("ExtensionDiscovery", "Discovering builtin extensions...")
-
-            // 注册演示扩展
-            val demoExtension = DemoTabExtension()
-            discoveredExtensions.add(demoExtension)
-            logger.debug("ExtensionDiscovery", "Builtin extension discovered: ${demoExtension.extensionId}")
-
+            // 内置扩展已移除，这里可以添加其他内置扩展
         } catch (e: Exception) {
             logger.error("ExtensionDiscovery", "Failed to discover builtin extensions", error = e)
         }

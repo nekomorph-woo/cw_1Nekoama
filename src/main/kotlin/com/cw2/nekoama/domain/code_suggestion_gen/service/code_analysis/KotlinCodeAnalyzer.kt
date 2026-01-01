@@ -1,4 +1,4 @@
-package com.cw2.nekoama.domain.code_analysis.service
+package com.cw2.nekoama.domain.code_suggestion_gen.service.code_analysis
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.application.ReadAction
@@ -9,7 +9,6 @@ import com.cw2.nekoama.shared.exception.NekoamaError
 import com.cw2.nekoama.domain.code_suggestion_gen.model.AnnotationMetadata
 import com.cw2.nekoama.domain.code_suggestion_gen.model.ClassContext
 import com.cw2.nekoama.domain.code_suggestion_gen.model.ClassMetadata
-import com.cw2.nekoama.domain.code_suggestion_gen.model.FieldMetadata
 import com.cw2.nekoama.domain.code_suggestion_gen.model.MethodContext
 import com.cw2.nekoama.domain.code_suggestion_gen.model.MethodMetadata
 import com.cw2.nekoama.domain.code_suggestion_gen.model.ParameterMetadata
@@ -22,14 +21,14 @@ import com.cw2.nekoama.domain.code_suggestion_gen.model.VariableScope
 import org.jetbrains.kotlin.lexer.KtTokens
 
 /**
- * Kotlin���������
- * 
- * ר�Ŵ���Kotlin����Ԫ�صķ����������������ࡢ���Եȡ�
+ * Kotlin 代码分析器
+ *
+ * 专门处理 Kotlin 语言元素的分析工作，包括分析类、属性等。
  */
 class KotlinCodeAnalyzer(private val project: Project) {
     
-    // ˵����Ϊ�˼��� Kotlin K2 ģʽ����ѭ PSI �߳�Լ�������� PSI ��ȡ������ ReadAction ��ִ��
-    
+    // 说明：为了兼容 Kotlin K2 模式，遵循 PSI 线程安全规则，所有 PSI 读取都在 ReadAction 中执行
+
     fun analyzeKotlinFunction(function: KtFunction): Result<MethodContext> {
         return try {
             ReadAction.compute<Result<MethodContext>, Throwable> {
@@ -86,7 +85,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
                 Result.success(methodContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("Kotlin��������ʧ��: ${e.message}"))
+            Result.error(NekoamaError.Unknown("Kotlin 函数分析失败: ${e.message}"))
         }
     }
     
@@ -120,7 +119,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
                 Result.success(classContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("Kotlin�����ʧ��: ${e.message}"))
+            Result.error(NekoamaError.Unknown("Kotlin 类分析失败: ${e.message}"))
         }
     }
     
@@ -171,7 +170,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
                 Result.success(variableContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("Kotlin���Է���ʧ��: ${e.message}"))
+            Result.error(NekoamaError.Unknown("Kotlin 属性分析失败: ${e.message}"))
         }
     }
     
@@ -220,7 +219,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
                 Result.success(variableContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("Kotlin��������ʧ��: ${e.message}"))
+            Result.error(NekoamaError.Unknown("Kotlin 参数分析失败: ${e.message}"))
         }
     }
 }

@@ -1,4 +1,4 @@
-package com.cw2.nekoama.domain.code_analysis.service
+package com.cw2.nekoama.domain.code_suggestion_gen.service.code_analysis
 
 import com.intellij.psi.*
 import com.cw2.nekoama.shared.model.Result
@@ -21,44 +21,44 @@ import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtParameter
 
 /**
- * ����������ӿ�
- * 
- * �����˴���Ԫ�ط����ĺ��Ľӿڣ�֧�ַ������ࡢ��������ȷ�����
- * ʵ���˰�ȫ�� PSI �����Ͷ�����֧�֡�
+ * 代码分析器接口
+ *
+ * 定义了代码元素分析的通用接口，支持分析类、方法、变量等对象。
+ * 实现了安全的 PSI 访问和对象支持。
  */
 interface CodeAnalyzer {
     
     /**
-     * ����������Ϣ
+     * 分析方法信息
      */
     fun analyzeMethod(method: PsiElement): Result<MethodContext>
-    
+
     /**
-     * ��������Ϣ
+     * 分析类信息
      */
     fun analyzeClass(clazz: PsiElement): Result<ClassContext>
-    
+
     /**
-     * ����������Ϣ
+     * 分析变量信息
      */
     fun analyzeVariable(variable: PsiElement): Result<VariableContext>
-    
+
     /**
-     * ��ȡ��Χ������
+     * 获取周围代码
      */
     fun extractSurroundingContext(element: PsiElement, radius: Int = 5): Result<SurroundingContext>
-    
+
     /**
-     * ���������
+     * 检测编程语言
      */
     fun detectLanguage(element: PsiElement): ProgrammingLanguage
 }
 
 /**
- * ͨ�ô��������ʵ��
- * 
- * �ṩ�˶� Java �� Kotlin �����ͳһ�������ܣ�
- * ������ϸ�Ĵ���������־��¼��
+ * 通用代码分析器实现
+ *
+ * 提供了对 Java 和 Kotlin 代码的统一分析功能，
+ * 包括详细的代码分析和日志记录。
  */
 class UniversalCodeAnalyzer(
     private val project: Project
@@ -69,88 +69,82 @@ class UniversalCodeAnalyzer(
     
     override fun analyzeMethod(method: PsiElement): Result<MethodContext> {
         return try {
-            val language = detectLanguage(method)
-            
-            when (language) {
+            when (val language = detectLanguage(method)) {
                 ProgrammingLanguage.JAVA -> {
                     if (method is PsiMethod) {
                         javaAnalyzer.analyzeJavaMethod(method)
                     } else {
-                        Result.error(NekoamaError.PlatformError.EditorUnavailable("Ԫ�ز�����Ч�� Java ����"))
+                        Result.error(NekoamaError.PlatformError.EditorUnavailable("元素不是有效的 Java 方法"))
                     }
                 }
                 ProgrammingLanguage.KOTLIN -> {
                     if (method is KtFunction) {
                         kotlinAnalyzer.analyzeKotlinFunction(method)
                     } else {
-                        Result.error(NekoamaError.PlatformError.EditorUnavailable("Ԫ�ز�����Ч�� Kotlin ����"))
+                        Result.error(NekoamaError.PlatformError.EditorUnavailable("元素不是有效的 Kotlin 函数"))
                     }
                 }
                 else -> {
-                    Result.error(NekoamaError.PlatformError.EditorUnavailable("��֧�ֵ���������: $language"))
+                    Result.error(NekoamaError.PlatformError.EditorUnavailable("不支持的编程语言: $language"))
                 }
             }
         } catch (e: Exception) {
-            NekoamaLogger.logError("analyzeMethod", NekoamaError.Unknown("��������ʧ��: ${e.message}"))
-            Result.error(NekoamaError.Unknown("��������ʧ��: ${e.message}"))
+            NekoamaLogger.logError("analyzeMethod", NekoamaError.Unknown("方法分析失败: ${e.message}"))
+            Result.error(NekoamaError.Unknown("方法分析失败: ${e.message}"))
         }
     }
     
     override fun analyzeClass(clazz: PsiElement): Result<ClassContext> {
         return try {
-            val language = detectLanguage(clazz)
-            
-            when (language) {
+            when (val language = detectLanguage(clazz)) {
                 ProgrammingLanguage.JAVA -> {
                     if (clazz is PsiClass) {
                         javaAnalyzer.analyzeJavaClass(clazz)
                     } else {
-                        Result.error(NekoamaError.PlatformError.EditorUnavailable("Ԫ�ز�����Ч�� Java ��"))
+                        Result.error(NekoamaError.PlatformError.EditorUnavailable("元素不是有效的 Java 类"))
                     }
                 }
                 ProgrammingLanguage.KOTLIN -> {
                     if (clazz is KtClass) {
                         kotlinAnalyzer.analyzeKotlinClass(clazz)
                     } else {
-                        Result.error(NekoamaError.PlatformError.EditorUnavailable("Ԫ�ز�����Ч�� Kotlin ��"))
+                        Result.error(NekoamaError.PlatformError.EditorUnavailable("元素不是有效的 Kotlin 类"))
                     }
                 }
                 else -> {
-                    Result.error(NekoamaError.PlatformError.EditorUnavailable("��֧�ֵ���������: $language"))
+                    Result.error(NekoamaError.PlatformError.EditorUnavailable("不支持的编程语言: $language"))
                 }
             }
         } catch (e: Exception) {
-            NekoamaLogger.logError("analyzeClass", NekoamaError.Unknown("�����ʧ��: ${e.message}"))
-            Result.error(NekoamaError.Unknown("�����ʧ��: ${e.message}"))
+            NekoamaLogger.logError("analyzeClass", NekoamaError.Unknown("类分析失败: ${e.message}"))
+            Result.error(NekoamaError.Unknown("类分析失败: ${e.message}"))
         }
     }
     
     override fun analyzeVariable(variable: PsiElement): Result<VariableContext> {
         return try {
-            val language = detectLanguage(variable)
-            
-            when (language) {
+            when (val language = detectLanguage(variable)) {
                 ProgrammingLanguage.JAVA -> {
                     when (variable) {
                         is PsiVariable -> javaAnalyzer.analyzeJavaVariable(variable)
                         is PsiField -> javaAnalyzer.analyzeJavaField(variable)
-                        else -> Result.error(NekoamaError.PlatformError.EditorUnavailable("Ԫ�ز�����Ч�� Java ����"))
+                        else -> Result.error(NekoamaError.PlatformError.EditorUnavailable("元素不是有效的 Java 变量"))
                     }
                 }
                 ProgrammingLanguage.KOTLIN -> {
                     when (variable) {
                         is KtProperty -> kotlinAnalyzer.analyzeKotlinProperty(variable)
                         is KtParameter -> kotlinAnalyzer.analyzeKotlinParameter(variable)
-                        else -> Result.error(NekoamaError.PlatformError.EditorUnavailable("Ԫ�ز�����Ч�� Kotlin ����"))
+                        else -> Result.error(NekoamaError.PlatformError.EditorUnavailable("元素不是有效的 Kotlin 变量"))
                     }
                 }
                 else -> {
-                    Result.error(NekoamaError.PlatformError.EditorUnavailable("��֧�ֵ���������: $language"))
+                    Result.error(NekoamaError.PlatformError.EditorUnavailable("不支持的编程语言: $language"))
                 }
             }
         } catch (e: Exception) {
-            NekoamaLogger.logError("analyzeVariable", NekoamaError.Unknown("��������ʧ��: ${e.message}"))
-            Result.error(NekoamaError.Unknown("��������ʧ��: ${e.message}"))
+            NekoamaLogger.logError("analyzeVariable", NekoamaError.Unknown("变量分析失败: ${e.message}"))
+            Result.error(NekoamaError.Unknown("变量分析失败: ${e.message}"))
         }
     }
     
@@ -158,7 +152,7 @@ class UniversalCodeAnalyzer(
         return try {
             val containingFile = element.containingFile
             val document = PsiDocumentManager.getInstance(project).getDocument(containingFile)
-                ?: return Result.error(NekoamaError.PlatformError.EditorUnavailable("�޷���ȡ�ĵ�"))
+                ?: return Result.error(NekoamaError.PlatformError.EditorUnavailable("无法获取文档"))
             
             val elementStartOffset = element.textRange.startOffset
             val elementEndOffset = element.textRange.endOffset
@@ -166,7 +160,7 @@ class UniversalCodeAnalyzer(
             val startLine = document.getLineNumber(elementStartOffset)
             val endLine = document.getLineNumber(elementEndOffset)
             
-            // ��ȡǰ�ô���
+            // 获取前置代码
             val precedingLines = mutableListOf<String>()
             for (i in maxOf(0, startLine - radius) until startLine) {
                 val lineStartOffset = document.getLineStartOffset(i)
@@ -174,7 +168,7 @@ class UniversalCodeAnalyzer(
                 precedingLines.add(document.getText().substring(lineStartOffset, lineEndOffset).trim())
             }
             
-            // ��ȡ��������
+            // 获取后续代码
             val followingLines = mutableListOf<String>()
             val totalLines = document.lineCount
             for (i in (endLine + 1)..minOf(totalLines - 1, endLine + radius)) {
@@ -183,7 +177,7 @@ class UniversalCodeAnalyzer(
                 followingLines.add(document.getText().substring(lineStartOffset, lineEndOffset).trim())
             }
             
-            // ��ȡ�������
+            // 获取导入语句
             val imports = extractImportStatements(containingFile)
             
             // 获取包名
@@ -203,8 +197,8 @@ class UniversalCodeAnalyzer(
             Result.success(surroundingContext)
             
         } catch (e: Exception) {
-            NekoamaLogger.logError("extractSurroundingContext", NekoamaError.Unknown("��������ȡʧ��: ${e.message}"))
-            Result.error(NekoamaError.Unknown("��������ȡʧ��: ${e.message}"))
+            NekoamaLogger.logError("extractSurroundingContext", NekoamaError.Unknown("上下文提取失败: ${e.message}"))
+            Result.error(NekoamaError.Unknown("上下文提取失败: ${e.message}"))
         }
     }
     
@@ -226,7 +220,7 @@ class UniversalCodeAnalyzer(
     }
     
     /**
-     * ��ȡ�������
+     * 获取导入语句
      */
     private fun extractImportStatements(file: PsiFile): List<String> {
         val imports = mutableListOf<String>()
@@ -255,7 +249,7 @@ class UniversalCodeAnalyzer(
     }
     
     /**
-     * ��ȡ������
+     * 获取包名
      */
     private fun extractPackageDeclaration(file: PsiFile): String? {
         return when (file) {
@@ -285,8 +279,8 @@ class UniversalCodeAnalyzer(
                 super.visitElement(element)
             }
         })
-        
-        // ��������Լ��
+
+        // 统计命名规范
         val camelCaseCount = names.count { name -> name.matches(Regex("[a-z][a-zA-Z0-9]*")) }
         val pascalCaseCount = names.count { name -> name.matches(Regex("[A-Z][a-zA-Z0-9]*")) }
         val snakeCaseCount = names.count { name -> name.contains("_") }
@@ -313,7 +307,7 @@ class UniversalCodeAnalyzer(
     }
     
     private fun detectProjectType(): String? {
-        // �����ļ��ṹ�����Ŀ����
+        // 根据文件结构判断项目类型
         val baseDir = project.baseDir
         return when {
             baseDir?.findChild("pom.xml") != null -> "Maven"
@@ -323,21 +317,21 @@ class UniversalCodeAnalyzer(
     }
     
     private fun detectFramework(): String? {
-        // ����ͨ��������ע������
-        return null // ��ʵ��
+        // 通过扫描依赖注解判断
+        return null // 待实现
     }
-    
+
     private fun detectBuildTool(): String? {
-        return detectProjectType() // ��ʵ��
+        return detectProjectType() // 待实现
     }
-    
+
     private fun detectJavaVersion(): String? {
-        // ����ͨ��ģ�����ü��Java�汾
-        return null // ��ʵ��
+        // 通过模块推断检测Java版本
+        return null // 待实现
     }
-    
+
     private fun detectKotlinVersion(): String? {
-        // ����ͨ��Kotlin������汾
-        return null // ��ʵ��
+        // 通过Kotlin标准库版本
+        return null // 待实现
     }
 }

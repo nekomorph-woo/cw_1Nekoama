@@ -6,7 +6,7 @@ import com.cw2.nekoama.shared.logging.NekoamaLogger
 import com.cw2.nekoama.domain.settings.service.NekoamaSecureStorage
 import com.cw2.nekoama.domain.settings.model.NekoamaSettings
 import com.cw2.nekoama.domain.metrics.model.ActionType
-import com.cw2.nekoama.domain.code_analysis.service.UniversalCodeAnalyzer
+import com.cw2.nekoama.domain.code_suggestion_gen.service.code_analysis.UniversalCodeAnalyzer
 import com.cw2.nekoama.shared.i18n.NekoamaBundle
 import com.cw2.nekoama.shared.util.NekoamaNotifier
 import com.cw2.nekoama.domain.code_suggestion_gen.model.ClassContext

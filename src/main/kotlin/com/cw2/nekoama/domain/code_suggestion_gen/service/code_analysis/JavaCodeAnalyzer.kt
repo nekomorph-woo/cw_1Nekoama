@@ -1,4 +1,4 @@
-package com.cw2.nekoama.domain.code_analysis.service
+package com.cw2.nekoama.domain.code_suggestion_gen.service.code_analysis
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.application.ReadAction
@@ -18,11 +18,11 @@ import com.cw2.nekoama.domain.code_suggestion_gen.model.VariableContext
 import com.cw2.nekoama.domain.code_suggestion_gen.model.VariableScope
 
 /**
- * Java���������
+ * Java 代码分析器
  *
- * ר�Ŵ���Java����Ԫ�صķ����������������ࡢ�����ȡ�
+ * 专门处理 Java 语言元素的分析工作，包括分析类、方法等。
  *
- * Ϊ����ѭPSI�߳�Լ����ȷ��IDE�ȶ��ԣ�����PSI���ʶ���ReadAction�н��С�
+ * 为了遵循 PSI 线程安全规则确保 IDE 稳定性，所有 PSI 访问都在 ReadAction 中进行。
  */
 class JavaCodeAnalyzer(private val project: Project) {
 
@@ -82,7 +82,7 @@ class JavaCodeAnalyzer(private val project: Project) {
                 Result.success(methodContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("Java��������ʧ��: ${e.message}"))
+            Result.error(NekoamaError.Unknown("Java 方法分析失败: ${e.message}"))
         }
     }
     
@@ -114,7 +114,7 @@ class JavaCodeAnalyzer(private val project: Project) {
                 Result.success(classContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("Java�����ʧ��: ${e.message}"))
+            Result.error(NekoamaError.Unknown("Java 类分析失败: ${e.message}"))
         }
     }
     
@@ -162,7 +162,7 @@ class JavaCodeAnalyzer(private val project: Project) {
                 Result.success(variableContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("Java��������ʧ��: ${e.message}"))
+            Result.error(NekoamaError.Unknown("Java 方法分析失败: ${e.message}"))
         }
     }
     
@@ -213,7 +213,7 @@ class JavaCodeAnalyzer(private val project: Project) {
                 Result.success(variableContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("Java�ֶη���ʧ��: ${e.message}"))
+            Result.error(NekoamaError.Unknown("Java 字段分析失败: ${e.message}"))
         }
     }
 }
