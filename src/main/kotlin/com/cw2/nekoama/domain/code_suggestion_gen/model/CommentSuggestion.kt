@@ -18,16 +18,6 @@ data class ParameterComment(
     val defaultValue: String? = null
 )
 
-/**
- * 异常注释信息
- */
-@Serializable
-data class ExceptionComment(
-    val type: String,
-    val description: String,
-    val condition: String? = null
-)
-
 // ============================================================================
 // 注释结构
 // ============================================================================
@@ -45,37 +35,7 @@ data class CommentStructure(
     /**
      * 返回值描述
      */
-    val returnDescription: String? = null,
-
-    /**
-     * 异常说明列表
-     */
-    val exceptions: List<ExceptionComment> = emptyList(),
-
-    /**
-     * 使用示例
-     */
-    val examples: List<String> = emptyList(),
-
-    /**
-     * 相关引用
-     */
-    val seeAlso: List<String> = emptyList(),
-
-    /**
-     * 版本信息
-     */
-    val since: String? = null,
-
-    /**
-     * 作者信息
-     */
-    val author: String? = null,
-
-    /**
-     * 废弃信息
-     */
-    val deprecated: String? = null
+    val returnDescription: String? = null
 )
 
 // ============================================================================
@@ -127,17 +87,7 @@ data class CommentSuggestion(
     /**
      * 建议的元数据信息
      */
-    val metadata: SuggestionMetadata = SuggestionMetadata(),
-
-    /**
-     * 注释覆盖的方面（功能描述、参数说明、返回值等）
-     */
-    val coverageAspects: List<CommentAspect> = emptyList(),
-
-    /**
-     * 推理过程说明
-     */
-    val reasoning: String? = null
+    val metadata: SuggestionMetadata = SuggestionMetadata()
 ) {
     /**
      * 获取格式化后的完整注释文本
@@ -172,25 +122,6 @@ data class CommentSuggestion(
 
             structure.returnDescription?.let { returnDesc ->
                 appendLine(" * @return $returnDesc")
-            }
-
-            if (structure.exceptions.isNotEmpty()) {
-                appendLine(" *")
-                structure.exceptions.forEach { exception ->
-                    appendLine(" * @throws ${exception.type} ${exception.description}")
-                }
-            }
-
-            structure.seeAlso.forEach { reference ->
-                appendLine(" * @see $reference")
-            }
-
-            structure.since?.let { since ->
-                appendLine(" * @since $since")
-            }
-
-            structure.author?.let { author ->
-                appendLine(" * @author $author")
             }
 
             append(" */")

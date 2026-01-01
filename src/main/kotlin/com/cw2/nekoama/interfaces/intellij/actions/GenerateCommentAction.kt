@@ -32,6 +32,7 @@ import com.intellij.psi.*
 import com.intellij.psi.codeStyle.CodeStyleManager
 import com.intellij.psi.util.PsiTreeUtil
 import kotlinx.coroutines.runBlocking
+import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.*
 
 /**
@@ -245,10 +246,7 @@ internal class GenerateCommentAction : BaseAction() {
                     followingCode = emptyList(),
                     imports = emptyList(),
                     packageDeclaration = null,
-                    fileComments = emptyList(),
-                    siblingElements = emptyList(),
-                    namingPatterns = null,
-                    codeStyleAnalysis = null
+                    namingPatterns = null
                 )
 
                 when (element) {
@@ -355,16 +353,10 @@ internal class GenerateCommentAction : BaseAction() {
                                 surroundingContext = surroundingContext,
                                 className = element.name,
                                 superClass = null,
-                                interfaces = emptyList(),
-                                modifiers = emptyList(),
-                                annotations = emptyList(),
-                                fields = emptyList(),
-                                methods = emptyList(),
-                                innerClasses = emptyList(),
-                                isInterface = false,
-                                isAbstract = false,
-                                isEnum = false,
-                                packageName = surroundingContext.packageDeclaration ?: ""
+                                packageName = surroundingContext.packageDeclaration ?: "",
+                                isInterface = element.isInterface(),
+                                isAbstract = element.hasModifier(KtTokens.ABSTRACT_KEYWORD),
+                                isEnum = element.isEnum()
                             )
                         }
                     }
@@ -380,16 +372,10 @@ internal class GenerateCommentAction : BaseAction() {
                                 surroundingContext = surroundingContext,
                                 className = element.name,
                                 superClass = null,
-                                interfaces = emptyList(),
-                                modifiers = emptyList(),
-                                annotations = emptyList(),
-                                fields = emptyList(),
-                                methods = emptyList(),
-                                innerClasses = emptyList(),
+                                packageName = surroundingContext.packageDeclaration ?: "",
                                 isInterface = element.isInterface,
                                 isAbstract = element.hasModifierProperty(PsiModifier.ABSTRACT),
-                                isEnum = element.isEnum,
-                                packageName = surroundingContext.packageDeclaration ?: ""
+                                isEnum = element.isEnum
                             )
                         }
                     }

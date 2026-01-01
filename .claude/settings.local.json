@@ -33,7 +33,16 @@
       "Bash(git add:*)",
       "Bash(node:*)",
       "Bash(cat:*)",
-      "Bash(powershell -Command \"& { cd ''D:\\\\Coding\\\\neko-codebase\\\\cw_1Nekoama''; .\\\\gradlew.bat compileKotlin }\")"
+      "Bash(powershell -Command \"& { cd ''D:\\\\Coding\\\\neko-codebase\\\\cw_1Nekoama''; .\\\\gradlew.bat compileKotlin }\")",
+      "Bash(powershell -Command \"& { cd ''D:\\\\Coding\\\\neko-codebase\\\\cw_1Nekoama''; \\(Get-Content ''src/main/kotlin/com/cw2/nekoama/infrastructure/ai/client/openai/OpenAIResponseParser.kt''\\) | Where-Object { $_-notmatch ''reasoning = reasoning'' } | Set-Content ''src/main/kotlin/com/cw2/nekoama/infrastructure/ai/client/openai/OpenAIResponseParser.kt'' }\")",
+      "Bash(cd:*)",
+      "Bash(powershell -Command \"cd ''D:\\\\Coding\\\\neko-codebase\\\\cw_1Nekoama''; .\\\\gradlew.bat compileKotlin\")",
+      "Bash(powershell -Command \"cd ''D:\\\\Coding\\\\neko-codebase\\\\cw_1Nekoama''; .\\\\gradlew.bat compileKotlin 2>&1 | Select-String -Pattern ''error|failed|BUILD'' -CaseSensitive\")",
+      "Bash(powershell -Command \"cd ''D:\\\\Coding\\\\neko-codebase\\\\cw_1Nekoama''; .\\\\gradlew.bat build -x test 2>&1 | Select-String -Pattern ''error|BUILD|Task'' -CaseSensitive | Select-Object -Last 20\")",
+      "Bash(powershell -Command:*)",
+      "Bash(Select-Object -First 100)",
+      "Bash(Select-String -Pattern \"BUILD|error|FAILED\" -CaseSensitive)",
+      "Bash(Select-Object -Last 10)"
     ],
     "deny": [],
     "ask": []

@@ -8,9 +8,7 @@ import com.cw2.nekoama.shared.exception.NekoamaError
 import com.cw2.nekoama.domain.code_suggestion_gen.model.AnnotationMetadata
 import com.cw2.nekoama.domain.code_suggestion_gen.model.ClassContext
 import com.cw2.nekoama.domain.code_suggestion_gen.model.ClassMetadata
-import com.cw2.nekoama.domain.code_suggestion_gen.model.FieldMetadata
 import com.cw2.nekoama.domain.code_suggestion_gen.model.MethodContext
-import com.cw2.nekoama.domain.code_suggestion_gen.model.MethodMetadata
 import com.cw2.nekoama.domain.code_suggestion_gen.model.ParameterMetadata
 import com.cw2.nekoama.domain.code_suggestion_gen.model.ProgrammingLanguage
 import com.cw2.nekoama.domain.code_suggestion_gen.model.ProjectMetadata
@@ -20,11 +18,11 @@ import com.cw2.nekoama.domain.code_suggestion_gen.model.VariableContext
 import com.cw2.nekoama.domain.code_suggestion_gen.model.VariableScope
 
 /**
- * Java´úÂë·ÖÎöÆ÷
+ * Javaï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
  *
- * ×¨ÃÅ´¦ÀíJava´úÂëÔªËØµÄ·ÖÎö£¬°üÀ¨·½·¨¡¢Àà¡¢±äÁ¿µÈ¡£
+ * ×¨ï¿½Å´ï¿½ï¿½ï¿½Javaï¿½ï¿½ï¿½ï¿½Ôªï¿½ØµÄ·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½à¡¢ï¿½ï¿½ï¿½ï¿½ï¿½È¡ï¿½
  *
- * ÎªÁË×ñÑ­PSIÏß³ÌÔ¼ÊøºÍÈ·±£IDEÎÈ¶¨ÐÔ£¬ËùÓÐPSI·ÃÎÊ¶¼ÔÚReadActionÖÐ½øÐÐ¡£
+ * Îªï¿½ï¿½ï¿½ï¿½Ñ­PSIï¿½ß³ï¿½Ô¼ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½IDEï¿½È¶ï¿½ï¿½Ô£ï¿½ï¿½ï¿½ï¿½ï¿½PSIï¿½ï¿½ï¿½Ê¶ï¿½ï¿½ï¿½ReadActionï¿½Ð½ï¿½ï¿½Ð¡ï¿½
  */
 class JavaCodeAnalyzer(private val project: Project) {
 
@@ -35,20 +33,16 @@ class JavaCodeAnalyzer(private val project: Project) {
                     ParameterMetadata(
                         name = param.name ?: "",
                         type = TypeMetadata(
-                            typeName = param.type.presentableText,
-                            fullQualifiedName = param.type.canonicalText,
-                            isPrimitive = param.type is PsiPrimitiveType
+                            typeName = param.type.presentableText
                         ),
                         annotations = param.annotations.map {
-                            AnnotationMetadata(it.qualifiedName ?: "", it.qualifiedName)
+                            AnnotationMetadata(it.qualifiedName ?: "")
                         }
                     )
                 }
 
                 val returnType = TypeMetadata(
-                    typeName = method.returnType?.presentableText ?: "void",
-                    fullQualifiedName = method.returnType?.canonicalText ?: "void",
-                    isPrimitive = method.returnType is PsiPrimitiveType
+                    typeName = method.returnType?.presentableText ?: "void"
                 )
 
                 val modifiers = method.modifierList?.let { modifierList ->
@@ -68,19 +62,17 @@ class JavaCodeAnalyzer(private val project: Project) {
                     surroundingContext = SurroundingContext(
                         precedingCode = emptyList(),
                         followingCode = emptyList(),
-                        imports = emptyList(),
-                        fileComments = emptyList(),
-                        siblingElements = emptyList()
+                        imports = emptyList()
                     ),
                     methodName = method.name,
                     parameters = parameters,
                     returnType = returnType,
                     modifiers = modifiers,
                     annotations = method.annotations.map {
-                        AnnotationMetadata(it.qualifiedName ?: "", it.qualifiedName)
+                        AnnotationMetadata(it.qualifiedName ?: "")
                     },
                     exceptions = method.throwsList.referencedTypes.map {
-                        TypeMetadata(it.presentableText, it.canonicalText)
+                        TypeMetadata(it.presentableText)
                     },
                     methodBody = method.body?.text,
                     isConstructor = method.isConstructor,
@@ -90,7 +82,7 @@ class JavaCodeAnalyzer(private val project: Project) {
                 Result.success(methodContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("Java·½·¨·ÖÎöÊ§°Ü: ${e.message}"))
+            Result.error(NekoamaError.Unknown("Javaï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½: ${e.message}"))
         }
     }
     
@@ -99,65 +91,7 @@ class JavaCodeAnalyzer(private val project: Project) {
             ReadAction.compute<Result<ClassContext>, Throwable> {
                 val superClass = clazz.superClass?.let { superCls ->
                     TypeMetadata(
-                        typeName = superCls.name ?: "",
-                        fullQualifiedName = superCls.qualifiedName
-                    )
-                }
-
-                val interfaces = clazz.implementsList?.referencedTypes?.map { interfaceType ->
-                    TypeMetadata(
-                        typeName = interfaceType.presentableText,
-                        fullQualifiedName = interfaceType.canonicalText
-                    )
-                } ?: emptyList()
-
-                val modifiers = clazz.modifierList?.let { modifierList ->
-                    mutableListOf<String>().apply {
-                        if (modifierList.hasModifierProperty(PsiModifier.PUBLIC)) add("public")
-                        if (modifierList.hasModifierProperty(PsiModifier.PRIVATE)) add("private")
-                        if (modifierList.hasModifierProperty(PsiModifier.PROTECTED)) add("protected")
-                        if (modifierList.hasModifierProperty(PsiModifier.STATIC)) add("static")
-                        if (modifierList.hasModifierProperty(PsiModifier.FINAL)) add("final")
-                        if (modifierList.hasModifierProperty(PsiModifier.ABSTRACT)) add("abstract")
-                    }
-                } ?: emptyList()
-
-                val fields = clazz.fields.map { field ->
-                    FieldMetadata(
-                        name = field.name,
-                        type = TypeMetadata(
-                            typeName = field.type.presentableText,
-                            fullQualifiedName = field.type.canonicalText,
-                            isPrimitive = field.type is PsiPrimitiveType
-                        ),
-                        modifiers = field.modifierList?.let { modList ->
-                            mutableListOf<String>().apply {
-                                if (modList.hasModifierProperty(PsiModifier.PUBLIC)) add("public")
-                                if (modList.hasModifierProperty(PsiModifier.PRIVATE)) add("private")
-                                if (modList.hasModifierProperty(PsiModifier.PROTECTED)) add("protected")
-                                if (modList.hasModifierProperty(PsiModifier.STATIC)) add("static")
-                                if (modList.hasModifierProperty(PsiModifier.FINAL)) add("final")
-                            }
-                        } ?: emptyList()
-                    )
-                }
-
-                val methods = clazz.methods.map { method ->
-                    MethodMetadata(
-                        name = method.name,
-                        returnType = TypeMetadata(
-                            typeName = method.returnType?.presentableText ?: "void",
-                            fullQualifiedName = method.returnType?.canonicalText ?: "void"
-                        ),
-                        parameters = method.parameterList.parameters.map { param ->
-                            ParameterMetadata(
-                                name = param.name ?: "",
-                                type = TypeMetadata(
-                                    typeName = param.type.presentableText,
-                                    fullQualifiedName = param.type.canonicalText
-                                )
-                            )
-                        }
+                        typeName = superCls.name ?: ""
                     )
                 }
 
@@ -167,27 +101,10 @@ class JavaCodeAnalyzer(private val project: Project) {
                     surroundingContext = SurroundingContext(
                         precedingCode = emptyList(),
                         followingCode = emptyList(),
-                        imports = emptyList(),
-                        fileComments = emptyList(),
-                        siblingElements = emptyList()
+                        imports = emptyList()
                     ),
                     className = clazz.name,
                     superClass = superClass,
-                    interfaces = interfaces,
-                    modifiers = modifiers,
-                    annotations = clazz.annotations.map {
-                        AnnotationMetadata(it.qualifiedName ?: "", it.qualifiedName)
-                    },
-                    fields = fields,
-                    methods = methods,
-                    innerClasses = clazz.innerClasses.map { innerClass ->
-                        ClassMetadata(
-                            name = innerClass.name ?: "",
-                            fullQualifiedName = innerClass.qualifiedName,
-                            isInterface = innerClass.isInterface,
-                            isAbstract = innerClass.hasModifierProperty(PsiModifier.ABSTRACT)
-                        )
-                    },
                     isInterface = clazz.isInterface,
                     isAbstract = clazz.hasModifierProperty(PsiModifier.ABSTRACT),
                     isEnum = clazz.isEnum,
@@ -197,7 +114,7 @@ class JavaCodeAnalyzer(private val project: Project) {
                 Result.success(classContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("JavaÀà·ÖÎöÊ§°Ü: ${e.message}"))
+            Result.error(NekoamaError.Unknown("Javaï¿½ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½: ${e.message}"))
         }
     }
     
@@ -205,9 +122,7 @@ class JavaCodeAnalyzer(private val project: Project) {
         return try {
             ReadAction.compute<Result<VariableContext>, Throwable> {
                 val variableType = TypeMetadata(
-                    typeName = variable.type.presentableText,
-                    fullQualifiedName = variable.type.canonicalText,
-                    isPrimitive = variable.type is PsiPrimitiveType
+                    typeName = variable.type.presentableText
                 )
 
                 val modifiers = variable.modifierList?.let { modifierList ->
@@ -225,15 +140,13 @@ class JavaCodeAnalyzer(private val project: Project) {
                     surroundingContext = SurroundingContext(
                         precedingCode = emptyList(),
                         followingCode = emptyList(),
-                        imports = emptyList(),
-                        fileComments = emptyList(),
-                        siblingElements = emptyList()
+                        imports = emptyList()
                     ),
                     variableName = variable.name,
                     variableType = variableType,
                     modifiers = modifiers,
                     annotations = variable.annotations.map {
-                        AnnotationMetadata(it.qualifiedName ?: "", it.qualifiedName)
+                        AnnotationMetadata(it.qualifiedName ?: "")
                     },
                     initializer = variable.initializer?.text,
                     scope = when (variable) {
@@ -249,7 +162,7 @@ class JavaCodeAnalyzer(private val project: Project) {
                 Result.success(variableContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("Java±äÁ¿·ÖÎöÊ§°Ü: ${e.message}"))
+            Result.error(NekoamaError.Unknown("Javaï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½: ${e.message}"))
         }
     }
     
@@ -257,9 +170,7 @@ class JavaCodeAnalyzer(private val project: Project) {
         return try {
             ReadAction.compute<Result<VariableContext>, Throwable> {
                 val fieldType = TypeMetadata(
-                    typeName = field.type.presentableText,
-                    fullQualifiedName = field.type.canonicalText,
-                    isPrimitive = field.type is PsiPrimitiveType
+                    typeName = field.type.presentableText
                 )
 
                 val modifiers = field.modifierList?.let { modifierList ->
@@ -280,15 +191,13 @@ class JavaCodeAnalyzer(private val project: Project) {
                     surroundingContext = SurroundingContext(
                         precedingCode = emptyList(),
                         followingCode = emptyList(),
-                        imports = emptyList(),
-                        fileComments = emptyList(),
-                        siblingElements = emptyList()
+                        imports = emptyList()
                     ),
                     variableName = field.name,
                     variableType = fieldType,
                     modifiers = modifiers,
                     annotations = field.annotations.map {
-                        AnnotationMetadata(it.qualifiedName ?: "", it.qualifiedName)
+                        AnnotationMetadata(it.qualifiedName ?: "")
                     },
                     initializer = field.initializer?.text,
                     scope = if (field.hasModifierProperty(PsiModifier.STATIC)) VariableScope.STATIC_FIELD else VariableScope.FIELD,
@@ -296,10 +205,7 @@ class JavaCodeAnalyzer(private val project: Project) {
                     isStatic = field.hasModifierProperty(PsiModifier.STATIC),
                     containingClass = field.containingClass?.let { containingClass ->
                         ClassMetadata(
-                            name = containingClass.name ?: "",
-                            fullQualifiedName = containingClass.qualifiedName,
-                            isInterface = containingClass.isInterface,
-                            isAbstract = containingClass.hasModifierProperty(PsiModifier.ABSTRACT)
+                            name = containingClass.name ?: ""
                         )
                     }
                 )
@@ -307,7 +213,7 @@ class JavaCodeAnalyzer(private val project: Project) {
                 Result.success(variableContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("Java×Ö¶Î·ÖÎöÊ§°Ü: ${e.message}"))
+            Result.error(NekoamaError.Unknown("Javaï¿½Ö¶Î·ï¿½ï¿½ï¿½Ê§ï¿½ï¿½: ${e.message}"))
         }
     }
 }

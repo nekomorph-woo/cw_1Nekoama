@@ -5,7 +5,6 @@ import com.cw2.nekoama.shared.model.Result
 import com.cw2.nekoama.shared.exception.NekoamaError
 import com.cw2.nekoama.shared.logging.NekoamaLogger
 import com.cw2.nekoama.domain.code_suggestion_gen.model.ClassContext
-import com.cw2.nekoama.domain.code_suggestion_gen.model.CodeStyleAnalysis
 import com.cw2.nekoama.domain.code_suggestion_gen.model.MethodContext
 import com.cw2.nekoama.domain.code_suggestion_gen.model.NamingConvention
 import com.cw2.nekoama.domain.code_suggestion_gen.model.NamingPatternAnalysis
@@ -22,44 +21,44 @@ import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtParameter
 
 /**
- * ´úÂë·ÖÎöÆ÷½Ó¿Ú
+ * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¿ï¿½
  * 
- * ¶¨ÒåÁË´úÂëÔªËØ·ÖÎöµÄºËĞÄ½Ó¿Ú£¬Ö§³Ö·½·¨¡¢Àà¡¢±äÁ¿µÄÉî¶È·ÖÎö¡£
- * ÊµÏÖÁË°²È«µÄ PSI ²Ù×÷ºÍ¶àÓïÑÔÖ§³Ö¡£
+ * ï¿½ï¿½ï¿½ï¿½ï¿½Ë´ï¿½ï¿½ï¿½Ôªï¿½Ø·ï¿½ï¿½ï¿½ï¿½Äºï¿½ï¿½Ä½Ó¿Ú£ï¿½Ö§ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½à¡¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½ï¿½ï¿½ï¿½
+ * Êµï¿½ï¿½ï¿½Ë°ï¿½È«ï¿½ï¿½ PSI ï¿½ï¿½ï¿½ï¿½ï¿½Í¶ï¿½ï¿½ï¿½ï¿½ï¿½Ö§ï¿½Ö¡ï¿½
  */
 interface CodeAnalyzer {
     
     /**
-     * ·ÖÎö·½·¨ĞÅÏ¢
+     * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
      */
     fun analyzeMethod(method: PsiElement): Result<MethodContext>
     
     /**
-     * ·ÖÎöÀàĞÅÏ¢
+     * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
      */
     fun analyzeClass(clazz: PsiElement): Result<ClassContext>
     
     /**
-     * ·ÖÎö±äÁ¿ĞÅÏ¢
+     * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
      */
     fun analyzeVariable(variable: PsiElement): Result<VariableContext>
     
     /**
-     * ÌáÈ¡ÖÜÎ§ÉÏÏÂÎÄ
+     * ï¿½ï¿½È¡ï¿½ï¿½Î§ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
      */
     fun extractSurroundingContext(element: PsiElement, radius: Int = 5): Result<SurroundingContext>
     
     /**
-     * ¼ì²â±à³ÌÓïÑÔ
+     * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
      */
     fun detectLanguage(element: PsiElement): ProgrammingLanguage
 }
 
 /**
- * Í¨ÓÃ´úÂë·ÖÎöÆ÷ÊµÏÖ
+ * Í¨ï¿½Ã´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½
  * 
- * Ìá¹©ÁË¶Ô Java ºÍ Kotlin ´úÂëµÄÍ³Ò»·ÖÎö¹¦ÄÜ£¬
- * °üº¬ÏêÏ¸µÄ´íÎó´¦ÀíºÍÈÕÖ¾¼ÇÂ¼¡£
+ * ï¿½á¹©ï¿½Ë¶ï¿½ Java ï¿½ï¿½ Kotlin ï¿½ï¿½ï¿½ï¿½ï¿½Í³Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ü£ï¿½
+ * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¸ï¿½Ä´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾ï¿½ï¿½Â¼ï¿½ï¿½
  */
 class UniversalCodeAnalyzer(
     private val project: Project
@@ -77,23 +76,23 @@ class UniversalCodeAnalyzer(
                     if (method is PsiMethod) {
                         javaAnalyzer.analyzeJavaMethod(method)
                     } else {
-                        Result.error(NekoamaError.PlatformError.EditorUnavailable("ÔªËØ²»ÊÇÓĞĞ§µÄ Java ·½·¨"))
+                        Result.error(NekoamaError.PlatformError.EditorUnavailable("Ôªï¿½Ø²ï¿½ï¿½ï¿½ï¿½ï¿½Ğ§ï¿½ï¿½ Java ï¿½ï¿½ï¿½ï¿½"))
                     }
                 }
                 ProgrammingLanguage.KOTLIN -> {
                     if (method is KtFunction) {
                         kotlinAnalyzer.analyzeKotlinFunction(method)
                     } else {
-                        Result.error(NekoamaError.PlatformError.EditorUnavailable("ÔªËØ²»ÊÇÓĞĞ§µÄ Kotlin º¯Êı"))
+                        Result.error(NekoamaError.PlatformError.EditorUnavailable("Ôªï¿½Ø²ï¿½ï¿½ï¿½ï¿½ï¿½Ğ§ï¿½ï¿½ Kotlin ï¿½ï¿½ï¿½ï¿½"))
                     }
                 }
                 else -> {
-                    Result.error(NekoamaError.PlatformError.EditorUnavailable("²»Ö§³ÖµÄÓïÑÔÀàĞÍ: $language"))
+                    Result.error(NekoamaError.PlatformError.EditorUnavailable("ï¿½ï¿½Ö§ï¿½Öµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: $language"))
                 }
             }
         } catch (e: Exception) {
-            NekoamaLogger.logError("analyzeMethod", NekoamaError.Unknown("·½·¨·ÖÎöÊ§°Ü: ${e.message}"))
-            Result.error(NekoamaError.Unknown("·½·¨·ÖÎöÊ§°Ü: ${e.message}"))
+            NekoamaLogger.logError("analyzeMethod", NekoamaError.Unknown("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½: ${e.message}"))
+            Result.error(NekoamaError.Unknown("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½: ${e.message}"))
         }
     }
     
@@ -106,23 +105,23 @@ class UniversalCodeAnalyzer(
                     if (clazz is PsiClass) {
                         javaAnalyzer.analyzeJavaClass(clazz)
                     } else {
-                        Result.error(NekoamaError.PlatformError.EditorUnavailable("ÔªËØ²»ÊÇÓĞĞ§µÄ Java Àà"))
+                        Result.error(NekoamaError.PlatformError.EditorUnavailable("Ôªï¿½Ø²ï¿½ï¿½ï¿½ï¿½ï¿½Ğ§ï¿½ï¿½ Java ï¿½ï¿½"))
                     }
                 }
                 ProgrammingLanguage.KOTLIN -> {
                     if (clazz is KtClass) {
                         kotlinAnalyzer.analyzeKotlinClass(clazz)
                     } else {
-                        Result.error(NekoamaError.PlatformError.EditorUnavailable("ÔªËØ²»ÊÇÓĞĞ§µÄ Kotlin Àà"))
+                        Result.error(NekoamaError.PlatformError.EditorUnavailable("Ôªï¿½Ø²ï¿½ï¿½ï¿½ï¿½ï¿½Ğ§ï¿½ï¿½ Kotlin ï¿½ï¿½"))
                     }
                 }
                 else -> {
-                    Result.error(NekoamaError.PlatformError.EditorUnavailable("²»Ö§³ÖµÄÓïÑÔÀàĞÍ: $language"))
+                    Result.error(NekoamaError.PlatformError.EditorUnavailable("ï¿½ï¿½Ö§ï¿½Öµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: $language"))
                 }
             }
         } catch (e: Exception) {
-            NekoamaLogger.logError("analyzeClass", NekoamaError.Unknown("Àà·ÖÎöÊ§°Ü: ${e.message}"))
-            Result.error(NekoamaError.Unknown("Àà·ÖÎöÊ§°Ü: ${e.message}"))
+            NekoamaLogger.logError("analyzeClass", NekoamaError.Unknown("ï¿½ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½: ${e.message}"))
+            Result.error(NekoamaError.Unknown("ï¿½ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½: ${e.message}"))
         }
     }
     
@@ -135,23 +134,23 @@ class UniversalCodeAnalyzer(
                     when (variable) {
                         is PsiVariable -> javaAnalyzer.analyzeJavaVariable(variable)
                         is PsiField -> javaAnalyzer.analyzeJavaField(variable)
-                        else -> Result.error(NekoamaError.PlatformError.EditorUnavailable("ÔªËØ²»ÊÇÓĞĞ§µÄ Java ±äÁ¿"))
+                        else -> Result.error(NekoamaError.PlatformError.EditorUnavailable("Ôªï¿½Ø²ï¿½ï¿½ï¿½ï¿½ï¿½Ğ§ï¿½ï¿½ Java ï¿½ï¿½ï¿½ï¿½"))
                     }
                 }
                 ProgrammingLanguage.KOTLIN -> {
                     when (variable) {
                         is KtProperty -> kotlinAnalyzer.analyzeKotlinProperty(variable)
                         is KtParameter -> kotlinAnalyzer.analyzeKotlinParameter(variable)
-                        else -> Result.error(NekoamaError.PlatformError.EditorUnavailable("ÔªËØ²»ÊÇÓĞĞ§µÄ Kotlin ±äÁ¿"))
+                        else -> Result.error(NekoamaError.PlatformError.EditorUnavailable("Ôªï¿½Ø²ï¿½ï¿½ï¿½ï¿½ï¿½Ğ§ï¿½ï¿½ Kotlin ï¿½ï¿½ï¿½ï¿½"))
                     }
                 }
                 else -> {
-                    Result.error(NekoamaError.PlatformError.EditorUnavailable("²»Ö§³ÖµÄÓïÑÔÀàĞÍ: $language"))
+                    Result.error(NekoamaError.PlatformError.EditorUnavailable("ï¿½ï¿½Ö§ï¿½Öµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: $language"))
                 }
             }
         } catch (e: Exception) {
-            NekoamaLogger.logError("analyzeVariable", NekoamaError.Unknown("±äÁ¿·ÖÎöÊ§°Ü: ${e.message}"))
-            Result.error(NekoamaError.Unknown("±äÁ¿·ÖÎöÊ§°Ü: ${e.message}"))
+            NekoamaLogger.logError("analyzeVariable", NekoamaError.Unknown("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½: ${e.message}"))
+            Result.error(NekoamaError.Unknown("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½: ${e.message}"))
         }
     }
     
@@ -159,7 +158,7 @@ class UniversalCodeAnalyzer(
         return try {
             val containingFile = element.containingFile
             val document = PsiDocumentManager.getInstance(project).getDocument(containingFile)
-                ?: return Result.error(NekoamaError.PlatformError.EditorUnavailable("ÎŞ·¨»ñÈ¡ÎÄµµ"))
+                ?: return Result.error(NekoamaError.PlatformError.EditorUnavailable("ï¿½Ş·ï¿½ï¿½ï¿½È¡ï¿½Äµï¿½"))
             
             val elementStartOffset = element.textRange.startOffset
             val elementEndOffset = element.textRange.endOffset
@@ -167,7 +166,7 @@ class UniversalCodeAnalyzer(
             val startLine = document.getLineNumber(elementStartOffset)
             val endLine = document.getLineNumber(elementEndOffset)
             
-            // ÌáÈ¡Ç°ÖÃ´úÂë
+            // ï¿½ï¿½È¡Ç°ï¿½Ã´ï¿½ï¿½ï¿½
             val precedingLines = mutableListOf<String>()
             for (i in maxOf(0, startLine - radius) until startLine) {
                 val lineStartOffset = document.getLineStartOffset(i)
@@ -175,7 +174,7 @@ class UniversalCodeAnalyzer(
                 precedingLines.add(document.getText().substring(lineStartOffset, lineEndOffset).trim())
             }
             
-            // ÌáÈ¡ºóĞø´úÂë
+            // ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             val followingLines = mutableListOf<String>()
             val totalLines = document.lineCount
             for (i in (endLine + 1)..minOf(totalLines - 1, endLine + radius)) {
@@ -184,37 +183,28 @@ class UniversalCodeAnalyzer(
                 followingLines.add(document.getText().substring(lineStartOffset, lineEndOffset).trim())
             }
             
-            // ÌáÈ¡µ¼ÈëÓï¾ä
+            // ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             val imports = extractImportStatements(containingFile)
             
-            // ÌáÈ¡°üÉùÃ÷
+            // è·å–åŒ…å
             val packageName = extractPackageDeclaration(containingFile)
-            
-            // ÌáÈ¡ÎÄ¼ş¼¶×¢ÊÍ
-            val fileComments = extractFileComments(containingFile)
-            
-            // ·ÖÎöÃüÃûÄ£Ê½
+
+            // åˆ†æå‘½åæ¨¡å¼
             val namingPatterns = analyzeNamingPatterns(containingFile)
-            
-            // ·ÖÎö´úÂë·ç¸ñ
-            val codeStyleAnalysis = analyzeCodeStyle(containingFile)
-            
+
             val surroundingContext = SurroundingContext(
                 precedingCode = precedingLines.filter { it.isNotBlank() },
                 followingCode = followingLines.filter { it.isNotBlank() },
                 imports = imports,
                 packageDeclaration = packageName,
-                fileComments = fileComments,
-                siblingElements = extractSiblingElements(element),
-                namingPatterns = namingPatterns,
-                codeStyleAnalysis = codeStyleAnalysis
+                namingPatterns = namingPatterns
             )
             
             Result.success(surroundingContext)
             
         } catch (e: Exception) {
-            NekoamaLogger.logError("extractSurroundingContext", NekoamaError.Unknown("ÉÏÏÂÎÄÌáÈ¡Ê§°Ü: ${e.message}"))
-            Result.error(NekoamaError.Unknown("ÉÏÏÂÎÄÌáÈ¡Ê§°Ü: ${e.message}"))
+            NekoamaLogger.logError("extractSurroundingContext", NekoamaError.Unknown("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡Ê§ï¿½ï¿½: ${e.message}"))
+            Result.error(NekoamaError.Unknown("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡Ê§ï¿½ï¿½: ${e.message}"))
         }
     }
     
@@ -236,7 +226,7 @@ class UniversalCodeAnalyzer(
     }
     
     /**
-     * ÌáÈ¡µ¼ÈëÓï¾ä
+     * ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
      */
     private fun extractImportStatements(file: PsiFile): List<String> {
         val imports = mutableListOf<String>()
@@ -265,7 +255,7 @@ class UniversalCodeAnalyzer(
     }
     
     /**
-     * ÌáÈ¡°üÉùÃ÷
+     * ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
      */
     private fun extractPackageDeclaration(file: PsiFile): String? {
         return when (file) {
@@ -276,56 +266,12 @@ class UniversalCodeAnalyzer(
     }
     
     /**
-     * ÌáÈ¡ÎÄ¼ş¼¶×¢ÊÍ
-     */
-    private fun extractFileComments(file: PsiFile): List<String> {
-        val comments = mutableListOf<String>()
-        
-        // ²éÕÒÎÄ¼ş¿ªÍ·µÄ×¢ÊÍ
-        var element: PsiElement? = file.firstChild
-        while (element != null && element is PsiComment) {
-            comments.add(element.text.trim())
-            element = element.nextSibling
-        }
-        
-        return comments
-    }
-    
-    /**
-     * ÌáÈ¡ĞÖµÜÔªËØ
-     */
-    private fun extractSiblingElements(element: PsiElement): List<String> {
-        val siblings = mutableListOf<String>()
-        val parent = element.parent
-        
-        if (parent != null) {
-            parent.children.forEach { child ->
-                if (child != element && child.javaClass == element.javaClass) {
-                    // »ñÈ¡ÔªËØµÄ¼ò»¯±íÊ¾
-                    val representation = when (child) {
-                        is PsiMethod -> "${child.name}(${child.parameterList.parameters.joinToString { it.type.presentableText }})"
-                        is PsiField -> "${child.name}: ${child.type.presentableText}"
-                        is KtFunction -> "${child.name}(${child.valueParameters.joinToString { "${it.name}: ${it.typeReference?.text}" }})"
-                        is KtProperty -> "${child.name}: ${child.typeReference?.text}"
-                        else -> child.text.take(50) // ÏŞÖÆ³¤¶È
-                    }
-                    siblings.add(representation)
-                }
-            }
-        }
-        
-        return siblings
-    }
-    
-    /**
-     * ·ÖÎöÃüÃûÄ£Ê½
+     * åˆ†æå‘½åæ¨¡å¼
      */
     private fun analyzeNamingPatterns(file: PsiFile): NamingPatternAnalysis {
         val names = mutableListOf<String>()
-        val prefixes = mutableMapOf<String, Int>()
-        val suffixes = mutableMapOf<String, Int>()
-        
-        // ÊÕ¼¯ÎÄ¼şÖĞµÄ±êÊ¶·û
+
+        // æ”¶é›†æ–‡ä»¶ä¸­çš„æ ‡è¯†ç¬¦
         file.accept(object : PsiRecursiveElementVisitor() {
             override fun visitElement(element: PsiElement) {
                 when (element) {
@@ -340,7 +286,7 @@ class UniversalCodeAnalyzer(
             }
         })
         
-        // ·ÖÎöÃüÃûÔ¼¶¨
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½
         val camelCaseCount = names.count { name -> name.matches(Regex("[a-z][a-zA-Z0-9]*")) }
         val pascalCaseCount = names.count { name -> name.matches(Regex("[A-Z][a-zA-Z0-9]*")) }
         val snakeCaseCount = names.count { name -> name.contains("_") }
@@ -351,90 +297,14 @@ class UniversalCodeAnalyzer(
             camelCaseCount > 0 -> NamingConvention.CAMEL_CASE
             else -> NamingConvention.MIXED
         }
-        
-        // ·ÖÎöÇ°×ººÍºó×º
-        names.forEach { name ->
-            if (name.length > 3) {
-                val prefix = name.take(3)
-                val suffix = name.takeLast(3)
-                prefixes[prefix] = prefixes.getOrDefault(prefix, 0) + 1
-                suffixes[suffix] = suffixes.getOrDefault(suffix, 0) + 1
-            }
-        }
-        
+
         return NamingPatternAnalysis(
-            conventionType = convention,
-            commonPrefixes = prefixes.filter { it.value > 1 }.keys.toList(),
-            commonSuffixes = suffixes.filter { it.value > 1 }.keys.toList()
+            conventionType = convention
         )
     }
-    
+
     /**
-     * ·ÖÎö´úÂë·ç¸ñ
-     */
-    private fun analyzeCodeStyle(file: PsiFile): CodeStyleAnalysis {
-        val document = PsiDocumentManager.getInstance(project).getDocument(file)
-        val text = document?.text ?: file.text
-        
-        // ·ÖÎöËõ½ø
-        val lines = text.lines()
-        val indentedLines = lines.filter { it.startsWith(" ") || it.startsWith("\t") }
-        val spaceIndents = indentedLines.count { it.startsWith(" ") }
-        val tabIndents = indentedLines.count { it.startsWith("\t") }
-        
-        val indentationType = if (spaceIndents > tabIndents) "spaces" else "tabs"
-        
-        // ·ÖÎöËõ½ø´óĞ¡£¨»ùÓÚ¿Õ¸ñ£©
-        val spaceIndentSizes = indentedLines
-            .filter { it.startsWith(" ") }
-            .map { line -> line.takeWhile { it == ' ' }.length }
-            .filter { it > 0 }
-            .groupBy { it }
-        
-        val indentationSize = spaceIndentSizes.maxByOrNull { it.value.size }?.key ?: 4
-        
-        // ·ÖÎöÆ½¾ùĞĞ³¤¶È
-        val averageLineLength = lines.filter { it.isNotBlank() }.map { it.length }.average().toInt()
-        
-        return CodeStyleAnalysis(
-            indentationType = indentationType,
-            indentationSize = indentationSize,
-            bracketStyle = "same_line", // Ä¬ÈÏÖµ£¬¿ÉÒÔ½øÒ»²½·ÖÎö
-            commentStyle = detectCommentStyle(file),
-            lineLength = averageLineLength,
-            useBraces = text.contains("{") && text.contains("}")
-        )
-    }
-    
-    /**
-     * ¼ì²â×¢ÊÍ·ç¸ñ
-     */
-    private fun detectCommentStyle(file: PsiFile): String {
-        return when (detectLanguage(file)) {
-            ProgrammingLanguage.JAVA, ProgrammingLanguage.KOTLIN -> "javadoc"
-            ProgrammingLanguage.JAVASCRIPT, ProgrammingLanguage.TYPESCRIPT -> "jsdoc"
-            else -> "line"
-        }
-    }
-    
-    /**
-     * ÌáÈ¡ÁìÓòÊõÓï
-     */
-    private fun extractDomainTerms(names: List<String>): List<String> {
-        val commonTerms = setOf(
-            "service", "manager", "handler", "controller", "repository", "dao",
-            "util", "helper", "factory", "builder", "config", "settings"
-        )
-        
-        return names.flatMap { name ->
-            commonTerms.filter { term ->
-                name.lowercase().contains(term)
-            }
-        }.distinct()
-    }
-    
-    /**
-     * »ñÈ¡ÏîÄ¿ĞÅÏ¢
+     * è·å–é¡¹ç›®ä¿¡æ¯
      */
     fun getProjectInfo(): ProjectMetadata {
         return ProjectMetadata(
@@ -443,7 +313,7 @@ class UniversalCodeAnalyzer(
     }
     
     private fun detectProjectType(): String? {
-        // »ùÓÚÎÄ¼ş½á¹¹¼ì²âÏîÄ¿ÀàĞÍ
+        // ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½á¹¹ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½
         val baseDir = project.baseDir
         return when {
             baseDir?.findChild("pom.xml") != null -> "Maven"
@@ -453,21 +323,21 @@ class UniversalCodeAnalyzer(
     }
     
     private fun detectFramework(): String? {
-        // ¿ÉÒÔÍ¨¹ıÒÀÀµ»ò×¢½â¼ì²â¿ò¼Ü
-        return null // ¼ò»¯ÊµÏÖ
+        // ï¿½ï¿½ï¿½ï¿½Í¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+        return null // ï¿½ï¿½Êµï¿½ï¿½
     }
     
     private fun detectBuildTool(): String? {
-        return detectProjectType() // ¼ò»¯ÊµÏÖ
+        return detectProjectType() // ï¿½ï¿½Êµï¿½ï¿½
     }
     
     private fun detectJavaVersion(): String? {
-        // ¿ÉÒÔÍ¨¹ıÄ£¿éÉèÖÃ¼ì²âJava°æ±¾
-        return null // ¼ò»¯ÊµÏÖ
+        // ï¿½ï¿½ï¿½ï¿½Í¨ï¿½ï¿½Ä£ï¿½ï¿½ï¿½ï¿½ï¿½Ã¼ï¿½ï¿½Javaï¿½æ±¾
+        return null // ï¿½ï¿½Êµï¿½ï¿½
     }
     
     private fun detectKotlinVersion(): String? {
-        // ¿ÉÒÔÍ¨¹ıKotlin²å¼ş¼ì²â°æ±¾
-        return null // ¼ò»¯ÊµÏÖ
+        // ï¿½ï¿½ï¿½ï¿½Í¨ï¿½ï¿½Kotlinï¿½ï¿½ï¿½ï¿½ï¿½ï¿½æ±¾
+        return null // ï¿½ï¿½Êµï¿½ï¿½
     }
 }

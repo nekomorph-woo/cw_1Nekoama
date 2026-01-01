@@ -19,32 +19,7 @@ data class SuggestionMetadata(
     /**
      * 使用的AI模型
      */
-    val model: String? = null,
-
-    /**
-     * 生成耗时（毫秒）
-     */
-    val generationTimeMs: Long? = null,
-
-    /**
-     * 使用的Token数量
-     */
-    val tokenCount: Int? = null,
-
-    /**
-     * 提示模板版本
-     */
-    val promptVersion: String? = null,
-
-    /**
-     * 上下文哈希值（用于缓存）
-     */
-    val contextHash: String? = null,
-
-    /**
-     * 生成参数
-     */
-    val generationParams: Map<String, String> = emptyMap(),
+    val model: String? = null
 )
 
 // ============================================================================
@@ -96,22 +71,8 @@ data class NamingSuggestion(
     /**
      * 建议的元数据信息
      */
-    val metadata: SuggestionMetadata = SuggestionMetadata(),
-
-    /**
-     * 语义标签（如：business-logic, utility, data-access等）
-     */
-    val semanticTags: List<String> = emptyList(),
-
-    /**
-     * 推理过程说明（可选，用于调试和用户理解）
-     */
-    val reasoning: String? = null
+    val metadata: SuggestionMetadata = SuggestionMetadata()
 ) {
-    /**
-     * 获取显示格式：名称 - 描述
-     */
-    fun getDisplayText(): String = "$name - $description"
 
     /**
      * 检查是否适用于指定的代码元素类型
@@ -125,119 +86,5 @@ data class NamingSuggestion(
      */
     fun getQualityScore(): Double {
         return (score * 0.7 + confidence * 0.3).coerceIn(0.0, 1.0)
-    }
-}
-
-// ============================================================================
-// 建议排序器
-// ============================================================================
-
-/**
- * 建议排序器
- */
-object SuggestionSorter {
-
-    /**
-     * 按质量得分排序（默认）
-     */
-    fun sortByQuality(suggestions: List<NamingSuggestion>): List<NamingSuggestion> {
-        return suggestions.sortedByDescending { it.getQualityScore() }
-    }
-
-    /**
-     * 按评分排序
-     */
-    fun sortByScore(suggestions: List<NamingSuggestion>): List<NamingSuggestion> {
-        return suggestions.sortedByDescending { it.score }
-    }
-
-    /**
-     * 按置信度排序
-     */
-    fun sortByConfidence(suggestions: List<NamingSuggestion>): List<NamingSuggestion> {
-        return suggestions.sortedByDescending { it.confidence }
-    }
-
-    /**
-     * 按生成时间排序（最新优先）
-     */
-    fun sortByTime(suggestions: List<NamingSuggestion>): List<NamingSuggestion> {
-        return suggestions.sortedByDescending { it.generatedAt }
-    }
-
-    /**
-     * 自定义排序
-     */
-    fun sortBy(
-        suggestions: List<NamingSuggestion>,
-        comparator: Comparator<NamingSuggestion>
-    ): List<NamingSuggestion> {
-        return suggestions.sortedWith(comparator)
-    }
-}
-
-// ============================================================================
-// 建议过滤器
-// ============================================================================
-
-/**
- * 建议过滤器
- */
-object SuggestionFilter {
-
-    /**
-     * 按最小质量得分过滤
-     */
-    fun filterByMinQuality(
-        suggestions: List<NamingSuggestion>,
-        minQuality: Double
-    ): List<NamingSuggestion> {
-        return suggestions.filter { it.getQualityScore() >= minQuality }
-    }
-
-    /**
-     * 按代码元素类型过滤
-     */
-    fun filterByElementType(
-        suggestions: List<NamingSuggestion>,
-        elementType: CodeElementType
-    ): List<NamingSuggestion> {
-        return suggestions.filter { it.isApplicableFor(elementType) }
-    }
-
-    /**
-     * 按命名约定过滤
-     */
-    fun filterByNamingConvention(
-        suggestions: List<NamingSuggestion>,
-        convention: NamingConvention
-    ): List<NamingSuggestion> {
-        return suggestions.filter { it.namingConvention == convention }
-    }
-
-    /**
-     * 按语义标签过滤
-     */
-    fun filterBySemanticTags(
-        suggestions: List<NamingSuggestion>,
-        tags: List<String>
-    ): List<NamingSuggestion> {
-        return suggestions.filter { suggestion ->
-            tags.any { tag -> suggestion.semanticTags.contains(tag) }
-        }
-    }
-
-    /**
-     * 去除重复建议
-     */
-    fun removeDuplicates(suggestions: List<NamingSuggestion>): List<NamingSuggestion> {
-        return suggestions.distinctBy { it.name.lowercase() }
-    }
-
-    /**
-     * 限制结果数量
-     */
-    fun limitResults(suggestions: List<NamingSuggestion>, limit: Int): List<NamingSuggestion> {
-        return suggestions.take(limit)
     }
 }

@@ -29,9 +29,8 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.*
 import com.intellij.psi.util.PsiTreeUtil
 import kotlinx.coroutines.runBlocking
-import org.jetbrains.kotlin.psi.KtClass
-import org.jetbrains.kotlin.psi.KtFunction
-import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.psi.*
 
 /**
  * 生成命名建议的动作
@@ -193,10 +192,7 @@ internal class GenerateNamingAction : BaseAction() {
                     followingCode = emptyList(),
                     imports = emptyList(),
                     packageDeclaration = null,
-                    fileComments = emptyList(),
-                    siblingElements = emptyList(),
-                    namingPatterns = null,
-                    codeStyleAnalysis = null
+                    namingPatterns = null
                 )
 
                 // 优先级1：如果用户提供了自定义上下文模版，直接处理该元素对应的 Context
@@ -332,16 +328,10 @@ internal class GenerateNamingAction : BaseAction() {
                                 userIntent = customContext,
                                 className = cls.name,
                                 superClass = null,
-                                interfaces = emptyList(),
-                                modifiers = emptyList(),
-                                annotations = emptyList(),
-                                fields = emptyList(),
-                                methods = emptyList(),
-                                innerClasses = emptyList(),
-                                isInterface = false,
-                                isAbstract = false,
-                                isEnum = false,
-                                packageName = surroundingContext.packageDeclaration ?: ""
+                                packageName = surroundingContext.packageDeclaration ?: "",
+                                isInterface = cls.isInterface(),
+                                isAbstract = cls.hasModifier(KtTokens.ABSTRACT_KEYWORD),
+                                isEnum = cls.isEnum()
                             )
                         }
 
@@ -354,16 +344,10 @@ internal class GenerateNamingAction : BaseAction() {
                                 userIntent = customContext,
                                 className = cls.name,
                                 superClass = null,
-                                interfaces = emptyList(),
-                                modifiers = emptyList(),
-                                annotations = emptyList(),
-                                fields = emptyList(),
-                                methods = emptyList(),
-                                innerClasses = emptyList(),
+                                packageName = surroundingContext.packageDeclaration ?: "",
                                 isInterface = cls.isInterface,
                                 isAbstract = cls.hasModifierProperty(PsiModifier.ABSTRACT),
-                                isEnum = cls.isEnum,
-                                packageName = surroundingContext.packageDeclaration ?: ""
+                                isEnum = cls.isEnum
                             )
                         }
                         // 如果没有找到特定元素，则使用通用的命名建议
@@ -734,16 +718,10 @@ internal class GenerateNamingAction : BaseAction() {
                                     userIntent = customContext,
                                     className = cls.name,
                                     superClass = analyzeResult.getOrNull()?.superClass,
-                                    interfaces = analyzeResult.getOrNull()?.interfaces ?: emptyList(),
-                                    modifiers = analyzeResult.getOrNull()?.modifiers ?: emptyList(),
-                                    annotations = analyzeResult.getOrNull()?.annotations ?: emptyList(),
-                                    fields = analyzeResult.getOrNull()?.fields ?: emptyList(),
-                                    methods = analyzeResult.getOrNull()?.methods ?: emptyList(),
-                                    innerClasses = analyzeResult.getOrNull()?.innerClasses ?: emptyList(),
-                                    isInterface = false,
-                                    isAbstract = false,
-                                    isEnum = false,
-                                    packageName = surroundingContext.packageDeclaration ?: ""
+                                    packageName = surroundingContext.packageDeclaration ?: "",
+                                    isInterface = cls.isInterface(),
+                                    isAbstract = cls.hasModifier(KtTokens.ABSTRACT_KEYWORD),
+                                    isEnum = cls.isEnum()
                                 )
                             } else {
                                 analyzeResult.getOrNull() as? ClassContext
@@ -756,16 +734,10 @@ internal class GenerateNamingAction : BaseAction() {
                                 userIntent = customContext,
                                 className = cls.name,
                                 superClass = null,
-                                interfaces = emptyList(),
-                                modifiers = emptyList(),
-                                annotations = emptyList(),
-                                fields = emptyList(),
-                                methods = emptyList(),
-                                innerClasses = emptyList(),
-                                isInterface = false,
-                                isAbstract = false,
-                                isEnum = false,
-                                packageName = surroundingContext.packageDeclaration ?: ""
+                                packageName = surroundingContext.packageDeclaration ?: "",
+                                isInterface = cls.isInterface(),
+                                isAbstract = cls.hasModifier(KtTokens.ABSTRACT_KEYWORD),
+                                isEnum = cls.isEnum()
                             )
                         }
                     }
@@ -783,16 +755,10 @@ internal class GenerateNamingAction : BaseAction() {
                                     userIntent = customContext,
                                     className = cls.name,
                                     superClass = analyzeResult.getOrNull()?.superClass,
-                                    interfaces = analyzeResult.getOrNull()?.interfaces ?: emptyList(),
-                                    modifiers = analyzeResult.getOrNull()?.modifiers ?: emptyList(),
-                                    annotations = analyzeResult.getOrNull()?.annotations ?: emptyList(),
-                                    fields = analyzeResult.getOrNull()?.fields ?: emptyList(),
-                                    methods = analyzeResult.getOrNull()?.methods ?: emptyList(),
-                                    innerClasses = analyzeResult.getOrNull()?.innerClasses ?: emptyList(),
+                                    packageName = surroundingContext.packageDeclaration ?: "",
                                     isInterface = cls.isInterface,
                                     isAbstract = cls.hasModifierProperty(PsiModifier.ABSTRACT),
-                                    isEnum = cls.isEnum,
-                                    packageName = surroundingContext.packageDeclaration ?: ""
+                                    isEnum = cls.isEnum
                                 )
                             } else {
                                 analyzeResult.getOrNull() as? ClassContext
@@ -805,16 +771,10 @@ internal class GenerateNamingAction : BaseAction() {
                                 userIntent = customContext,
                                 className = cls.name,
                                 superClass = null,
-                                interfaces = emptyList(),
-                                modifiers = emptyList(),
-                                annotations = emptyList(),
-                                fields = emptyList(),
-                                methods = emptyList(),
-                                innerClasses = emptyList(),
+                                packageName = surroundingContext.packageDeclaration ?: "",
                                 isInterface = cls.isInterface,
                                 isAbstract = cls.hasModifierProperty(PsiModifier.ABSTRACT),
-                                isEnum = cls.isEnum,
-                                packageName = surroundingContext.packageDeclaration ?: ""
+                                isEnum = cls.isEnum
                             )
                         }
                     }

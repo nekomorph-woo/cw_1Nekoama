@@ -22,13 +22,13 @@ import com.cw2.nekoama.domain.code_suggestion_gen.model.VariableScope
 import org.jetbrains.kotlin.lexer.KtTokens
 
 /**
- * Kotlin´úÂë·ÖÎöÆ÷
+ * Kotlinï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
  * 
- * ×¨ÃÅ´¦ÀíKotlin´úÂëÔªËØµÄ·ÖÎö£¬°üÀ¨º¯Êý¡¢Àà¡¢ÊôÐÔµÈ¡£
+ * ×¨ï¿½Å´ï¿½ï¿½ï¿½Kotlinï¿½ï¿½ï¿½ï¿½Ôªï¿½ØµÄ·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½à¡¢ï¿½ï¿½ï¿½ÔµÈ¡ï¿½
  */
 class KotlinCodeAnalyzer(private val project: Project) {
     
-    // ËµÃ÷£ºÎªÁË¼æÈÝ Kotlin K2 Ä£Ê½Óë×ñÑ­ PSI Ïß³ÌÔ¼Êø£¬ËùÓÐ PSI ¶ÁÈ¡¾ù·ÅÈë ReadAction ÖÐÖ´ÐÐ
+    // Ëµï¿½ï¿½ï¿½ï¿½Îªï¿½Ë¼ï¿½ï¿½ï¿½ Kotlin K2 Ä£Ê½ï¿½ï¿½ï¿½ï¿½Ñ­ PSI ï¿½ß³ï¿½Ô¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ PSI ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ReadAction ï¿½ï¿½Ö´ï¿½ï¿½
     
     fun analyzeKotlinFunction(function: KtFunction): Result<MethodContext> {
         return try {
@@ -37,20 +37,16 @@ class KotlinCodeAnalyzer(private val project: Project) {
                     ParameterMetadata(
                         name = param.name ?: "",
                         type = TypeMetadata(
-                            typeName = param.typeReference?.text ?: "Any",
-                            fullQualifiedName = param.typeReference?.text ?: "Any"
+                            typeName = param.typeReference?.text ?: "Any"
                         ),
                         annotations = param.annotationEntries.map {
-                            AnnotationMetadata(it.shortName?.asString() ?: "", it.typeReference?.text)
-                        },
-                        hasDefaultValue = param.hasDefaultValue(),
-                        defaultValue = param.defaultValue?.text
+                            AnnotationMetadata(it.shortName?.asString() ?: "")
+                        }
                     )
                 }
 
                 val returnType = TypeMetadata(
-                    typeName = function.typeReference?.text ?: "Unit",
-                    fullQualifiedName = function.typeReference?.text ?: "Unit"
+                    typeName = function.typeReference?.text ?: "Unit"
                 )
 
                 val modifiers = mutableListOf<String>().apply {
@@ -72,16 +68,14 @@ class KotlinCodeAnalyzer(private val project: Project) {
                     surroundingContext = SurroundingContext(
                         precedingCode = emptyList(),
                         followingCode = emptyList(),
-                        imports = emptyList(),
-                        fileComments = emptyList(),
-                        siblingElements = emptyList()
+                        imports = emptyList()
                     ),
                     methodName = function.name,
                     parameters = parameters,
                     returnType = returnType,
                     modifiers = modifiers,
                     annotations = function.annotationEntries.map {
-                        AnnotationMetadata(it.shortName?.asString() ?: "", it.typeReference?.text)
+                        AnnotationMetadata(it.shortName?.asString() ?: "")
                     },
                     exceptions = emptyList(), // Kotlin doesn't have checked exceptions
                     methodBody = function.bodyExpression?.text ?: function.bodyBlockExpression?.text,
@@ -92,7 +86,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
                 Result.success(methodContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("Kotlinº¯Êý·ÖÎöÊ§°Ü: ${e.message}"))
+            Result.error(NekoamaError.Unknown("Kotlinï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½: ${e.message}"))
         }
     }
     
@@ -103,82 +97,9 @@ class KotlinCodeAnalyzer(private val project: Project) {
                     .filterIsInstance<KtSuperTypeCallEntry>()
                     .firstOrNull()?.let { superEntry ->
                         TypeMetadata(
-                            typeName = superEntry.typeReference?.text ?: "",
-                            fullQualifiedName = superEntry.typeReference?.text ?: ""
+                            typeName = superEntry.typeReference?.text ?: ""
                         )
                     }
-
-                val interfaces = clazz.superTypeListEntries
-                    .filterIsInstance<KtSuperTypeEntry>()
-                    .map { interfaceEntry ->
-                        TypeMetadata(
-                            typeName = interfaceEntry.typeReference?.text ?: "",
-                            fullQualifiedName = interfaceEntry.typeReference?.text ?: ""
-                        )
-                    }
-
-                val modifiers = mutableListOf<String>().apply {
-                    if (clazz.hasModifier(KtTokens.PUBLIC_KEYWORD)) add("public")
-                    if (clazz.hasModifier(KtTokens.PRIVATE_KEYWORD)) add("private")
-                    if (clazz.hasModifier(KtTokens.PROTECTED_KEYWORD)) add("protected")
-                    if (clazz.hasModifier(KtTokens.INTERNAL_KEYWORD)) add("internal")
-                    if (clazz.hasModifier(KtTokens.ABSTRACT_KEYWORD)) add("abstract")
-                    if (clazz.hasModifier(KtTokens.FINAL_KEYWORD)) add("final")
-                    if (clazz.hasModifier(KtTokens.OPEN_KEYWORD)) add("open")
-                    if (clazz.hasModifier(KtTokens.DATA_KEYWORD)) add("data")
-                    if (clazz.hasModifier(KtTokens.SEALED_KEYWORD)) add("sealed")
-                    if (clazz.hasModifier(KtTokens.INLINE_KEYWORD)) add("inline")
-                }
-
-                val properties = clazz.getProperties().map { property ->
-                    FieldMetadata(
-                        name = property.name ?: "",
-                        type = TypeMetadata(
-                            typeName = property.typeReference?.text ?: "Any",
-                            fullQualifiedName = property.typeReference?.text ?: "Any"
-                        ),
-                        modifiers = mutableListOf<String>().apply {
-                            if (property.hasModifier(KtTokens.PUBLIC_KEYWORD)) add("public")
-                            if (property.hasModifier(KtTokens.PRIVATE_KEYWORD)) add("private")
-                            if (property.hasModifier(KtTokens.PROTECTED_KEYWORD)) add("protected")
-                            if (property.hasModifier(KtTokens.INTERNAL_KEYWORD)) add("internal")
-                            if (property.isVar()) add("var") else add("val")
-                        },
-                        annotations = property.annotationEntries.map {
-                            AnnotationMetadata(it.shortName?.asString() ?: "", it.typeReference?.text)
-                        }
-                    )
-                }
-
-                val methods = clazz.declarations.filterIsInstance<KtFunction>().map { function ->
-                    MethodMetadata(
-                        name = function.name ?: "",
-                        returnType = TypeMetadata(
-                            typeName = function.typeReference?.text ?: "Unit",
-                            fullQualifiedName = function.typeReference?.text ?: "Unit"
-                        ),
-                        parameters = function.valueParameters.map { param ->
-                            ParameterMetadata(
-                                name = param.name ?: "",
-                                type = TypeMetadata(
-                                    typeName = param.typeReference?.text ?: "Any",
-                                    fullQualifiedName = param.typeReference?.text ?: "Any"
-                                )
-                            )
-                        },
-                        modifiers = mutableListOf<String>().apply {
-                            if (function.hasModifier(KtTokens.PUBLIC_KEYWORD)) add("public")
-                            if (function.hasModifier(KtTokens.PRIVATE_KEYWORD)) add("private")
-                            if (function.hasModifier(KtTokens.PROTECTED_KEYWORD)) add("protected")
-                            if (function.hasModifier(KtTokens.INTERNAL_KEYWORD)) add("internal")
-                            if (function.hasModifier(KtTokens.OVERRIDE_KEYWORD)) add("override")
-                            if (function.hasModifier(KtTokens.SUSPEND_KEYWORD)) add("suspend")
-                        },
-                        annotations = function.annotationEntries.map {
-                            AnnotationMetadata(it.shortName?.asString() ?: "", it.typeReference?.text)
-                        }
-                    )
-                }
 
                 val classContext = ClassContext(
                     language = ProgrammingLanguage.KOTLIN,
@@ -186,30 +107,10 @@ class KotlinCodeAnalyzer(private val project: Project) {
                     surroundingContext = SurroundingContext(
                         precedingCode = emptyList(),
                         followingCode = emptyList(),
-                        imports = emptyList(),
-                        fileComments = emptyList(),
-                        siblingElements = emptyList()
+                        imports = emptyList()
                     ),
                     className = clazz.name,
                     superClass = superClass,
-                    interfaces = interfaces,
-                    modifiers = modifiers,
-                    annotations = clazz.annotationEntries.map {
-                        AnnotationMetadata(it.shortName?.asString() ?: "", it.typeReference?.text)
-                    },
-                    fields = properties,
-                    methods = methods,
-                    innerClasses = clazz.declarations.filterIsInstance<KtClass>().map { innerClass ->
-                        ClassMetadata(
-                            name = innerClass.name ?: "",
-                            fullQualifiedName = innerClass.containingKtFile.packageDirective?.fqName?.let { packageName ->
-                                if (packageName.isRoot) innerClass.name else "${packageName.asString()}.${innerClass.name}"
-                            } ?: innerClass.name,
-                            isInterface = innerClass.isInterface(),
-                            isAbstract = innerClass.hasModifier(KtTokens.ABSTRACT_KEYWORD),
-                            isEnum = innerClass.isEnum()
-                        )
-                    },
                     isInterface = clazz.isInterface(),
                     isAbstract = clazz.hasModifier(KtTokens.ABSTRACT_KEYWORD),
                     isEnum = clazz.isEnum(),
@@ -219,7 +120,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
                 Result.success(classContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("KotlinÀà·ÖÎöÊ§°Ü: ${e.message}"))
+            Result.error(NekoamaError.Unknown("Kotlinï¿½ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½: ${e.message}"))
         }
     }
     
@@ -227,9 +128,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
         return try {
             ReadAction.compute<Result<VariableContext>, Throwable> {
                 val propertyType = TypeMetadata(
-                    typeName = property.typeReference?.text ?: "Any",
-                    fullQualifiedName = property.typeReference?.text ?: "Any",
-                    isNullable = property.typeReference?.text?.endsWith("?") == true
+                    typeName = property.typeReference?.text ?: "Any"
                 )
 
                 val modifiers = mutableListOf<String>().apply {
@@ -251,27 +150,20 @@ class KotlinCodeAnalyzer(private val project: Project) {
                     surroundingContext = SurroundingContext(
                         precedingCode = emptyList(),
                         followingCode = emptyList(),
-                        imports = emptyList(),
-                        fileComments = emptyList(),
-                        siblingElements = emptyList()
+                        imports = emptyList()
                     ),
                     variableName = property.name,
                     variableType = propertyType,
                     modifiers = modifiers,
                     annotations = property.annotationEntries.map {
-                        AnnotationMetadata(it.shortName?.asString() ?: "", it.typeReference?.text)
+                        AnnotationMetadata(it.shortName?.asString() ?: "")
                     },
                     scope = if (property.isTopLevel) VariableScope.GLOBAL else VariableScope.FIELD,
                     isConstant = property.hasModifier(KtTokens.CONST_KEYWORD) || !property.isVar(),
                     isStatic = property.isTopLevel,
                     containingClass = containingClass?.let { cls ->
                         ClassMetadata(
-                            name = cls.name ?: "",
-                            fullQualifiedName = cls.containingKtFile.packageDirective?.fqName?.let { packageName ->
-                                if (packageName.isRoot) cls.name else "${packageName.asString()}.${cls.name}"
-                            } ?: cls.name,
-                            isInterface = cls.isInterface(),
-                            isAbstract = cls.hasModifier(KtTokens.ABSTRACT_KEYWORD)
+                            name = cls.name ?: ""
                         )
                     }
                 )
@@ -279,7 +171,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
                 Result.success(variableContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("KotlinÊôÐÔ·ÖÎöÊ§°Ü: ${e.message}"))
+            Result.error(NekoamaError.Unknown("Kotlinï¿½ï¿½ï¿½Ô·ï¿½ï¿½ï¿½Ê§ï¿½ï¿½: ${e.message}"))
         }
     }
     
@@ -287,9 +179,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
         return try {
             ReadAction.compute<Result<VariableContext>, Throwable> {
                 val parameterType = TypeMetadata(
-                    typeName = parameter.typeReference?.text ?: "Any",
-                    fullQualifiedName = parameter.typeReference?.text ?: "Any",
-                    isNullable = parameter.typeReference?.text?.endsWith("?") == true
+                    typeName = parameter.typeReference?.text ?: "Any"
                 )
 
                 val modifiers = mutableListOf<String>().apply {
@@ -305,15 +195,13 @@ class KotlinCodeAnalyzer(private val project: Project) {
                     surroundingContext = SurroundingContext(
                         precedingCode = emptyList(),
                         followingCode = emptyList(),
-                        imports = emptyList(),
-                        fileComments = emptyList(),
-                        siblingElements = emptyList()
+                        imports = emptyList()
                     ),
                     variableName = parameter.name,
                     variableType = parameterType,
                     modifiers = modifiers,
                     annotations = parameter.annotationEntries.map {
-                        AnnotationMetadata(it.shortName?.asString() ?: "", it.typeReference?.text)
+                        AnnotationMetadata(it.shortName?.asString() ?: "")
                     },
                     initializer = parameter.defaultValue?.text,
                     scope = VariableScope.PARAMETER,
@@ -323,8 +211,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
                         MethodMetadata(
                             name = function.name ?: "",
                             returnType = TypeMetadata(
-                                typeName = function.typeReference?.text ?: "Unit",
-                                fullQualifiedName = function.typeReference?.text ?: "Unit"
+                                typeName = function.typeReference?.text ?: "Unit"
                             )
                         )
                     }
@@ -333,7 +220,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
                 Result.success(variableContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("Kotlin²ÎÊý·ÖÎöÊ§°Ü: ${e.message}"))
+            Result.error(NekoamaError.Unknown("Kotlinï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½: ${e.message}"))
         }
     }
 }

@@ -154,12 +154,6 @@ IMPORTANT: Always use the same language as specified in the user's request for a
             // 命名模式分析
             context.surroundingContext.namingPatterns?.let { patterns ->
                 appendLine("\nProject naming conventions: ${patterns.conventionType}")
-                if (patterns.commonPrefixes.isNotEmpty()) {
-                    appendLine("  Common prefixes: ${patterns.commonPrefixes.joinToString(", ")}")
-                }
-                if (patterns.commonSuffixes.isNotEmpty()) {
-                    appendLine("  Common suffixes: ${patterns.commonSuffixes.joinToString(", ")}")
-                }
             }
         }
 
@@ -203,11 +197,6 @@ IMPORTANT: Always use the same language as specified in the user's request for a
                 context.surroundingContext.followingCode.take(2).forEach { line ->
                     appendLine("  $line")
                 }
-            }
-
-            // 注释风格偏好
-            context.surroundingContext.codeStyleAnalysis?.commentStyle?.let { style ->
-                appendLine("\nComment style: $style")
             }
         }
 
@@ -309,28 +298,14 @@ IMPORTANT: Always use the same language as specified in the user's request for a
             appendLine("  Superclass: ${superClass.typeName}")
         }
 
-        if (context.interfaces.isNotEmpty()) {
-            appendLine("  Implements: ${context.interfaces.map { it.typeName }.joinToString(", ")}")
-        }
-
-        if (context.modifiers.isNotEmpty()) {
-            appendLine("  Modifiers: ${context.modifiers.joinToString(", ")}")
-        }
-
         appendLine("  Package: ${context.packageName}")
 
-        if (context.fields.isNotEmpty()) {
-            appendLine("  Key fields:")
-            context.fields.take(5).forEach { field ->
-                appendLine("    ${field.name}: ${field.type.typeName}")
-            }
-        }
-
-        if (context.methods.isNotEmpty()) {
-            appendLine("  Key methods:")
-            context.methods.take(5).forEach { method ->
-                appendLine("    ${method.name}(): ${method.returnType.typeName}")
-            }
+        // 添加类类型信息
+        when {
+            context.isInterface -> appendLine("  Type: Interface")
+            context.isEnum -> appendLine("  Type: Enum")
+            context.isAbstract -> appendLine("  Type: Abstract class")
+            else -> appendLine("  Type: Class")
         }
     }
 
@@ -392,36 +367,24 @@ IMPORTANT: Always use the same language as specified in the user's request for a
      */
     private fun StringBuilder.appendClassContextForComment(context: ClassContext) {
         appendLine("\nClass definition:")
-        val modifiers = if (context.modifiers.isNotEmpty())
-            context.modifiers.joinToString(" ") + " " else ""
-        val type = when {
+        val name = context.className ?: "[To be named]"
+
+        // 根据类类型生成正确的声明
+        val classKeyword = when {
             context.isInterface -> "interface"
             context.isEnum -> "enum"
             context.isAbstract -> "abstract class"
             else -> "class"
         }
-        val name = context.className ?: "[To be named]"
 
-        appendLine("  $modifiers$type $name")
+        appendLine("  $classKeyword $name")
 
         context.superClass?.let { superClass ->
-            appendLine("    extends ${superClass.typeName}")
+            val keyword = if (context.isInterface) "extends" else "extends"
+            appendLine("    $keyword ${superClass.typeName}")
         }
 
-        if (context.interfaces.isNotEmpty()) {
-            appendLine("    implements ${context.interfaces.joinToString(", ") { it.typeName }}")
-        }
-
-        appendLine("\nClass structure overview:")
-        if (context.fields.isNotEmpty()) {
-            appendLine("  Field count: ${context.fields.size}")
-        }
-        if (context.methods.isNotEmpty()) {
-            appendLine("  Method count: ${context.methods.size}")
-        }
-        if (context.innerClasses.isNotEmpty()) {
-            appendLine("  Inner class count: ${context.innerClasses.size}")
-        }
+        appendLine("  Package: ${context.packageName}")
     }
 
     /**

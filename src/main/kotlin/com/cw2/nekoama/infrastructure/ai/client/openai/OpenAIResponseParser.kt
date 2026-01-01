@@ -7,7 +7,6 @@ import com.cw2.nekoama.domain.code_suggestion_gen.model.CommentFormat
 import com.cw2.nekoama.domain.code_suggestion_gen.model.CommentLanguage
 import com.cw2.nekoama.domain.code_suggestion_gen.model.CommentStructure
 import com.cw2.nekoama.domain.code_suggestion_gen.model.CommentSuggestion
-import com.cw2.nekoama.domain.code_suggestion_gen.model.ExceptionComment
 import com.cw2.nekoama.domain.code_suggestion_gen.model.NamingSuggestion
 import com.cw2.nekoama.domain.code_suggestion_gen.model.ParameterComment
 import com.cw2.nekoama.domain.code_suggestion_gen.model.SuggestionMetadata
@@ -62,14 +61,12 @@ object OpenAIResponseParser {
                 return Result.error(NekoamaError.ParseError.InvalidResponse("未能解析出有效的命名建议"))
             }
             
-            // 添加元数�?
+            // 添加元数据
             val enrichedSuggestions = suggestions.map { suggestion ->
                 suggestion.copy(
                     metadata = suggestion.metadata.copy(
                         source = "OpenAI",
-                        model = response.model,
-                        tokenCount = response.usage?.totalTokens,
-                        contextHash = generateContextHash(context)
+                        model = response.model
                     )
                 )
             }
@@ -113,12 +110,10 @@ object OpenAIResponseParser {
                 structure = structure,
                 score = 0.8, // 默认分数，可根据实际情况调整
                 confidence = 0.85,
-                language = CommentLanguage.CHINESE, // 根据实际需求调�?
+                language = CommentLanguage.CHINESE, // 根据实际需求调整
                 metadata = SuggestionMetadata(
                     source = "OpenAI",
-                    model = response.model,
-                    tokenCount = response.usage?.totalTokens,
-                    contextHash = generateContextHash(context)
+                    model = response.model
                 )
             )
             
@@ -180,8 +175,7 @@ object OpenAIResponseParser {
             ?: throw IllegalArgumentException("建议中缺�?description 字段")
         
         val score = jsonObject["score"]?.jsonPrimitive?.doubleOrNull ?: 0.8
-        val reasoning = jsonObject["reasoning"]?.jsonPrimitive?.content
-        
+
         return NamingSuggestion(
             name = name,
             description = description,
@@ -189,7 +183,6 @@ object OpenAIResponseParser {
             namingConvention = determineNamingConvention(name, context),
             applicableFor = listOf(context.elementType),
             confidence = score, // 使用 score 作为置信�?
-            reasoning = reasoning
         )
     }
     
@@ -246,8 +239,7 @@ object OpenAIResponseParser {
                 confidence = 0.75,
                 language = CommentLanguage.CHINESE,
                 metadata = SuggestionMetadata(
-                    source = "OpenAI",
-                    contextHash = generateContextHash(context)
+                    source = "OpenAI"
                 )
             )
             
@@ -269,26 +261,18 @@ object OpenAIResponseParser {
                 val description = paramObj["description"]?.jsonPrimitive?.content ?: return@mapNotNull null
                 ParameterComment(name = name, description = description)
             } ?: emptyList()
-            
+
             val returnDescription = jsonObject["returnDescription"]?.jsonPrimitive?.content
-            
-            val exceptions = jsonObject["exceptions"]?.jsonArray?.mapNotNull { exceptionJson ->
-                val exceptionObj = exceptionJson.jsonObject
-                val type = exceptionObj["type"]?.jsonPrimitive?.content ?: return@mapNotNull null
-                val description = exceptionObj["description"]?.jsonPrimitive?.content ?: return@mapNotNull null
-                ExceptionComment(type = type, description = description)
-            } ?: emptyList()
-            
-            if (parameters.isEmpty() && returnDescription == null && exceptions.isEmpty()) {
+
+            if (parameters.isEmpty() && returnDescription == null) {
                 return null
             }
 
             CommentStructure(
                 parameters = parameters,
-                returnDescription = returnDescription,
-                exceptions = exceptions
+                returnDescription = returnDescription
             )
-            
+
         } catch (e: Exception) {
             NekoamaLogger.warn("parseCommentStructure", "解析注释结构失败: ${e.message}")
             null
@@ -343,7 +327,6 @@ object OpenAIResponseParser {
                 is ClassContext -> {
                     append(context.className)
                     append(context.packageName)
-                    append(context.methods.size)
                 }
                 is VariableContext -> {
                     append(context.variableName)

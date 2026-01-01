@@ -34,24 +34,9 @@ data class SurroundingContext(
     val packageDeclaration: String? = null,
 
     /**
-     * 文件级注释
-     */
-    val fileComments: List<String>,
-
-    /**
-     * 相邻的同类型元素（如同一类中的其他方法）
-     */
-    val siblingElements: List<String>,
-
-    /**
      * 项目命名模式分析
      */
-    val namingPatterns: NamingPatternAnalysis? = null,
-
-    /**
-     * 代码风格分析
-     */
-    val codeStyleAnalysis: CodeStyleAnalysis? = null
+    val namingPatterns: NamingPatternAnalysis? = null
 )
 
 // ============================================================================
@@ -116,36 +101,6 @@ data class ClassContext(
      * 父类信息
      */
     val superClass: TypeMetadata? = null,
-
-    /**
-     * 实现的接口列表
-     */
-    val interfaces: List<TypeMetadata>,
-
-    /**
-     * 类修饰符
-     */
-    val modifiers: List<String>,
-
-    /**
-     * 类注解信息
-     */
-    val annotations: List<AnnotationMetadata>,
-
-    /**
-     * 类成员字段
-     */
-    val fields: List<FieldMetadata>,
-
-    /**
-     * 类方法列表
-     */
-    val methods: List<MethodMetadata>,
-
-    /**
-     * 内部类列表
-     */
-    val innerClasses: List<ClassMetadata>,
 
     /**
      * 是否为接口
