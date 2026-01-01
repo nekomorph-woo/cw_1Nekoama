@@ -8,7 +8,6 @@ import com.cw2.nekoama.infrastructure.network.config.ProxyType
 import com.cw2.nekoama.infrastructure.network.interceptor.HeadersInterceptor
 import com.cw2.nekoama.infrastructure.network.interceptor.LoggingInterceptor
 import com.cw2.nekoama.infrastructure.network.interceptor.RetryInterceptor
-import com.cw2.nekoama.infrastructure.network.interceptor.MonitoringInterceptor
 import com.cw2.nekoama.infrastructure.network.proxy.ProxyAuthenticatorFactory
 import com.cw2.nekoama.infrastructure.network.config.ProxyConfig
 import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomGeneratorConfig
@@ -35,22 +34,7 @@ class CustomAPIHttpClient(
     private val config: CustomGeneratorConfig
 ) : BaseHttpClient() {
 
-    private val monitoringInterceptor = MonitoringInterceptor()
     private val httpClient = createOkHttpClient()
-
-    /**
-     * 获取HTTP性能统计信息
-     */
-    fun getHttpStatistics(): MonitoringInterceptor.HttpStatistics {
-        return monitoringInterceptor.getStatistics()
-    }
-
-    /**
-     * 重置HTTP性能统计信息
-     */
-    fun resetHttpStatistics() {
-        monitoringInterceptor.resetStatistics()
-    }
 
     /**
      * 获取连接池信息
@@ -93,7 +77,6 @@ class CustomAPIHttpClient(
             hasAuthHeaders = config.getAuthHeaders().isNotEmpty(),
             supportsHttp2 = true,
             retryEnabled = true,
-            monitoringEnabled = true,
             loggingEnabled = true
         )
     }
@@ -118,7 +101,6 @@ class CustomAPIHttpClient(
         val hasAuthHeaders: Boolean,
         val supportsHttp2: Boolean,
         val retryEnabled: Boolean,
-        val monitoringEnabled: Boolean,
         val loggingEnabled: Boolean
     )
 
@@ -151,12 +133,11 @@ class CustomAPIHttpClient(
         configureProxy(builder)
 
         // 添加拦截器系统（按执行顺序排列）
-        builder.addInterceptor(monitoringInterceptor) // 最外层，监控所有请求
         builder.addInterceptor(RetryInterceptor()) // 重试拦截器
         builder.addInterceptor(LoggingInterceptor(LoggingInterceptor.LogLevel.BASIC)) // 基础日志
         builder.addInterceptor(HeadersInterceptor(config.getAuthHeaders())) // 请求头处理
 
-        NekoamaLogger.info("CustomAPIHttpClient", "OkHttp客户端配置完成（包含日志、监控、重试拦截器）")
+        NekoamaLogger.info("CustomAPIHttpClient", "OkHttp客户端配置完成（包含日志、重试拦截器）")
         return builder.build()
     }
 

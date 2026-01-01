@@ -1,7 +1,5 @@
 package com.cw2.nekoama.shared.logging
 
-import com.cw2.nekoama.domain.metrics.model.ActionType
-import com.cw2.nekoama.application.metrics.service.MetricsCollector
 import com.intellij.openapi.diagnostic.Logger
 import com.cw2.nekoama.shared.exception.NekoamaError
 import com.intellij.openapi.project.Project
@@ -191,89 +189,28 @@ object NekoamaLogger {
     }
 
     /**
-     * 记录AI调用（增强版，支持ActionType和完整上下文）
+     * 记录AI调用（简化版）
      */
-    fun logAICallWithActionType(
+    fun logAICall(
         provider: String,
         model: String,
         operation: String,
         success: Boolean,
         durationMs: Long,
-        actionType: String,
-        tokenCount: Int? = null,
-        error: NekoamaError? = null,
-        project: Project? = null,
-        fileName: String? = null
+        error: NekoamaError? = null
     ) {
         val context = mutableMapOf<String, Any?>(
             "provider" to provider,
             "model" to model,
             "duration" to "${durationMs}ms",
-            "success" to success,
-            "actionType" to actionType
+            "success" to success
         )
 
-        tokenCount?.let { context["tokens"] = it }
-        project?.let { context["project"] = it.name }
-        fileName?.let { context["fileName"] = it }
-
         if (success) {
-            info("AI_CALL", "AI 服务调用成功", context)
+            info("AI_CALL", "AI 服务调用成功: $operation", context)
             logPerformance("AI_CALL", durationMs, context)
-
-            // 记录完整的操作统计（包含Token使用、耗时、上下文信息）
-            tokenCount?.let { tokens ->
-                try {
-                    val actionTypeEnum = when (actionType) {
-                        "GENERATE_NAMING" -> ActionType.GENERATE_NAMING
-                        "GENERATE_COMMENT" -> ActionType.GENERATE_COMMENT
-                        "CUSTOM_GENERATE" -> ActionType.CUSTOM_GENERATE
-                        else -> ActionType.CUSTOM_GENERATE
-                    }
-
-                    // 记录完整的操作信息，而不仅仅是Token
-                    GlobalScope.launch {
-                        MetricsCollector.record(
-                            actionType = actionTypeEnum,
-                            success = success,
-                            latencyMs = durationMs,
-                            tokensUsed = tokens,
-                            errorMessage = null,
-                            project = project,
-                            fileName = fileName
-                        )
-                    }
-                } catch (e: Exception) {
-                    // 统计记录失败不应该影响主要功能
-                    System.err.println("Failed to record operation metrics: ${e.message}")
-                }
-            }
         } else {
             error?.let { logError("AI_CALL", it, context) }
-
-            // 失败情况下也要记录统计信息
-            try {
-                val actionTypeEnum = when (actionType) {
-                    "GENERATE_NAMING" -> ActionType.GENERATE_NAMING
-                    "GENERATE_COMMENT" -> ActionType.GENERATE_COMMENT
-                    "CUSTOM_GENERATE" -> ActionType.CUSTOM_GENERATE
-                    else -> ActionType.CUSTOM_GENERATE
-                }
-
-                GlobalScope.launch {
-                    MetricsCollector.record(
-                        actionType = actionTypeEnum,
-                        success = success,
-                        latencyMs = durationMs,
-                        tokensUsed = tokenCount ?: 0,
-                        errorMessage = error?.message,
-                        project = project,
-                        fileName = fileName
-                    )
-                }
-            } catch (e: Exception) {
-                System.err.println("Failed to record error metrics: ${e.message}")
-            }
         }
     }
 

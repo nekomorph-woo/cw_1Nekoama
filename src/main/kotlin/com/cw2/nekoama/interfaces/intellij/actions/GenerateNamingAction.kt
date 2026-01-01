@@ -6,7 +6,6 @@ import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomGen
 import com.cw2.nekoama.shared.logging.NekoamaLogger
 import com.cw2.nekoama.domain.settings.service.NekoamaSecureStorage
 import com.cw2.nekoama.domain.settings.model.NekoamaSettings
-import com.cw2.nekoama.domain.metrics.model.ActionType
 import com.cw2.nekoama.domain.code_suggestion_gen.service.code_analysis.UniversalCodeAnalyzer
 import com.cw2.nekoama.shared.i18n.NekoamaBundle
 import com.cw2.nekoama.shared.util.NekoamaNotifier
@@ -43,16 +42,16 @@ import org.jetbrains.kotlin.psi.*
  */
 internal class GenerateNamingAction : BaseAction() {
 
-    override fun perform(project: Project, editor: Editor?, e: AnActionEvent): Int {
+    override fun perform(project: Project, editor: Editor?, e: AnActionEvent) {
         val psiFile = e.getData(CommonDataKeys.PSI_FILE) ?: run {
             NekoamaNotifier.warn(NekoamaBundle.message("action.naming.noPsiFile"))
-            return 0
+            return
         }
         // 优先获取使用光标位置的 PSI 元素（避免右键点击触发时，菜单中可能包含的 PSI 元素，而是右键位置）
         val element = elementAtCaret(editor!!, psiFile) ?: e.getData(CommonDataKeys.PSI_ELEMENT)
         if (element == null) {
             NekoamaNotifier.warn(NekoamaBundle.message("action.naming.noElement"))
-            return 0
+            return
         }
 
         // 在EDT线程预先获取选中的文本，避免后台线程直接访问 UI
@@ -117,8 +116,9 @@ internal class GenerateNamingAction : BaseAction() {
                 }
             }
         })
-        return 0 // TODO: 需要从 AI 响应中获取实际 Token 消耗
     }
+
+    override fun requiresEditor(): Boolean = true
 
     private fun elementAtCaret(editor: Editor?, psiFile: PsiFile): PsiElement? {
         val offset = editor!!.caretModel.offset
@@ -787,8 +787,4 @@ internal class GenerateNamingAction : BaseAction() {
             null
         }
     }
-
-    override fun getActionType(): ActionType = ActionType.GENERATE_NAMING
-
-    override fun requiresEditor(): Boolean = true
 }

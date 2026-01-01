@@ -4,7 +4,6 @@ import com.cw2.nekoama.domain.code_suggestion_gen.model.CodeSuggestionGenerator
 import com.cw2.nekoama.infrastructure.code_suggestion_gen.client.openai.OpenAIGenerator
 import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomGeneratorConfig
 import com.cw2.nekoama.shared.logging.NekoamaLogger
-import com.cw2.nekoama.domain.metrics.model.ActionType
 import com.cw2.nekoama.domain.settings.service.NekoamaSecureStorage
 import com.cw2.nekoama.domain.settings.model.NekoamaSettings
 import com.cw2.nekoama.shared.i18n.NekoamaBundle
@@ -31,10 +30,10 @@ import kotlinx.coroutines.runBlocking
  */
 internal class CustomGenerateAction : BaseAction() {
 
-    override fun perform(project: Project, editor: Editor?, e: AnActionEvent): Int {
+    override fun perform(project: Project, editor: Editor?, e: AnActionEvent) {
         val selection = editor!!.selectionModel.selectedText ?: run {
             NekoamaNotifier.warn(NekoamaBundle.message("action.custom.selectText"))
-            return 0
+            return
         }
 
         val psiFile = e.getData(CommonDataKeys.PSI_FILE)
@@ -117,8 +116,9 @@ internal class CustomGenerateAction : BaseAction() {
                     }
                 }
             })
-        return 0 // TODO: 需要从AI响应中获取实际Token数量
     }
+
+    override fun requiresEditor(): Boolean = true
 
     /**
      * 创建AI Provider实例（固定使用Custom API）
@@ -159,8 +159,4 @@ internal class CustomGenerateAction : BaseAction() {
         }
         return selection.trim()
     }
-
-    override fun getActionType(): ActionType = ActionType.CUSTOM_GENERATE
-
-    override fun requiresEditor(): Boolean = true
 }

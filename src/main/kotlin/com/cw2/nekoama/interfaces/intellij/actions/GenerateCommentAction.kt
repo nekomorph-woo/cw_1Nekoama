@@ -6,7 +6,6 @@ import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomGen
 import com.cw2.nekoama.shared.logging.NekoamaLogger
 import com.cw2.nekoama.domain.settings.service.NekoamaSecureStorage
 import com.cw2.nekoama.domain.settings.model.NekoamaSettings
-import com.cw2.nekoama.domain.metrics.model.ActionType
 import com.cw2.nekoama.domain.code_suggestion_gen.service.code_analysis.UniversalCodeAnalyzer
 import com.cw2.nekoama.shared.i18n.NekoamaBundle
 import com.cw2.nekoama.shared.util.NekoamaNotifier
@@ -46,10 +45,10 @@ import org.jetbrains.kotlin.psi.*
  */
 internal class GenerateCommentAction : BaseAction() {
 
-    override fun perform(project: Project, editor: Editor?, e: AnActionEvent): Int {
+    override fun perform(project: Project, editor: Editor?, e: AnActionEvent) {
         val psiFile: PsiFile = e.getData(CommonDataKeys.PSI_FILE) ?: run {
             NekoamaNotifier.warn(NekoamaBundle.message("action.comment.noPsiFile"))
-            return 0
+            return
         }
         val offset = editor!!.caretModel.offset
         val elementAndLang = ReadAction.compute<Pair<PsiElement, ProgrammingLanguage>?, Throwable> {
@@ -78,7 +77,7 @@ internal class GenerateCommentAction : BaseAction() {
         }
         if (elementAndLang == null) {
             NekoamaNotifier.warn(NekoamaBundle.message("action.comment.notSupportedHere"))
-            return 0
+            return
         }
         val (element, detectedLang) = elementAndLang
 
@@ -205,8 +204,9 @@ internal class GenerateCommentAction : BaseAction() {
                 }
             }
         })
-        return 0 // TODO: 需要从 AI 响应中获取实际 Token 消耗
     }
+
+    override fun requiresEditor(): Boolean = true
 
     /**
      * 创建 AI Provider 实例（固定使用 Custom API）
@@ -404,8 +404,4 @@ internal class GenerateCommentAction : BaseAction() {
             null
         }
     }
-
-    override fun getActionType(): ActionType = ActionType.GENERATE_COMMENT
-
-    override fun requiresEditor(): Boolean = true
 }

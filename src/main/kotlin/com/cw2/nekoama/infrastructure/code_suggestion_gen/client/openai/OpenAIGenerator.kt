@@ -43,14 +43,12 @@ class OpenAIGenerator(
             val duration = System.currentTimeMillis() - startTime
 
             response.flatMap { openAIResponse ->
-                NekoamaLogger.logAICallWithActionType(
+                NekoamaLogger.logAICall(
                     provider = name,
                     model = config.model,
                     operation = "generateNaming",
                     success = true,
-                    durationMs = duration,
-                    actionType = "GENERATE_NAMING",
-                    tokenCount = openAIResponse.usage?.totalTokens
+                    durationMs = duration
                 )
                 OpenAIResponseParser.parseNamingResponse(openAIResponse, context)
             }.onError { error ->
@@ -77,14 +75,12 @@ class OpenAIGenerator(
             val duration = System.currentTimeMillis() - startTime
 
             response.flatMap { openAIResponse ->
-                NekoamaLogger.logAICallWithActionType(
+                NekoamaLogger.logAICall(
                     provider = name,
                     model = config.model,
                     operation = "generateComment",
                     success = true,
-                    durationMs = duration,
-                    actionType = "GENERATE_COMMENT",
-                    tokenCount = openAIResponse.usage?.totalTokens
+                    durationMs = duration
                 )
                 OpenAIResponseParser.parseCommentResponse(openAIResponse, context)
             }.onError { error ->
@@ -111,14 +107,12 @@ class OpenAIGenerator(
             val duration = System.currentTimeMillis() - startTime
 
             response.flatMap { openAIResponse ->
-                NekoamaLogger.logAICallWithActionType(
+                NekoamaLogger.logAICall(
                     provider = name,
                     model = config.model,
                     operation = "generateCustom",
                     success = true,
-                    durationMs = duration,
-                    actionType = "CUSTOM_GENERATE",
-                    tokenCount = openAIResponse.usage?.totalTokens
+                    durationMs = duration
                 )
                 OpenAIResponseParser.parseCustomResponse(openAIResponse)
             }.onError { error ->
