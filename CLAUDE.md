@@ -116,7 +116,9 @@ Strictly follow the loop corresponding to the current **Mode**:
 - **Testing:**
     - Backend: JUnit 5, MockK, AssertJ.
     - Frontend: Manual verification via Mock Data.
-- **Comments:** Use **Chinese** for KDoc and complex logic.
+- **Comments:** 
+    - Use **Simple Chinese** for KDoc and complex logic.
+    - Use the correct **UTF-8** encoding to output comments and avoid garbled text in the code IDE.
 - **Naming:**
     - Kotlin: Professional **English** (Semantic).
     - Test Methods: Descriptive **Chinese**.
