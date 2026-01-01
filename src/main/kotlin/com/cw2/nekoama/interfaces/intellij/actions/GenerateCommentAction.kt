@@ -1,8 +1,8 @@
 package com.cw2.nekoama.interfaces.intellij.actions
 
-import com.cw2.nekoama.domain.code_suggestion_gen.model.AIProvider
-import com.cw2.nekoama.infrastructure.code_suggestion_gen.client.openai.OpenAIClient
-import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomAPIConfig
+import com.cw2.nekoama.domain.code_suggestion_gen.model.CodeSuggestionGenerator
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.client.openai.OpenAIGenerator
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomGeneratorConfig
 import com.cw2.nekoama.shared.logging.NekoamaLogger
 import com.cw2.nekoama.domain.settings.service.NekoamaSecureStorage
 import com.cw2.nekoama.domain.settings.model.NekoamaSettings
@@ -109,8 +109,8 @@ internal class GenerateCommentAction : BaseAction() {
                     if (indicator.isCanceled) return
 
                     // 创建 AI Provider 实例
-                    val provider = createAIProvider()
-                    if (provider == null) {
+                    val generator = createCodeSuggestionGenerator()
+                    if (generator == null) {
                         NekoamaNotifier.warn(NekoamaBundle.message("settings.api.notConfigured"))
                         return
                     }
@@ -125,7 +125,7 @@ internal class GenerateCommentAction : BaseAction() {
 
                     // 调用 AI 生成注释
                     val result = runBlocking {
-                        provider.generateComment(codeContext)
+                        generator.generateComment(codeContext)
                     }
 
                     if (indicator.isCanceled) return
@@ -211,7 +211,7 @@ internal class GenerateCommentAction : BaseAction() {
     /**
      * 创建 AI Provider 实例（固定使用 Custom API）
      */
-    private fun createAIProvider(): AIProvider? {
+    private fun createCodeSuggestionGenerator(): CodeSuggestionGenerator? {
         val settings = NekoamaSettings.getInstance()
         val secureKey = NekoamaSecureStorage.getApiKeySync()
         val resolvedKey =
@@ -219,9 +219,9 @@ internal class GenerateCommentAction : BaseAction() {
 
         if (resolvedKey.isBlank() || settings.apiEndpoint.isBlank()) return null
 
-        return OpenAIClient(
-            CustomAPIConfig(
-                providerName = "Custom API",
+        return OpenAIGenerator(
+            CustomGeneratorConfig(
+                generatorName = "Custom API",
                 apiUrl = settings.apiEndpoint,
                 apiKey = resolvedKey,
                 model = settings.model,

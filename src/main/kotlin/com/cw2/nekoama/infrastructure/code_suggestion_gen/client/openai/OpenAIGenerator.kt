@@ -1,26 +1,26 @@
 package com.cw2.nekoama.infrastructure.code_suggestion_gen.client.openai
 
-import com.cw2.nekoama.domain.code_suggestion_gen.model.AIProvider
-import com.cw2.nekoama.domain.code_suggestion_gen.model.AIProviderStatus
+import com.cw2.nekoama.domain.code_suggestion_gen.model.CodeSuggestionGenerator
+import com.cw2.nekoama.domain.code_suggestion_gen.model.GeneratorStatus
 import com.cw2.nekoama.domain.code_suggestion_gen.model.CodeContext
 import com.cw2.nekoama.domain.code_suggestion_gen.model.CommentSuggestion
 import com.cw2.nekoama.domain.code_suggestion_gen.model.NamingSuggestion
-import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomAPIConfig
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomGeneratorConfig
 import com.cw2.nekoama.infrastructure.network.cleint.CustomAPIHttpClient
 import com.cw2.nekoama.shared.exception.NekoamaError
 import com.cw2.nekoama.shared.logging.NekoamaLogger
 import com.cw2.nekoama.shared.model.Result
 
 /**
- * OpenAI 客户端实现
+ * OpenAI 代码建议生成器实现
  *
- * 实现了 AIProvider 接口，提供基于 OpenAI 兼容 API 的代码建议生成功能。
+ * 实现了 CodeSuggestionGenerator 接口，提供基于 OpenAI 兼容 API 的代码建议生成功能。
  */
-class OpenAIClient(
-    override val config: CustomAPIConfig
-) : AIProvider {
+class OpenAIGenerator(
+    override val config: CustomGeneratorConfig
+) : CodeSuggestionGenerator {
 
-    override val name = config.providerName
+    override val name = config.generatorName
 
     // 复用 OpenAI 格的 HTTP 客户端和模板系统，但使用自定义配置
     private val httpClient by lazy {
@@ -161,14 +161,14 @@ class OpenAIClient(
     /**
      * 获取服务状态
      */
-    override suspend fun getStatus(): Result<AIProviderStatus> {
+    override suspend fun getStatus(): Result<GeneratorStatus> {
         return try {
             val startTime = System.currentTimeMillis()
             val available = isAvailable()
             val latency = System.currentTimeMillis() - startTime
 
             available.map { isAvailable ->
-                AIProviderStatus(
+                GeneratorStatus(
                     available = isAvailable,
                     latencyMs = latency,
                     lastCheckTime = System.currentTimeMillis()

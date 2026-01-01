@@ -1,25 +1,27 @@
 package com.cw2.nekoama.domain.code_suggestion_gen.model
 
-import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.AIProviderConfig
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.GeneratorConfig
 import com.cw2.nekoama.shared.model.Result
 
 /**
- * AI 服务提供商抽象接口
+ * 代码建议生成器抽象接口
  *
- * 定义了所有 AI 服务提供商必须实现的核心方法，支持代码命名建议、注释生成和自定义生成功能。
+ * 定义了代码建议生成器必须实现的核心方法，支持代码命名建议、注释生成和自定义生成功能。
  * 所有实现类都应该支持异步操作，并且具备良好的错误处理能力。
+ *
+ * 这是一个业务领域的抽象，具体实现可以使用 AI 服务（如 OpenAI）、规则引擎或其他方式。
  */
-interface AIProvider {
+interface CodeSuggestionGenerator {
 
     /**
-     * 获取提供商名称
+     * 获取生成器名称
      */
     val name: String
 
     /**
-     * 获取提供商配置
+     * 获取生成器配置
      */
-    val config: AIProviderConfig
+    val config: GeneratorConfig
 
     /**
      * 生成代码命名建议
@@ -58,5 +60,5 @@ interface AIProvider {
      *
      * @return 服务状态详情
      */
-    suspend fun getStatus(): Result<AIProviderStatus>
+    suspend fun getStatus(): Result<GeneratorStatus>
 }

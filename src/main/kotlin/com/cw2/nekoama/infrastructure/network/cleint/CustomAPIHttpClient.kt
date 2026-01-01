@@ -11,7 +11,7 @@ import com.cw2.nekoama.infrastructure.network.interceptor.RetryInterceptor
 import com.cw2.nekoama.infrastructure.network.interceptor.MonitoringInterceptor
 import com.cw2.nekoama.infrastructure.network.proxy.ProxyAuthenticatorFactory
 import com.cw2.nekoama.infrastructure.network.config.ProxyConfig
-import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomAPIConfig
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomGeneratorConfig
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -30,16 +30,9 @@ import java.security.cert.X509Certificate
  *
  * 支持灵活的认证方式、自定义端点和可选的 SSL 验证。
  * 兼容 OpenAI API 格式，但允许使用不同的服务提供商。
- *
- * 相比 Java HttpClient 的优势：
- * - 更强大的拦截器系统
- * - 更好的连接池管理
- * - 更精细的超时控制
- * - 更智能的重试机制
- * - 更丰富的调试功能
  */
 class CustomAPIHttpClient(
-    private val config: CustomAPIConfig
+    private val config: CustomGeneratorConfig
 ) : BaseHttpClient() {
 
     private val monitoringInterceptor = MonitoringInterceptor()
@@ -264,9 +257,6 @@ class CustomAPIHttpClient(
     private fun configureOptimizations(builder: OkHttpClient.Builder) {
         // 启用HTTP/2支持以提高性能
         builder.protocols(listOf(Protocol.HTTP_2, Protocol.HTTP_1_1))
-
-        // 启用响应缓存（可选，对AI API不太适用，但保留配置）
-        // 对于AI API，通常不需要缓存，因为每次请求都是独特的
 
         // 配置失败重试机制（OkHttp内置）
         builder.retryOnConnectionFailure(true)

@@ -3,11 +3,12 @@ package com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config
 import com.cw2.nekoama.shared.model.Result
 
 /**
- * AI 服务提供商配置接口
+ * 代码建议生成器配置接口
  *
- * 定义了所有 AI 服务提供商的通用配置选项
+ * 定义了代码建议生成器的通用配置选项。
+ * 具体实现可能使用 AI 服务、规则引擎或其他方式。
  */
-interface AIProviderConfig {
+interface GeneratorConfig {
 
     /**
      * API 端点地址

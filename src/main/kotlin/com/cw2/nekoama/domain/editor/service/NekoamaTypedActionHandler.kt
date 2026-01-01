@@ -2,9 +2,9 @@ package com.cw2.nekoama.domain.editor.service
 
 import com.cw2.nekoama.shared.i18n.NekoamaBundle
 import com.cw2.nekoama.shared.util.NekoamaNotifier
-import com.cw2.nekoama.domain.code_suggestion_gen.model.AIProvider
-import com.cw2.nekoama.infrastructure.code_suggestion_gen.client.openai.OpenAIClient
-import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomAPIConfig
+import com.cw2.nekoama.domain.code_suggestion_gen.model.CodeSuggestionGenerator
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.client.openai.OpenAIGenerator
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomGeneratorConfig
 import com.cw2.nekoama.domain.settings.model.NekoamaSettings
 import com.cw2.nekoama.domain.settings.service.NekoamaSecureStorage
 import com.cw2.nekoama.shared.logging.NekoamaLogger
@@ -76,8 +76,8 @@ internal class NekoamaTypedActionHandler(
             return
         }
 
-        val provider = createAIProvider()
-        if (provider == null) {
+        val generator = createCodeSuggestionGenerator()
+        if (generator == null) {
             NekoamaNotifier.warn(NekoamaBundle.message("typed.handler.notConfigured"))
             return
         }
@@ -92,7 +92,7 @@ internal class NekoamaTypedActionHandler(
             cancellable = true,
             task = {
                 runBlocking {
-                    provider.generateCustom(prompt, null)
+                    generator.generateCustom(prompt, null)
                 }
             },
             onSuccess = { result ->
@@ -130,15 +130,15 @@ internal class NekoamaTypedActionHandler(
         )
     }
 
-    private fun createAIProvider(): AIProvider? {
+    private fun createCodeSuggestionGenerator(): CodeSuggestionGenerator? {
         val settings = NekoamaSettings.Companion.getInstance()
         val secureKey = NekoamaSecureStorage.getApiKeySync()
         val resolvedKey = secureKey.ifBlank { settings.apiKey.ifBlank { System.getenv("OPENAI_API_KEY") ?: "" } }
         if (resolvedKey.isBlank() || settings.apiEndpoint.isBlank()) return null
 
-        return OpenAIClient(
-            CustomAPIConfig(
-                providerName = "Custom API",
+        return OpenAIGenerator(
+            CustomGeneratorConfig(
+                generatorName = "Custom API",
                 apiUrl = settings.apiEndpoint,
                 apiKey = resolvedKey,
                 model = settings.model,

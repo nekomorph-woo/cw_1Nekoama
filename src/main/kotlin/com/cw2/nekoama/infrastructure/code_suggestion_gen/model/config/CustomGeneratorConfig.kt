@@ -5,14 +5,16 @@ import com.cw2.nekoama.shared.model.Result
 import kotlinx.serialization.Serializable
 
 /**
- * 自定义 API 配置实现
+ * 自定义生成器配置实现
+ *
+ * 支持使用兼容 OpenAI API 格式的自定义服务端点。
  */
 @Serializable
-data class CustomAPIConfig(
+data class CustomGeneratorConfig(
     /**
-     * 提供商显示名称
+     * 生成器显示名称
      */
-    val providerName: String,
+    val generatorName: String,
 
     override val apiUrl: String,
     override val apiKey: String,
@@ -57,12 +59,12 @@ data class CustomAPIConfig(
      */
     val verifySSL: Boolean = true
 
-) : AIProviderConfig {
+) : GeneratorConfig {
 
     override fun validate(): Result<Unit> {
         return when {
-            providerName.isBlank() -> Result.error(
-                NekoamaError.ParseError.InvalidConfiguration("提供商名称不能为空")
+            generatorName.isBlank() -> Result.error(
+                NekoamaError.ParseError.InvalidConfiguration("生成器名称不能为空")
             )
             apiUrl.isBlank() -> Result.error(
                 NekoamaError.ParseError.InvalidConfiguration("API URL 不能为空")

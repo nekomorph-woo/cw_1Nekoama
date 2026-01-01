@@ -1,8 +1,8 @@
 package com.cw2.nekoama.interfaces.intellij.actions
 
-import com.cw2.nekoama.domain.code_suggestion_gen.model.AIProvider
-import com.cw2.nekoama.infrastructure.code_suggestion_gen.client.openai.OpenAIClient
-import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomAPIConfig
+import com.cw2.nekoama.domain.code_suggestion_gen.model.CodeSuggestionGenerator
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.client.openai.OpenAIGenerator
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomGeneratorConfig
 import com.cw2.nekoama.shared.logging.NekoamaLogger
 import com.cw2.nekoama.domain.metrics.model.ActionType
 import com.cw2.nekoama.domain.settings.service.NekoamaSecureStorage
@@ -47,8 +47,8 @@ internal class CustomGenerateAction : BaseAction() {
 
                     try {
                         // 创建AI Provider实例
-                        val provider = createAIProvider()
-                        if (provider == null) {
+                        val generator = createCodeSuggestionGenerator()
+                        if (generator == null) {
                             NekoamaNotifier.warn(NekoamaBundle.message("settings.api.notConfigured"))
                             return
                         }
@@ -73,7 +73,7 @@ internal class CustomGenerateAction : BaseAction() {
 
                         // 调用AI进行自定义生成
                         val result = runBlocking {
-                            provider.generateCustom(customPrompt, null)
+                            generator.generateCustom(customPrompt, null)
                         }
 
                         if (indicator.isCanceled) return
@@ -123,7 +123,7 @@ internal class CustomGenerateAction : BaseAction() {
     /**
      * 创建AI Provider实例（固定使用Custom API）
      */
-    private fun createAIProvider(): AIProvider? {
+    private fun createCodeSuggestionGenerator(): CodeSuggestionGenerator? {
         val settings = NekoamaSettings.getInstance()
         val secureKey = NekoamaSecureStorage.getApiKeySync()
         val resolvedKey =
@@ -131,9 +131,9 @@ internal class CustomGenerateAction : BaseAction() {
 
         if (resolvedKey.isBlank() || settings.apiEndpoint.isBlank()) return null
 
-        return OpenAIClient(
-            CustomAPIConfig(
-                providerName = "Custom API",
+        return OpenAIGenerator(
+            CustomGeneratorConfig(
+                generatorName = "Custom API",
                 apiUrl = settings.apiEndpoint,
                 apiKey = resolvedKey,
                 model = settings.model,

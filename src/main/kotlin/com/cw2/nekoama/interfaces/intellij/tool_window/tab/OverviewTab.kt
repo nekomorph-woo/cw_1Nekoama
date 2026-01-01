@@ -6,9 +6,9 @@ import com.cw2.nekoama.domain.settings.model.NekoamaSettings
 import com.cw2.nekoama.domain.settings.service.NekoamaSecureStorage
 import com.cw2.nekoama.shared.i18n.NekoamaBundle
 import com.cw2.nekoama.infrastructure.network.diagnostic.ProxyConnectionTester
-import com.cw2.nekoama.domain.code_suggestion_gen.model.AIProvider
-import com.cw2.nekoama.infrastructure.code_suggestion_gen.client.openai.OpenAIClient
-import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomAPIConfig
+import com.cw2.nekoama.domain.code_suggestion_gen.model.CodeSuggestionGenerator
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.client.openai.OpenAIGenerator
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomGeneratorConfig
 import com.cw2.nekoama.domain.metrics.model.DailyTrendPoint
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.options.ShowSettingsUtil
@@ -696,9 +696,9 @@ class OverviewTab : BaseNekoamaTab() {
         try {
             NekoamaLogger.debug("OverviewTab", "Checking connection status in background")
 
-            // 使用createAIProvider方法验证配置
-            val provider = createAIProvider()
-            if (provider == null) {
+            // 使用createCodeSuggestionGenerator方法验证配置
+            val generator = createCodeSuggestionGenerator()
+            if (generator == null) {
                 // 检查具体是哪项配置缺失
                 val settings = NekoamaSettings.getInstance()
                 val secureKey = NekoamaSecureStorage.getApiKey()
@@ -735,7 +735,7 @@ class OverviewTab : BaseNekoamaTab() {
             }
 
             // 测试实际连接
-            val available = provider.isAvailable()
+            val available = generator.isAvailable()
             return if (available.isSuccess) {
                 ConnectionStatusResult(
                     status = ConnectionStatus.CONNECTED,
@@ -871,9 +871,9 @@ class OverviewTab : BaseNekoamaTab() {
         NekoamaLogger.debug("OverviewTab", "Checking connection status")
     }
 // 
-//             // 使用createAIProvider方法验证配置
-//             val provider = createAIProvider()
-//             if (provider == null) {
+//             // 使用createCodeSuggestionGenerator方法验证配置
+//             val generator = createCodeSuggestionGenerator()
+//             if (generator == null) {
 //                 // 检查具体是哪项配置缺失
 //                 val settings = NekoamaSettings.getInstance()
 //                 val secureKey = NekoamaSecureStorage.getApiKey()
@@ -906,7 +906,7 @@ class OverviewTab : BaseNekoamaTab() {
 //             }
 // 
 //             // 使用AI提供商进行轻量级连接检查
-//             val result = provider.isAvailable()
+//             val result = generator.isAvailable()
 // 
 //             when {
 //                 result.isSuccess && result.getOrNull() == true -> {
@@ -1125,7 +1125,7 @@ class OverviewTab : BaseNekoamaTab() {
     /**
      * 创建AI提供商实例
      */
-    private fun createAIProvider(): AIProvider? {
+    private fun createCodeSuggestionGenerator(): CodeSuggestionGenerator? {
         try {
             val settings = NekoamaSettings.getInstance()
 
@@ -1156,9 +1156,9 @@ class OverviewTab : BaseNekoamaTab() {
             }
 
             // 创建Custom API Provider实例
-            return OpenAIClient(
-                CustomAPIConfig(
-                    providerName = "Custom API",
+            return OpenAIGenerator(
+                CustomGeneratorConfig(
+                    generatorName = "Custom API",
                     apiUrl = settings.apiEndpoint,
                     apiKey = resolvedKey,
                     model = settings.model,
