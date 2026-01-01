@@ -9,13 +9,13 @@ import com.cw2.nekoama.domain.metrics.model.ActionType
 import com.cw2.nekoama.domain.code_analysis.service.UniversalCodeAnalyzer
 import com.cw2.nekoama.shared.i18n.NekoamaBundle
 import com.cw2.nekoama.shared.util.NekoamaNotifier
-import com.cw2.nekoama.domain.ai.model.ClassContext
-import com.cw2.nekoama.domain.ai.model.CodeContext
-import com.cw2.nekoama.domain.ai.model.MethodContext
-import com.cw2.nekoama.domain.ai.model.SurroundingContext
-import com.cw2.nekoama.domain.ai.model.TypeInfo
-import com.cw2.nekoama.domain.ai.model.VariableContext
-import com.cw2.nekoama.domain.ai.model.VariableScope
+import com.cw2.nekoama.domain.code_suggestion_gen.model.ClassContext
+import com.cw2.nekoama.domain.code_suggestion_gen.model.CodeContext
+import com.cw2.nekoama.domain.code_suggestion_gen.model.MethodContext
+import com.cw2.nekoama.domain.code_suggestion_gen.model.SurroundingContext
+import com.cw2.nekoama.domain.code_suggestion_gen.model.TypeMetadata
+import com.cw2.nekoama.domain.code_suggestion_gen.model.VariableContext
+import com.cw2.nekoama.domain.code_suggestion_gen.model.VariableScope
 import com.cw2.nekoama.domain.ai.service.AIProvider
 import com.cw2.nekoama.shared.exception.NekoamaError
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -34,13 +34,13 @@ import org.jetbrains.kotlin.psi.KtFunction
 import org.jetbrains.kotlin.psi.KtProperty
 
 /**
- * 生成命名建议
+ * 生成命名建议的动作
  *
  * 实现策略：
- * - 在后台任务中分析当前光标处 PSI 元素
- * - 根据方法/变量分别构建适当的 CodeContext
- * - 调用配置的 AI Provider 生成真实的命名建议
- * - 展示AI生成的多个命名选项供用户选择
+ * - 在后台线程分析光标处的 PSI 元素
+ * - 根据方法/字段分别构建实体的 CodeContext
+ * - 调用现有的 AI Provider 生成实际命名建议
+ * - 展示AI生成的多个命名建议供用户选择
  */
 internal class GenerateNamingAction : BaseAction() {
 
@@ -49,14 +49,14 @@ internal class GenerateNamingAction : BaseAction() {
             NekoamaNotifier.warn(NekoamaBundle.message("action.naming.noPsiFile"))
             return 0
         }
-        // 优先使用光标位置的 PSI 元素；若不可用再回退到事件上下文中的 PSI 元素（右键位置）
+        // 优先获取使用光标位置的 PSI 元素（避免右键点击触发时，菜单中可能包含的 PSI 元素，而是右键位置）
         val element = elementAtCaret(editor!!, psiFile) ?: e.getData(CommonDataKeys.PSI_ELEMENT)
         if (element == null) {
             NekoamaNotifier.warn(NekoamaBundle.message("action.naming.noElement"))
             return 0
         }
 
-        // 在主线程中预先获取选中文本，避免后台线程直接访问 UI
+        // 在EDT线程预先获取选中的文本，避免后台线程直接访问 UI
         val selectionText = ReadAction.compute<String?, Throwable> {
             editor!!.selectionModel.selectedText
         }
@@ -68,20 +68,20 @@ internal class GenerateNamingAction : BaseAction() {
                 indicator.text = NekoamaBundle.message("progress.analyzingContext")
 
                 try {
-                    // 创建AI Provider实例
+                    // 创建 AI Provider 实例（固定使用 Custom API）
                     val provider = createAIProvider()
                     if (provider == null) {
                         NekoamaNotifier.warn(NekoamaBundle.message("settings.api.notConfigured"))
                         return
                     }
 
-                    // 构建代码上下文
+                    // 构建代码上下文对象
                     val codeContext = buildCodeContext(project, selectionText, element, indicator)
                     if (codeContext == null || indicator.isCanceled) return
 
                     indicator.text = NekoamaBundle.message("progress.generatingNaming")
 
-                    // 调用AI生成命名建议
+                    // 调用 AI 生成命名建议
                     val result = runBlocking {
                         provider.generateNaming(codeContext)
                     }
@@ -118,14 +118,14 @@ internal class GenerateNamingAction : BaseAction() {
                 }
             }
         })
-        return 0 // TODO: 需要从AI响应中获取实际Token数量
+        return 0 // TODO: 需要从 AI 响应中获取实际 Token 消耗
     }
 
     private fun elementAtCaret(editor: Editor?, psiFile: PsiFile): PsiElement? {
         val offset = editor!!.caretModel.offset
         val element = psiFile.findElementAt(offset)
         if (element != null) {
-            // 检查是否是局部变量（包括 Kotlin 和 Java）
+            // 尝试查找是否是局部变量（优先 Kotlin 和 Java）
             val ktVar = PsiTreeUtil.getParentOfType(element, KtProperty::class.java)
             if (ktVar != null) return ktVar
             val psiVar = PsiTreeUtil.getParentOfType(element, PsiLocalVariable::class.java)
@@ -137,7 +137,7 @@ internal class GenerateNamingAction : BaseAction() {
     }
 
     /**
-     * 创建AI Provider实例（固定使用Custom API）
+     * 创建 AI Provider 实例（固定使用 Custom API）
      */
     private fun createAIProvider(): AIProvider? {
         val settings = NekoamaSettings.getInstance()
@@ -162,8 +162,8 @@ internal class GenerateNamingAction : BaseAction() {
 
     /**
      * 提取自定义上下文
-     * 支持 #内容# 格式，直接提取 # 中间的内容作为 userIntent
-     * 如果匹配成功，返回包含 userIntent 的上下文；否则返回 null
+     * 支持 #描述# 格式，直接提取 # 之间的内容作为 userIntent
+     * 如果匹配成功，返回该 userIntent 并跳过自动推断，否则返回 null
      */
     private fun extractCustomContext(selection: String): String? {
         val pattern = """#\s*([^#]+)\s*#""".toRegex()
@@ -172,7 +172,7 @@ internal class GenerateNamingAction : BaseAction() {
     }
 
     /**
-     * 构建代码上下文
+     * 构建代码上下文对象
      */
     private fun buildCodeContext(
         project: Project,
@@ -180,7 +180,7 @@ internal class GenerateNamingAction : BaseAction() {
         element: PsiElement,
         indicator: ProgressIndicator
     ): CodeContext? {
-        // 检查是否有自定义上下文（#内容#格式）
+        // 检测是否包含自定义上下文模版（#描述#格式）
         val customContext = selectionText?.let { extractCustomContext(it) }
 
         return try {
@@ -199,20 +199,20 @@ internal class GenerateNamingAction : BaseAction() {
                     codeStyleAnalysis = null
                 )
 
-                // 优先级1：如果有自定义上下文，直接创建相应的 Context
+                // 优先级1：如果用户提供了自定义上下文模版，直接处理该元素对应的 Context
                 if (customContext != null) {
                     return@compute when {
-                        // 检查是否有特定的 PSI 元素
+                        // 检测是否是特定的 PSI 元素
                         PsiTreeUtil.getParentOfType(element, KtFunction::class.java) != null -> {
                             val fn = PsiTreeUtil.getParentOfType(element, KtFunction::class.java)!!
                             MethodContext(
                                 language = language,
-                                projectInfo = projectInfo,
+                                projectMeta = projectInfo,
                                 surroundingContext = surroundingContext,
                                 userIntent = customContext,
                                 methodName = fn.name,
                                 parameters = emptyList(),
-                                returnType = TypeInfo("Unit"),
+                                returnType = TypeMetadata("Unit"),
                                 modifiers = emptyList(),
                                 annotations = emptyList(),
                                 exceptions = emptyList(),
@@ -227,18 +227,17 @@ internal class GenerateNamingAction : BaseAction() {
                             val prop = PsiTreeUtil.getParentOfType(element, KtProperty::class.java)!!
                             VariableContext(
                                 language = language,
-                                projectInfo = projectInfo,
+                                projectMeta = projectInfo,
                                 surroundingContext = surroundingContext,
                                 userIntent = customContext,
                                 variableName = prop.name,
-                                variableType = TypeInfo("Any"),
+                                variableType = TypeMetadata("Any"),
                                 modifiers = emptyList(),
                                 annotations = emptyList(),
                                 initializer = prop.initializer?.text,
                                 scope = VariableScope.LOCAL,
                                 isConstant = prop.isVar.not(),
                                 isStatic = false,
-                                usagePattern = null,
                                 containingClass = null,
                                 containingMethod = null
                             )
@@ -248,12 +247,12 @@ internal class GenerateNamingAction : BaseAction() {
                             val method = PsiTreeUtil.getParentOfType(element, PsiMethod::class.java)!!
                             MethodContext(
                                 language = language,
-                                projectInfo = projectInfo,
+                                projectMeta = projectInfo,
                                 surroundingContext = surroundingContext,
                                 userIntent = customContext,
                                 methodName = method.name,
                                 parameters = emptyList(),
-                                returnType = TypeInfo("void"),
+                                returnType = TypeMetadata("void"),
                                 modifiers = emptyList(),
                                 annotations = emptyList(),
                                 exceptions = emptyList(),
@@ -268,18 +267,17 @@ internal class GenerateNamingAction : BaseAction() {
                             val field = PsiTreeUtil.getParentOfType(element, PsiField::class.java)!!
                             VariableContext(
                                 language = language,
-                                projectInfo = projectInfo,
+                                projectMeta = projectInfo,
                                 surroundingContext = surroundingContext,
                                 userIntent = customContext,
                                 variableName = field.name,
-                                variableType = TypeInfo(field.type.presentableText),
+                                variableType = TypeMetadata(field.type.presentableText),
                                 modifiers = emptyList(),
                                 annotations = emptyList(),
                                 initializer = field.initializer?.text,
                                 scope = if (field.hasModifierProperty(PsiModifier.STATIC)) VariableScope.STATIC_FIELD else VariableScope.FIELD,
                                 isConstant = field.hasModifierProperty(PsiModifier.FINAL),
                                 isStatic = field.hasModifierProperty(PsiModifier.STATIC),
-                                usagePattern = null,
                                 containingClass = null,
                                 containingMethod = null
                             )
@@ -289,18 +287,17 @@ internal class GenerateNamingAction : BaseAction() {
                             val localVar = PsiTreeUtil.getParentOfType(element, PsiLocalVariable::class.java)!!
                             VariableContext(
                                 language = language,
-                                projectInfo = projectInfo,
+                                projectMeta = projectInfo,
                                 surroundingContext = surroundingContext,
                                 userIntent = customContext,
                                 variableName = localVar.name,
-                                variableType = TypeInfo(localVar.type.presentableText),
+                                variableType = TypeMetadata(localVar.type.presentableText),
                                 modifiers = emptyList(),
                                 annotations = emptyList(),
                                 initializer = localVar.initializer?.text,
                                 scope = VariableScope.LOCAL,
                                 isConstant = localVar.hasModifierProperty(PsiModifier.FINAL),
                                 isStatic = false,
-                                usagePattern = null,
                                 containingClass = null,
                                 containingMethod = null
                             )
@@ -310,18 +307,17 @@ internal class GenerateNamingAction : BaseAction() {
                             val param = PsiTreeUtil.getParentOfType(element, PsiParameter::class.java)!!
                             VariableContext(
                                 language = language,
-                                projectInfo = projectInfo,
+                                projectMeta = projectInfo,
                                 surroundingContext = surroundingContext,
                                 userIntent = customContext,
                                 variableName = param.name,
-                                variableType = TypeInfo(param.type.presentableText),
+                                variableType = TypeMetadata(param.type.presentableText),
                                 modifiers = emptyList(),
                                 annotations = emptyList(),
                                 initializer = null,
                                 scope = VariableScope.PARAMETER,
                                 isConstant = param.hasModifierProperty(PsiModifier.FINAL),
                                 isStatic = false,
-                                usagePattern = null,
                                 containingClass = null,
                                 containingMethod = null
                             )
@@ -331,7 +327,7 @@ internal class GenerateNamingAction : BaseAction() {
                             val cls = PsiTreeUtil.getParentOfType(element, KtClass::class.java)!!
                             ClassContext(
                                 language = language,
-                                projectInfo = projectInfo,
+                                projectMeta = projectInfo,
                                 surroundingContext = surroundingContext,
                                 userIntent = customContext,
                                 className = cls.name,
@@ -353,7 +349,7 @@ internal class GenerateNamingAction : BaseAction() {
                             val cls = PsiTreeUtil.getParentOfType(element, PsiClass::class.java)!!
                             ClassContext(
                                 language = language,
-                                projectInfo = projectInfo,
+                                projectMeta = projectInfo,
                                 surroundingContext = surroundingContext,
                                 userIntent = customContext,
                                 className = cls.name,
@@ -370,16 +366,16 @@ internal class GenerateNamingAction : BaseAction() {
                                 packageName = surroundingContext.packageDeclaration ?: ""
                             )
                         }
-                        // 如果没有找到特定元素，创建通用的上下文
+                        // 如果没有找到特定元素，则使用通用的命名建议
                         else -> {
                             MethodContext(
                                 language = language,
-                                projectInfo = projectInfo,
+                                projectMeta = projectInfo,
                                 surroundingContext = surroundingContext,
                                 userIntent = customContext,
                                 methodName = null,
                                 parameters = emptyList(),
-                                returnType = TypeInfo("Any"),
+                                returnType = TypeMetadata("Any"),
                                 modifiers = emptyList(),
                                 annotations = emptyList(),
                                 exceptions = emptyList(),
@@ -392,22 +388,22 @@ internal class GenerateNamingAction : BaseAction() {
                     }
                 }
 
-                // 如果没有自定义上下文，使用原有逻辑
+                // 如果用户没有自定义上下文模版，使用原有逻辑
                 when {
                     PsiTreeUtil.getParentOfType(element, KtFunction::class.java) != null -> {
                         val fn = PsiTreeUtil.getParentOfType(element, KtFunction::class.java)!!
                         val analyzeResult = analyzer.analyzeMethod(fn)
                         if (analyzeResult.isSuccess) {
-                            // 如果有自定义上下文，创建包含 userIntent 的 MethodContext
+                            // 如果存在自定义上下文模版，添加 userIntent 到 MethodContext
                             if (customContext != null) {
                                 MethodContext(
                                     language = language,
-                                    projectInfo = projectInfo,
+                                    projectMeta = projectInfo,
                                     surroundingContext = surroundingContext,
                                     userIntent = customContext,
                                     methodName = fn.name,
                                     parameters = analyzeResult.getOrNull()?.parameters ?: emptyList(),
-                                    returnType = analyzeResult.getOrNull()?.returnType ?: TypeInfo("Unit"),
+                                    returnType = analyzeResult.getOrNull()?.returnType ?: TypeMetadata("Unit"),
                                     modifiers = analyzeResult.getOrNull()?.modifiers ?: emptyList(),
                                     annotations = analyzeResult.getOrNull()?.annotations ?: emptyList(),
                                     exceptions = analyzeResult.getOrNull()?.exceptions ?: emptyList(),
@@ -420,15 +416,15 @@ internal class GenerateNamingAction : BaseAction() {
                                 analyzeResult.getOrNull() as? MethodContext
                             }
                         } else {
-                            // 创建基础的MethodContext（Kotlin）
+                            // 构造默认的 MethodContext（Kotlin）
                             MethodContext(
                                 language = language,
-                                projectInfo = projectInfo,
+                                projectMeta = projectInfo,
                                 surroundingContext = surroundingContext,
                                 userIntent = customContext,
                                 methodName = fn.name,
                                 parameters = emptyList(),
-                                returnType = TypeInfo("Unit"),
+                                returnType = TypeMetadata("Unit"),
                                 modifiers = emptyList(),
                                 annotations = emptyList(),
                                 exceptions = emptyList(),
@@ -444,15 +440,15 @@ internal class GenerateNamingAction : BaseAction() {
                         val prop = PsiTreeUtil.getParentOfType(element, KtProperty::class.java)!!
                         val analyzeResult = analyzer.analyzeVariable(prop)
                         if (analyzeResult.isSuccess) {
-                            // 如果有自定义上下文，创建包含 userIntent 的 VariableContext
+                            // 如果存在自定义上下文模版，添加 userIntent 到 VariableContext
                             if (customContext != null) {
                                 VariableContext(
                                     language = language,
-                                    projectInfo = projectInfo,
+                                    projectMeta = projectInfo,
                                     surroundingContext = surroundingContext,
                                     userIntent = customContext,
                                     variableName = prop.name,
-                                    variableType = analyzeResult.getOrNull()?.variableType ?: TypeInfo("Any"),
+                                    variableType = analyzeResult.getOrNull()?.variableType ?: TypeMetadata("Any"),
                                     modifiers = analyzeResult.getOrNull()?.modifiers ?: emptyList(),
                                     annotations = analyzeResult.getOrNull()?.annotations ?: emptyList(),
                                     initializer = prop.initializer?.text,
@@ -460,7 +456,6 @@ internal class GenerateNamingAction : BaseAction() {
                                         ?: VariableScope.LOCAL,
                                     isConstant = prop.isVar.not(),
                                     isStatic = false,
-                                    usagePattern = analyzeResult.getOrNull()?.usagePattern,
                                     containingClass = analyzeResult.getOrNull()?.containingClass,
                                     containingMethod = analyzeResult.getOrNull()?.containingMethod
                                 )
@@ -468,21 +463,20 @@ internal class GenerateNamingAction : BaseAction() {
                                 analyzeResult.getOrNull() as? VariableContext
                             }
                         } else {
-                            // 创建基础的VariableContext（Kotlin）
+                            // 构造默认的 VariableContext（Kotlin）
                             VariableContext(
                                 language = language,
-                                projectInfo = projectInfo,
+                                projectMeta = projectInfo,
                                 surroundingContext = surroundingContext,
                                 userIntent = customContext,
                                 variableName = prop.name,
-                                variableType = TypeInfo("Any"),
+                                variableType = TypeMetadata("Any"),
                                 modifiers = emptyList(),
                                 annotations = emptyList(),
                                 initializer = prop.initializer?.text,
                                 scope = VariableScope.LOCAL,
                                 isConstant = prop.isVar.not(),
                                 isStatic = false,
-                                usagePattern = null,
                                 containingClass = null,
                                 containingMethod = null
                             )
@@ -493,16 +487,16 @@ internal class GenerateNamingAction : BaseAction() {
                         val method = PsiTreeUtil.getParentOfType(element, PsiMethod::class.java)!!
                         val analyzeResult = analyzer.analyzeMethod(method)
                         if (analyzeResult.isSuccess) {
-                            // 如果有自定义上下文，创建包含 userIntent 的 MethodContext
+                            // 如果存在自定义上下文模版，添加 userIntent 到 MethodContext
                             if (customContext != null) {
                                 MethodContext(
                                     language = language,
-                                    projectInfo = projectInfo,
+                                    projectMeta = projectInfo,
                                     surroundingContext = surroundingContext,
                                     userIntent = customContext,
                                     methodName = method.name,
                                     parameters = analyzeResult.getOrNull()?.parameters ?: emptyList(),
-                                    returnType = analyzeResult.getOrNull()?.returnType ?: TypeInfo("void"),
+                                    returnType = analyzeResult.getOrNull()?.returnType ?: TypeMetadata("void"),
                                     modifiers = analyzeResult.getOrNull()?.modifiers ?: emptyList(),
                                     annotations = analyzeResult.getOrNull()?.annotations ?: emptyList(),
                                     exceptions = analyzeResult.getOrNull()?.exceptions ?: emptyList(),
@@ -515,15 +509,15 @@ internal class GenerateNamingAction : BaseAction() {
                                 analyzeResult.getOrNull() as? MethodContext
                             }
                         } else {
-                            // 创建基础的MethodContext（Java）
+                            // 构造默认的 MethodContext（Java）
                             MethodContext(
                                 language = language,
-                                projectInfo = projectInfo,
+                                projectMeta = projectInfo,
                                 surroundingContext = surroundingContext,
                                 userIntent = customContext,
                                 methodName = method.name,
                                 parameters = emptyList(),
-                                returnType = TypeInfo(method.returnType?.presentableText ?: "void"),
+                                returnType = TypeMetadata(method.returnType?.presentableText ?: "void"),
                                 modifiers = emptyList(),
                                 annotations = emptyList(),
                                 exceptions = emptyList(),
@@ -539,16 +533,16 @@ internal class GenerateNamingAction : BaseAction() {
                         val field = PsiTreeUtil.getParentOfType(element, PsiField::class.java)!!
                         val analyzeResult = analyzer.analyzeVariable(field)
                         if (analyzeResult.isSuccess) {
-                            // 如果有自定义上下文，创建包含 userIntent 的 VariableContext
+                            // 如果存在自定义上下文模版，添加 userIntent 到 VariableContext
                             if (customContext != null) {
                                 VariableContext(
                                     language = language,
-                                    projectInfo = projectInfo,
+                                    projectMeta = projectInfo,
                                     surroundingContext = surroundingContext,
                                     userIntent = customContext,
                                     variableName = field.name,
                                     variableType = analyzeResult.getOrNull()?.variableType
-                                        ?: TypeInfo(field.type.presentableText),
+                                        ?: TypeMetadata(field.type.presentableText),
                                     modifiers = analyzeResult.getOrNull()?.modifiers ?: emptyList(),
                                     annotations = analyzeResult.getOrNull()?.annotations ?: emptyList(),
                                     initializer = field.initializer?.text,
@@ -558,7 +552,6 @@ internal class GenerateNamingAction : BaseAction() {
                                     ) VariableScope.STATIC_FIELD else VariableScope.FIELD,
                                     isConstant = field.hasModifierProperty(PsiModifier.FINAL),
                                     isStatic = field.hasModifierProperty(PsiModifier.STATIC),
-                                    usagePattern = analyzeResult.getOrNull()?.usagePattern,
                                     containingClass = analyzeResult.getOrNull()?.containingClass,
                                     containingMethod = analyzeResult.getOrNull()?.containingMethod
                                 )
@@ -566,21 +559,20 @@ internal class GenerateNamingAction : BaseAction() {
                                 analyzeResult.getOrNull() as? VariableContext
                             }
                         } else {
-                            // 创建基础的VariableContext（Java 字段）
+                            // 构造默认的 VariableContext（Java 字段）
                             VariableContext(
                                 language = language,
-                                projectInfo = projectInfo,
+                                projectMeta = projectInfo,
                                 surroundingContext = surroundingContext,
                                 userIntent = customContext,
                                 variableName = field.name,
-                                variableType = TypeInfo(field.type.presentableText),
+                                variableType = TypeMetadata(field.type.presentableText),
                                 modifiers = emptyList(),
                                 annotations = emptyList(),
                                 initializer = field.initializer?.text,
                                 scope = if (field.hasModifierProperty(PsiModifier.STATIC)) VariableScope.STATIC_FIELD else VariableScope.FIELD,
                                 isConstant = field.hasModifierProperty(PsiModifier.FINAL),
                                 isStatic = field.hasModifierProperty(PsiModifier.STATIC),
-                                usagePattern = null,
                                 containingClass = null,
                                 containingMethod = null
                             )
@@ -591,16 +583,16 @@ internal class GenerateNamingAction : BaseAction() {
                         val v = PsiTreeUtil.getParentOfType(element, PsiVariable::class.java)!!
                         val analyzeResult = analyzer.analyzeVariable(v)
                         if (analyzeResult.isSuccess) {
-                            // 如果有自定义上下文，创建包含 userIntent 的 VariableContext
+                            // 如果存在自定义上下文模版，添加 userIntent 到 VariableContext
                             if (customContext != null) {
                                 VariableContext(
                                     language = language,
-                                    projectInfo = projectInfo,
+                                    projectMeta = projectInfo,
                                     surroundingContext = surroundingContext,
                                     userIntent = customContext,
                                     variableName = v.name,
                                     variableType = analyzeResult.getOrNull()?.variableType
-                                        ?: TypeInfo(v.type.presentableText),
+                                        ?: TypeMetadata(v.type.presentableText),
                                     modifiers = analyzeResult.getOrNull()?.modifiers ?: emptyList(),
                                     annotations = analyzeResult.getOrNull()?.annotations ?: emptyList(),
                                     initializer = v.initializer?.text,
@@ -608,7 +600,6 @@ internal class GenerateNamingAction : BaseAction() {
                                         ?: VariableScope.LOCAL,
                                     isConstant = false,
                                     isStatic = false,
-                                    usagePattern = analyzeResult.getOrNull()?.usagePattern,
                                     containingClass = analyzeResult.getOrNull()?.containingClass,
                                     containingMethod = analyzeResult.getOrNull()?.containingMethod
                                 )
@@ -616,21 +607,20 @@ internal class GenerateNamingAction : BaseAction() {
                                 analyzeResult.getOrNull() as? VariableContext
                             }
                         } else {
-                            // 创建基础的VariableContext（Java 局部变量/参数）
+                            // 构造默认的 VariableContext（Java 局部变量/参数）
                             VariableContext(
                                 language = language,
-                                projectInfo = projectInfo,
+                                projectMeta = projectInfo,
                                 surroundingContext = surroundingContext,
                                 userIntent = customContext,
                                 variableName = v.name,
-                                variableType = TypeInfo(v.type.presentableText),
+                                variableType = TypeMetadata(v.type.presentableText),
                                 modifiers = emptyList(),
                                 annotations = emptyList(),
                                 initializer = v.initializer?.text,
                                 scope = VariableScope.LOCAL,
                                 isConstant = false,
                                 isStatic = false,
-                                usagePattern = null,
                                 containingClass = null,
                                 containingMethod = null
                             )
@@ -642,16 +632,16 @@ internal class GenerateNamingAction : BaseAction() {
                         val localVar = PsiTreeUtil.getParentOfType(element, PsiLocalVariable::class.java)!!
                         val analyzeResult = analyzer.analyzeVariable(localVar)
                         if (analyzeResult.isSuccess) {
-                            // 如果有自定义上下文，创建包含 userIntent 的 VariableContext
+                            // 如果存在自定义上下文模版，添加 userIntent 到 VariableContext
                             if (customContext != null) {
                                 VariableContext(
                                     language = language,
-                                    projectInfo = projectInfo,
+                                    projectMeta = projectInfo,
                                     surroundingContext = surroundingContext,
                                     userIntent = customContext,
                                     variableName = localVar.name,
                                     variableType = analyzeResult.getOrNull()?.variableType
-                                        ?: TypeInfo(localVar.type.presentableText),
+                                        ?: TypeMetadata(localVar.type.presentableText),
                                     modifiers = analyzeResult.getOrNull()?.modifiers ?: emptyList(),
                                     annotations = analyzeResult.getOrNull()?.annotations ?: emptyList(),
                                     initializer = localVar.initializer?.text,
@@ -659,7 +649,6 @@ internal class GenerateNamingAction : BaseAction() {
                                         ?: VariableScope.LOCAL,
                                     isConstant = localVar.hasModifierProperty(PsiModifier.FINAL),
                                     isStatic = false,
-                                    usagePattern = analyzeResult.getOrNull()?.usagePattern,
                                     containingClass = analyzeResult.getOrNull()?.containingClass,
                                     containingMethod = analyzeResult.getOrNull()?.containingMethod
                                 )
@@ -669,18 +658,17 @@ internal class GenerateNamingAction : BaseAction() {
                         } else {
                             VariableContext(
                                 language = language,
-                                projectInfo = projectInfo,
+                                projectMeta = projectInfo,
                                 surroundingContext = surroundingContext,
                                 userIntent = customContext,
                                 variableName = localVar.name,
-                                variableType = TypeInfo(localVar.type.presentableText),
+                                variableType = TypeMetadata(localVar.type.presentableText),
                                 modifiers = emptyList(),
                                 annotations = emptyList(),
                                 initializer = localVar.initializer?.text,
                                 scope = VariableScope.LOCAL,
                                 isConstant = localVar.hasModifierProperty(PsiModifier.FINAL),
                                 isStatic = false,
-                                usagePattern = null,
                                 containingClass = null,
                                 containingMethod = null
                             )
@@ -691,23 +679,22 @@ internal class GenerateNamingAction : BaseAction() {
                         val param = PsiTreeUtil.getParentOfType(element, PsiParameter::class.java)!!
                         val analyzeResult = analyzer.analyzeVariable(param)
                         if (analyzeResult.isSuccess) {
-                            // 如果有自定义上下文，创建包含 userIntent 的 VariableContext
+                            // 如果存在自定义上下文模版，添加 userIntent 到 VariableContext
                             if (customContext != null) {
                                 VariableContext(
                                     language = language,
-                                    projectInfo = projectInfo,
+                                    projectMeta = projectInfo,
                                     surroundingContext = surroundingContext,
                                     userIntent = customContext,
                                     variableName = param.name,
                                     variableType = analyzeResult.getOrNull()?.variableType
-                                        ?: TypeInfo(param.type.presentableText),
+                                        ?: TypeMetadata(param.type.presentableText),
                                     modifiers = analyzeResult.getOrNull()?.modifiers ?: emptyList(),
                                     annotations = analyzeResult.getOrNull()?.annotations ?: emptyList(),
                                     initializer = null,
                                     scope = VariableScope.PARAMETER,
                                     isConstant = param.hasModifierProperty(PsiModifier.FINAL),
                                     isStatic = false,
-                                    usagePattern = analyzeResult.getOrNull()?.usagePattern,
                                     containingClass = analyzeResult.getOrNull()?.containingClass,
                                     containingMethod = analyzeResult.getOrNull()?.containingMethod
                                 )
@@ -717,18 +704,17 @@ internal class GenerateNamingAction : BaseAction() {
                         } else {
                             VariableContext(
                                 language = language,
-                                projectInfo = projectInfo,
+                                projectMeta = projectInfo,
                                 surroundingContext = surroundingContext,
                                 userIntent = customContext,
                                 variableName = param.name,
-                                variableType = TypeInfo(param.type.presentableText),
+                                variableType = TypeMetadata(param.type.presentableText),
                                 modifiers = emptyList(),
                                 annotations = emptyList(),
                                 initializer = null,
                                 scope = VariableScope.PARAMETER,
                                 isConstant = param.hasModifierProperty(PsiModifier.FINAL),
                                 isStatic = false,
-                                usagePattern = null,
                                 containingClass = null,
                                 containingMethod = null
                             )
@@ -739,11 +725,11 @@ internal class GenerateNamingAction : BaseAction() {
                         val cls = PsiTreeUtil.getParentOfType(element, KtClass::class.java)!!
                         val analyzeResult = analyzer.analyzeClass(cls)
                         if (analyzeResult.isSuccess) {
-                            // 如果有自定义上下文，创建包含 userIntent 的 ClassContext
+                            // 如果存在自定义上下文模版，添加 userIntent 到 ClassContext
                             if (customContext != null) {
                                 ClassContext(
                                     language = language,
-                                    projectInfo = projectInfo,
+                                    projectMeta = projectInfo,
                                     surroundingContext = surroundingContext,
                                     userIntent = customContext,
                                     className = cls.name,
@@ -765,7 +751,7 @@ internal class GenerateNamingAction : BaseAction() {
                         } else {
                             ClassContext(
                                 language = language,
-                                projectInfo = projectInfo,
+                                projectMeta = projectInfo,
                                 surroundingContext = surroundingContext,
                                 userIntent = customContext,
                                 className = cls.name,
@@ -788,11 +774,11 @@ internal class GenerateNamingAction : BaseAction() {
                         val cls = PsiTreeUtil.getParentOfType(element, PsiClass::class.java)!!
                         val analyzeResult = analyzer.analyzeClass(cls)
                         if (analyzeResult.isSuccess) {
-                            // 如果有自定义上下文，创建包含 userIntent 的 ClassContext
+                            // 如果存在自定义上下文模版，添加 userIntent 到 ClassContext
                             if (customContext != null) {
                                 ClassContext(
                                     language = language,
-                                    projectInfo = projectInfo,
+                                    projectMeta = projectInfo,
                                     surroundingContext = surroundingContext,
                                     userIntent = customContext,
                                     className = cls.name,
@@ -814,7 +800,7 @@ internal class GenerateNamingAction : BaseAction() {
                         } else {
                             ClassContext(
                                 language = language,
-                                projectInfo = projectInfo,
+                                projectMeta = projectInfo,
                                 surroundingContext = surroundingContext,
                                 userIntent = customContext,
                                 className = cls.name,

@@ -48,9 +48,6 @@ class NekoamaSettings : PersistentStateComponent<NekoamaSettings> {
     var namingStyle: String = "CAMEL_CASE"
     var commentFormat: String = "JAVADOC"
 
-    // 设置结构版本号（用于未来迁移判断）
-    var settingsVersion: Int = 3
-
     override fun getState(): NekoamaSettings = this
 
     override fun loadState(state: NekoamaSettings) {

@@ -9,14 +9,14 @@ import com.cw2.nekoama.domain.metrics.model.ActionType
 import com.cw2.nekoama.domain.code_analysis.service.UniversalCodeAnalyzer
 import com.cw2.nekoama.shared.i18n.NekoamaBundle
 import com.cw2.nekoama.shared.util.NekoamaNotifier
-import com.cw2.nekoama.domain.ai.model.ClassContext
-import com.cw2.nekoama.domain.ai.model.CodeContext
-import com.cw2.nekoama.domain.ai.model.MethodContext
-import com.cw2.nekoama.domain.ai.model.ProgrammingLanguage
-import com.cw2.nekoama.domain.ai.model.SurroundingContext
-import com.cw2.nekoama.domain.ai.model.TypeInfo
-import com.cw2.nekoama.domain.ai.model.VariableContext
-import com.cw2.nekoama.domain.ai.model.VariableScope
+import com.cw2.nekoama.domain.code_suggestion_gen.model.ClassContext
+import com.cw2.nekoama.domain.code_suggestion_gen.model.CodeContext
+import com.cw2.nekoama.domain.code_suggestion_gen.model.MethodContext
+import com.cw2.nekoama.domain.code_suggestion_gen.model.ProgrammingLanguage
+import com.cw2.nekoama.domain.code_suggestion_gen.model.SurroundingContext
+import com.cw2.nekoama.domain.code_suggestion_gen.model.TypeMetadata
+import com.cw2.nekoama.domain.code_suggestion_gen.model.VariableContext
+import com.cw2.nekoama.domain.code_suggestion_gen.model.VariableScope
 import com.cw2.nekoama.domain.ai.service.AIProvider
 import com.cw2.nekoama.shared.exception.NekoamaError
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -38,10 +38,10 @@ import org.jetbrains.kotlin.psi.*
  * 生成注释（KDoc/JavaDoc）
  *
  * 实现策略：
- * - 在后台任务中分析当前光标处的代码元素
- * - 构建适当的 CodeContext 传递给 AI Provider
- * - 调用配置的 AI Provider 生成真实的注释内容
- * - 使用写命令将AI生成的注释插入到代码中
+ * - 在后台线程分析光标处的代码元素
+ * - 构建实体的 CodeContext 传给 AI Provider
+ * - 调用现有的 AI Provider 生成实际注释内容
+ * - 使用写命令将AI生成的注释插入到编辑器
  */
 internal class GenerateCommentAction : BaseAction() {
 
@@ -54,22 +54,22 @@ internal class GenerateCommentAction : BaseAction() {
         val elementAndLang = ReadAction.compute<Pair<PsiElement, ProgrammingLanguage>?, Throwable> {
             val element = psiFile.findElementAt(offset)
             if (element != null) {
-                // 检查Kotlin字段/属性
+                // 查找Kotlin字段/方法
                 val ktProp = PsiTreeUtil.getParentOfType(element, KtProperty::class.java)
                 if (ktProp != null) return@compute Pair(ktProp, ProgrammingLanguage.KOTLIN)
-                // 检查Java字段
+                // 查找Java字段
                 val jmField = PsiTreeUtil.getParentOfType(element, PsiField::class.java)
                 if (jmField != null) return@compute Pair(jmField, ProgrammingLanguage.JAVA)
-                // 检查Kotlin方法
+                // 查找Kotlin方法
                 val kt = PsiTreeUtil.getParentOfType(element, KtFunction::class.java)
                 if (kt != null) return@compute Pair(kt, ProgrammingLanguage.KOTLIN)
-                // 检查Java方法
+                // 查找Java方法
                 val jm = PsiTreeUtil.getParentOfType(element, PsiMethod::class.java)
                 if (jm != null) return@compute Pair(jm, ProgrammingLanguage.JAVA)
-                // 检查Kotlin类
+                // 查找Kotlin类
                 val kc = PsiTreeUtil.getParentOfType(element, KtClass::class.java)
                 if (kc != null) return@compute Pair(kc, ProgrammingLanguage.KOTLIN)
-                // 检查Java类
+                // 查找Java类
                 val jc = PsiTreeUtil.getParentOfType(element, PsiClass::class.java)
                 if (jc != null) return@compute Pair(jc, ProgrammingLanguage.JAVA)
             }
@@ -88,7 +88,7 @@ internal class GenerateCommentAction : BaseAction() {
                 indicator.text = NekoamaBundle.message("progress.checkingCommentStatus")
 
                 try {
-                    // 检查是否已存在注释
+                    // 检测是否已存在注释
                     val hasExistingDoc = ReadAction.compute<Boolean, Throwable> {
                         when (val el = element) {
                             is KtProperty -> el.docComment != null
@@ -107,7 +107,7 @@ internal class GenerateCommentAction : BaseAction() {
 
                     if (indicator.isCanceled) return
 
-                    // 创建AI Provider实例
+                    // 创建 AI Provider 实例
                     val provider = createAIProvider()
                     if (provider == null) {
                         NekoamaNotifier.warn(NekoamaBundle.message("settings.api.notConfigured"))
@@ -116,13 +116,13 @@ internal class GenerateCommentAction : BaseAction() {
 
                     indicator.text = NekoamaBundle.message("progress.analyzingTargetContext")
 
-                    // 构建代码上下文
+                    // 构建代码上下文对象
                     val codeContext = buildCodeContext(project, element, indicator)
                     if (codeContext == null || indicator.isCanceled) return
 
                     indicator.text = NekoamaBundle.message("progress.generatingComment")
 
-                    // 调用AI生成注释
+                    // 调用 AI 生成注释
                     val result = runBlocking {
                         provider.generateComment(codeContext)
                     }
@@ -135,7 +135,7 @@ internal class GenerateCommentAction : BaseAction() {
                         val commentContent =
                             commentSuggestion?.content ?: NekoamaBundle.message("action.comment.generatedPlaceholder")
 
-                        // 写命令：插入AI生成的注释（KDoc/JavaDoc）
+                        // 写命令：将AI生成的注释（KDoc/JavaDoc）插入到代码
                         WriteCommandAction.runWriteCommandAction(project, title, null, Runnable {
                             when (val el = element) {
                                 is KtProperty -> {
@@ -178,7 +178,7 @@ internal class GenerateCommentAction : BaseAction() {
                                 }
 
                                 else -> {
-                                    // 未知类型：不进行插入
+                                    // 未知类型，暂不处理
                                 }
                             }
                             NekoamaNotifier.info(NekoamaBundle.message("action.comment.generatedOk"))
@@ -204,11 +204,11 @@ internal class GenerateCommentAction : BaseAction() {
                 }
             }
         })
-        return 0 // TODO: 需要从AI响应中获取实际Token数量
+        return 0 // TODO: 需要从 AI 响应中获取实际 Token 消耗
     }
 
     /**
-     * 创建AI Provider实例（固定使用Custom API）
+     * 创建 AI Provider 实例（固定使用 Custom API）
      */
     private fun createAIProvider(): AIProvider? {
         val settings = NekoamaSettings.getInstance()
@@ -232,7 +232,7 @@ internal class GenerateCommentAction : BaseAction() {
     }
 
     /**
-     * 构建代码上下文（专为注释生成优化）
+     * 构建代码上下文对象（专为注释生成优化）
      */
     private fun buildCodeContext(project: Project, element: PsiElement, indicator: ProgressIndicator): CodeContext? {
         return try {
@@ -259,11 +259,11 @@ internal class GenerateCommentAction : BaseAction() {
                         } else {
                             MethodContext(
                                 language = language,
-                                projectInfo = projectInfo,
+                                projectMeta = projectInfo,
                                 surroundingContext = surroundingContext,
                                 methodName = element.name,
                                 parameters = emptyList(),
-                                returnType = TypeInfo("Unit"),
+                                returnType = TypeMetadata("Unit"),
                                 modifiers = emptyList(),
                                 annotations = emptyList(),
                                 exceptions = emptyList(),
@@ -282,11 +282,11 @@ internal class GenerateCommentAction : BaseAction() {
                         } else {
                             MethodContext(
                                 language = language,
-                                projectInfo = projectInfo,
+                                projectMeta = projectInfo,
                                 surroundingContext = surroundingContext,
                                 methodName = element.name,
                                 parameters = emptyList(),
-                                returnType = TypeInfo(element.returnType?.presentableText ?: "void"),
+                                returnType = TypeMetadata(element.returnType?.presentableText ?: "void"),
                                 modifiers = emptyList(),
                                 annotations = emptyList(),
                                 exceptions = emptyList(),
@@ -305,17 +305,16 @@ internal class GenerateCommentAction : BaseAction() {
                         } else {
                             VariableContext(
                                 language = language,
-                                projectInfo = projectInfo,
+                                projectMeta = projectInfo,
                                 surroundingContext = surroundingContext,
                                 variableName = element.name,
-                                variableType = TypeInfo("Any"),
+                                variableType = TypeMetadata("Any"),
                                 modifiers = emptyList(),
                                 annotations = emptyList(),
                                 initializer = element.initializer?.text,
                                 scope = VariableScope.LOCAL,
                                 isConstant = !element.isVar,
                                 isStatic = false,
-                                usagePattern = null,
                                 containingClass = null,
                                 containingMethod = null
                             )
@@ -329,17 +328,16 @@ internal class GenerateCommentAction : BaseAction() {
                         } else {
                             VariableContext(
                                 language = language,
-                                projectInfo = projectInfo,
+                                projectMeta = projectInfo,
                                 surroundingContext = surroundingContext,
                                 variableName = element.name,
-                                variableType = TypeInfo(element.type.presentableText),
+                                variableType = TypeMetadata(element.type.presentableText),
                                 modifiers = emptyList(),
                                 annotations = emptyList(),
                                 initializer = element.initializer?.text,
                                 scope = if (element.hasModifierProperty(PsiModifier.STATIC)) VariableScope.STATIC_FIELD else VariableScope.FIELD,
                                 isConstant = element.hasModifierProperty(PsiModifier.FINAL),
                                 isStatic = element.hasModifierProperty(PsiModifier.STATIC),
-                                usagePattern = null,
                                 containingClass = null,
                                 containingMethod = null
                             )
@@ -353,7 +351,7 @@ internal class GenerateCommentAction : BaseAction() {
                         } else {
                             ClassContext(
                                 language = language,
-                                projectInfo = projectInfo,
+                                projectMeta = projectInfo,
                                 surroundingContext = surroundingContext,
                                 className = element.name,
                                 superClass = null,
@@ -378,7 +376,7 @@ internal class GenerateCommentAction : BaseAction() {
                         } else {
                             ClassContext(
                                 language = language,
-                                projectInfo = projectInfo,
+                                projectMeta = projectInfo,
                                 surroundingContext = surroundingContext,
                                 className = element.name,
                                 superClass = null,
@@ -399,11 +397,11 @@ internal class GenerateCommentAction : BaseAction() {
                     else -> {
                         MethodContext(
                             language = language,
-                            projectInfo = projectInfo,
+                            projectMeta = projectInfo,
                             surroundingContext = surroundingContext,
                             methodName = null,
                             parameters = emptyList(),
-                            returnType = TypeInfo("void"),
+                            returnType = TypeMetadata("void"),
                             modifiers = emptyList(),
                             annotations = emptyList(),
                             exceptions = emptyList(),

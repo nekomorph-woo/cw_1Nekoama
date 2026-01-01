@@ -5,7 +5,7 @@ import com.cw2.nekoama.shared.logging.NekoamaLogger
 import com.cw2.nekoama.domain.settings.model.NekoamaSettings
 import com.cw2.nekoama.domain.settings.service.NekoamaSecureStorage
 import com.cw2.nekoama.shared.i18n.NekoamaBundle
-import com.cw2.nekoama.infra.network.diagnostic.ProxyConnectionTester
+import com.cw2.nekoama.infrastructure.network.diagnostic.ProxyConnectionTester
 import com.cw2.nekoama.domain.ai.service.AIProvider
 import com.cw2.nekoama.domain.ai.service.CustomAIService
 import com.cw2.nekoama.domain.ai.service.CustomAPIConfig

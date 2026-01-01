@@ -1,7 +1,7 @@
 package com.cw2.nekoama.shared.lifecycle
 
 import com.cw2.nekoama.application.metrics.service.MetricsCollector
-import com.cw2.nekoama.infra.storage.metrics.JsonMetricsStorage
+import com.cw2.nekoama.infrastructure.storage.metrics.JsonMetricsStorage
 import com.cw2.nekoama.shared.logging.NekoamaLogger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity

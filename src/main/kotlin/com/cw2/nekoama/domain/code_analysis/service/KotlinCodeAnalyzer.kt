@@ -6,49 +6,49 @@ import com.intellij.psi.util.PsiTreeUtil
 import org.jetbrains.kotlin.psi.*
 import com.cw2.nekoama.shared.model.Result
 import com.cw2.nekoama.shared.exception.NekoamaError
-import com.cw2.nekoama.domain.ai.model.AnnotationInfo
-import com.cw2.nekoama.domain.ai.model.ClassContext
-import com.cw2.nekoama.domain.ai.model.ClassInfo
-import com.cw2.nekoama.domain.ai.model.FieldInfo
-import com.cw2.nekoama.domain.ai.model.MethodContext
-import com.cw2.nekoama.domain.ai.model.MethodInfo
-import com.cw2.nekoama.domain.ai.model.ParameterInfo
-import com.cw2.nekoama.domain.ai.model.ProgrammingLanguage
-import com.cw2.nekoama.domain.ai.model.ProjectInfo
-import com.cw2.nekoama.domain.ai.model.SurroundingContext
-import com.cw2.nekoama.domain.ai.model.TypeInfo
-import com.cw2.nekoama.domain.ai.model.VariableContext
-import com.cw2.nekoama.domain.ai.model.VariableScope
+import com.cw2.nekoama.domain.code_suggestion_gen.model.AnnotationMetadata
+import com.cw2.nekoama.domain.code_suggestion_gen.model.ClassContext
+import com.cw2.nekoama.domain.code_suggestion_gen.model.ClassMetadata
+import com.cw2.nekoama.domain.code_suggestion_gen.model.FieldMetadata
+import com.cw2.nekoama.domain.code_suggestion_gen.model.MethodContext
+import com.cw2.nekoama.domain.code_suggestion_gen.model.MethodMetadata
+import com.cw2.nekoama.domain.code_suggestion_gen.model.ParameterMetadata
+import com.cw2.nekoama.domain.code_suggestion_gen.model.ProgrammingLanguage
+import com.cw2.nekoama.domain.code_suggestion_gen.model.ProjectMetadata
+import com.cw2.nekoama.domain.code_suggestion_gen.model.SurroundingContext
+import com.cw2.nekoama.domain.code_suggestion_gen.model.TypeMetadata
+import com.cw2.nekoama.domain.code_suggestion_gen.model.VariableContext
+import com.cw2.nekoama.domain.code_suggestion_gen.model.VariableScope
 import org.jetbrains.kotlin.lexer.KtTokens
 
 /**
- * Kotlin‰ª£Á†ÅÂàÜÊûêÂô®
+ * Kotlin¥˙¬Î∑÷Œˆ∆˜
  * 
- * ‰∏ìÈó®Â§ÑÁêÜKotlin‰ª£Á†ÅÂÖÉÁ¥†ÁöÑÂàÜÊûêÔºåÂåÖÊã¨ÂáΩÊï∞„ÄÅÁ±ª„ÄÅÂ±ûÊÄßÁ≠â„ÄÇ
+ * ◊®√≈¥¶¿ÌKotlin¥˙¬Î‘™Àÿµƒ∑÷Œˆ£¨∞¸¿®∫Ø ˝°¢¿‡°¢ Ù–‘µ»°£
  */
 class KotlinCodeAnalyzer(private val project: Project) {
     
-    // ËØ¥ÊòéÔºö‰∏∫‰∫ÜÂÖºÂÆπ Kotlin K2 Ê®°Âºè‰∏éÈÅµÂæ™ PSI Á∫øÁ®ãÁ∫¶ÊùüÔºåÊâÄÊúâ PSI ËØªÂèñÂùáÊîæÂÖ• ReadAction ‰∏≠ÊâßË°å
+    // Àµ√˜£∫Œ™¡ÀºÊ»› Kotlin K2 ƒ£ Ω”Î◊Ò—≠ PSI œﬂ≥Ã‘º ¯£¨À˘”– PSI ∂¡»°æ˘∑≈»Î ReadAction ÷–÷¥––
     
     fun analyzeKotlinFunction(function: KtFunction): Result<MethodContext> {
         return try {
             ReadAction.compute<Result<MethodContext>, Throwable> {
                 val parameters = function.valueParameters.map { param ->
-                    ParameterInfo(
+                    ParameterMetadata(
                         name = param.name ?: "",
-                        type = TypeInfo(
+                        type = TypeMetadata(
                             typeName = param.typeReference?.text ?: "Any",
                             fullQualifiedName = param.typeReference?.text ?: "Any"
                         ),
                         annotations = param.annotationEntries.map {
-                            AnnotationInfo(it.shortName?.asString() ?: "", it.typeReference?.text)
+                            AnnotationMetadata(it.shortName?.asString() ?: "", it.typeReference?.text)
                         },
                         hasDefaultValue = param.hasDefaultValue(),
                         defaultValue = param.defaultValue?.text
                     )
                 }
 
-                val returnType = TypeInfo(
+                val returnType = TypeMetadata(
                     typeName = function.typeReference?.text ?: "Unit",
                     fullQualifiedName = function.typeReference?.text ?: "Unit"
                 )
@@ -68,7 +68,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
 
                 val methodContext = MethodContext(
                     language = ProgrammingLanguage.KOTLIN,
-                    projectInfo = ProjectInfo(project.name),
+                    projectMeta = ProjectMetadata(project.name),
                     surroundingContext = SurroundingContext(
                         precedingCode = emptyList(),
                         followingCode = emptyList(),
@@ -81,7 +81,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
                     returnType = returnType,
                     modifiers = modifiers,
                     annotations = function.annotationEntries.map {
-                        AnnotationInfo(it.shortName?.asString() ?: "", it.typeReference?.text)
+                        AnnotationMetadata(it.shortName?.asString() ?: "", it.typeReference?.text)
                     },
                     exceptions = emptyList(), // Kotlin doesn't have checked exceptions
                     methodBody = function.bodyExpression?.text ?: function.bodyBlockExpression?.text,
@@ -92,7 +92,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
                 Result.success(methodContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("KotlinÂáΩÊï∞ÂàÜÊûêÂ§±Ë¥•: ${e.message}"))
+            Result.error(NekoamaError.Unknown("Kotlin∫Ø ˝∑÷Œˆ ß∞‹: ${e.message}"))
         }
     }
     
@@ -102,7 +102,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
                 val superClass = clazz.superTypeListEntries
                     .filterIsInstance<KtSuperTypeCallEntry>()
                     .firstOrNull()?.let { superEntry ->
-                        TypeInfo(
+                        TypeMetadata(
                             typeName = superEntry.typeReference?.text ?: "",
                             fullQualifiedName = superEntry.typeReference?.text ?: ""
                         )
@@ -111,7 +111,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
                 val interfaces = clazz.superTypeListEntries
                     .filterIsInstance<KtSuperTypeEntry>()
                     .map { interfaceEntry ->
-                        TypeInfo(
+                        TypeMetadata(
                             typeName = interfaceEntry.typeReference?.text ?: "",
                             fullQualifiedName = interfaceEntry.typeReference?.text ?: ""
                         )
@@ -131,9 +131,9 @@ class KotlinCodeAnalyzer(private val project: Project) {
                 }
 
                 val properties = clazz.getProperties().map { property ->
-                    FieldInfo(
+                    FieldMetadata(
                         name = property.name ?: "",
-                        type = TypeInfo(
+                        type = TypeMetadata(
                             typeName = property.typeReference?.text ?: "Any",
                             fullQualifiedName = property.typeReference?.text ?: "Any"
                         ),
@@ -145,23 +145,22 @@ class KotlinCodeAnalyzer(private val project: Project) {
                             if (property.isVar()) add("var") else add("val")
                         },
                         annotations = property.annotationEntries.map {
-                            AnnotationInfo(it.shortName?.asString() ?: "", it.typeReference?.text)
-                        },
-                        initializer = property.initializer?.text
+                            AnnotationMetadata(it.shortName?.asString() ?: "", it.typeReference?.text)
+                        }
                     )
                 }
 
                 val methods = clazz.declarations.filterIsInstance<KtFunction>().map { function ->
-                    MethodInfo(
+                    MethodMetadata(
                         name = function.name ?: "",
-                        returnType = TypeInfo(
+                        returnType = TypeMetadata(
                             typeName = function.typeReference?.text ?: "Unit",
                             fullQualifiedName = function.typeReference?.text ?: "Unit"
                         ),
                         parameters = function.valueParameters.map { param ->
-                            ParameterInfo(
+                            ParameterMetadata(
                                 name = param.name ?: "",
-                                type = TypeInfo(
+                                type = TypeMetadata(
                                     typeName = param.typeReference?.text ?: "Any",
                                     fullQualifiedName = param.typeReference?.text ?: "Any"
                                 )
@@ -176,14 +175,14 @@ class KotlinCodeAnalyzer(private val project: Project) {
                             if (function.hasModifier(KtTokens.SUSPEND_KEYWORD)) add("suspend")
                         },
                         annotations = function.annotationEntries.map {
-                            AnnotationInfo(it.shortName?.asString() ?: "", it.typeReference?.text)
+                            AnnotationMetadata(it.shortName?.asString() ?: "", it.typeReference?.text)
                         }
                     )
                 }
 
                 val classContext = ClassContext(
                     language = ProgrammingLanguage.KOTLIN,
-                    projectInfo = ProjectInfo(project.name),
+                    projectMeta = ProjectMetadata(project.name),
                     surroundingContext = SurroundingContext(
                         precedingCode = emptyList(),
                         followingCode = emptyList(),
@@ -196,12 +195,12 @@ class KotlinCodeAnalyzer(private val project: Project) {
                     interfaces = interfaces,
                     modifiers = modifiers,
                     annotations = clazz.annotationEntries.map {
-                        AnnotationInfo(it.shortName?.asString() ?: "", it.typeReference?.text)
+                        AnnotationMetadata(it.shortName?.asString() ?: "", it.typeReference?.text)
                     },
                     fields = properties,
                     methods = methods,
                     innerClasses = clazz.declarations.filterIsInstance<KtClass>().map { innerClass ->
-                        ClassInfo(
+                        ClassMetadata(
                             name = innerClass.name ?: "",
                             fullQualifiedName = innerClass.containingKtFile.packageDirective?.fqName?.let { packageName ->
                                 if (packageName.isRoot) innerClass.name else "${packageName.asString()}.${innerClass.name}"
@@ -220,14 +219,14 @@ class KotlinCodeAnalyzer(private val project: Project) {
                 Result.success(classContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("KotlinÁ±ªÂàÜÊûêÂ§±Ë¥•: ${e.message}"))
+            Result.error(NekoamaError.Unknown("Kotlin¿‡∑÷Œˆ ß∞‹: ${e.message}"))
         }
     }
     
     fun analyzeKotlinProperty(property: KtProperty): Result<VariableContext> {
         return try {
             ReadAction.compute<Result<VariableContext>, Throwable> {
-                val propertyType = TypeInfo(
+                val propertyType = TypeMetadata(
                     typeName = property.typeReference?.text ?: "Any",
                     fullQualifiedName = property.typeReference?.text ?: "Any",
                     isNullable = property.typeReference?.text?.endsWith("?") == true
@@ -248,7 +247,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
 
                 val variableContext = VariableContext(
                     language = ProgrammingLanguage.KOTLIN,
-                    projectInfo = ProjectInfo(project.name),
+                    projectMeta = ProjectMetadata(project.name),
                     surroundingContext = SurroundingContext(
                         precedingCode = emptyList(),
                         followingCode = emptyList(),
@@ -260,14 +259,13 @@ class KotlinCodeAnalyzer(private val project: Project) {
                     variableType = propertyType,
                     modifiers = modifiers,
                     annotations = property.annotationEntries.map {
-                        AnnotationInfo(it.shortName?.asString() ?: "", it.typeReference?.text)
+                        AnnotationMetadata(it.shortName?.asString() ?: "", it.typeReference?.text)
                     },
-                    initializer = property.initializer?.text,
                     scope = if (property.isTopLevel) VariableScope.GLOBAL else VariableScope.FIELD,
                     isConstant = property.hasModifier(KtTokens.CONST_KEYWORD) || !property.isVar(),
                     isStatic = property.isTopLevel,
                     containingClass = containingClass?.let { cls ->
-                        ClassInfo(
+                        ClassMetadata(
                             name = cls.name ?: "",
                             fullQualifiedName = cls.containingKtFile.packageDirective?.fqName?.let { packageName ->
                                 if (packageName.isRoot) cls.name else "${packageName.asString()}.${cls.name}"
@@ -281,14 +279,14 @@ class KotlinCodeAnalyzer(private val project: Project) {
                 Result.success(variableContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("KotlinÂ±ûÊÄßÂàÜÊûêÂ§±Ë¥•: ${e.message}"))
+            Result.error(NekoamaError.Unknown("Kotlin Ù–‘∑÷Œˆ ß∞‹: ${e.message}"))
         }
     }
     
     fun analyzeKotlinParameter(parameter: KtParameter): Result<VariableContext> {
         return try {
             ReadAction.compute<Result<VariableContext>, Throwable> {
-                val parameterType = TypeInfo(
+                val parameterType = TypeMetadata(
                     typeName = parameter.typeReference?.text ?: "Any",
                     fullQualifiedName = parameter.typeReference?.text ?: "Any",
                     isNullable = parameter.typeReference?.text?.endsWith("?") == true
@@ -303,7 +301,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
 
                 val variableContext = VariableContext(
                     language = ProgrammingLanguage.KOTLIN,
-                    projectInfo = ProjectInfo(project.name),
+                    projectMeta = ProjectMetadata(project.name),
                     surroundingContext = SurroundingContext(
                         precedingCode = emptyList(),
                         followingCode = emptyList(),
@@ -315,16 +313,16 @@ class KotlinCodeAnalyzer(private val project: Project) {
                     variableType = parameterType,
                     modifiers = modifiers,
                     annotations = parameter.annotationEntries.map {
-                        AnnotationInfo(it.shortName?.asString() ?: "", it.typeReference?.text)
+                        AnnotationMetadata(it.shortName?.asString() ?: "", it.typeReference?.text)
                     },
                     initializer = parameter.defaultValue?.text,
                     scope = VariableScope.PARAMETER,
                     isConstant = !parameter.isMutable,
                     isStatic = false,
                     containingMethod = PsiTreeUtil.getParentOfType(parameter, KtFunction::class.java)?.let { function ->
-                        MethodInfo(
+                        MethodMetadata(
                             name = function.name ?: "",
-                            returnType = TypeInfo(
+                            returnType = TypeMetadata(
                                 typeName = function.typeReference?.text ?: "Unit",
                                 fullQualifiedName = function.typeReference?.text ?: "Unit"
                             )
@@ -335,7 +333,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
                 Result.success(variableContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("KotlinÂèÇÊï∞ÂàÜÊûêÂ§±Ë¥•: ${e.message}"))
+            Result.error(NekoamaError.Unknown("Kotlin≤Œ ˝∑÷Œˆ ß∞‹: ${e.message}"))
         }
     }
 }

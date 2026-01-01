@@ -1,21 +1,21 @@
 package com.cw2.nekoama.domain.ai.service
 
-import com.cw2.nekoama.infra.ai.client.openai.OpenAIMessage
-import com.cw2.nekoama.infra.ai.client.openai.OpenAIRequest
+import com.cw2.nekoama.infrastructure.ai.client.openai.OpenAIMessage
+import com.cw2.nekoama.infrastructure.ai.client.openai.OpenAIRequest
 import com.cw2.nekoama.domain.settings.model.NekoamaSettings
-import com.cw2.nekoama.domain.ai.model.ClassContext
-import com.cw2.nekoama.domain.ai.model.CodeContext
-import com.cw2.nekoama.domain.ai.model.MethodContext
-import com.cw2.nekoama.domain.ai.model.VariableContext
+import com.cw2.nekoama.domain.code_suggestion_gen.model.ClassContext
+import com.cw2.nekoama.domain.code_suggestion_gen.model.CodeContext
+import com.cw2.nekoama.domain.code_suggestion_gen.model.MethodContext
+import com.cw2.nekoama.domain.code_suggestion_gen.model.VariableContext
 
 /**
  * OpenAI 提示模板系统
  *
- * 负责根据不同的代码上下文生成对应的提示词，包括命名建议、注释生成和自定义生成。
- * 提示模板经过精心设计，以获得高质量的 AI 响应结果。
+ * 根据不同的代码生成场景，创建对应的提示词，支持命名建议、注释生成和自定义内容生成。
+ * 提示模板遵循场景化设计，可灵活配置以适应不同的 AI 响应需求。
  */
 class PromptService {
-    // 根据设置生成语言偏好的系统提示，用于控制生成内容语言（注释/说明/描述）
+    // 构建基于用户语言偏好的系统提示词，用于控制输出语言（注释/说明/描述）
     private fun buildLanguageSystemMessage(): OpenAIMessage? {
         return try {
             val pref = NekoamaSettings.getInstance().languagePreference.uppercase()
@@ -24,7 +24,7 @@ class PromptService {
             val content = when (pref) {
                 "EN" -> instruction.replace("{LANG}", "English")
                 "ZH", "ZH_CN", "ZH-CN" -> instruction.replace("{LANG}", "Simple Chinese")
-                else -> null // AUTO: 由模型自行选择或与输入语言一致
+                else -> null // AUTO: 让模型根据代码上下文自动选择最合适的语言
             }
             content?.let { OpenAIMessage("system", it) }
         } catch (_: Throwable) {
@@ -111,7 +111,7 @@ IMPORTANT: Always use the same language as specified in the user's request for a
     }
 
     /**
-     * 创建命名建议的提示
+     * 创建命名建议生成的提示词
      */
     fun createNamingPrompt(context: CodeContext, model: String = "gpt-4"): OpenAIRequest {
         val userPrompt = buildString {
@@ -120,14 +120,14 @@ IMPORTANT: Always use the same language as specified in the user's request for a
             appendLine("Language: ${context.language}")
             appendLine("Element type: ${context.elementType}")
 
-            // 根据不同类型的上下文添加特定信息
+            // 根据不同类型的代码元素添加特定信息
             when (context) {
                 is MethodContext -> appendMethodContext(context)
                 is ClassContext -> appendClassContext(context)
                 is VariableContext -> appendVariableContext(context)
             }
 
-            // 添加周围上下文信息
+            // 添加周边代码上下文信息
             if (context.surroundingContext.precedingCode.isNotEmpty()) {
                 appendLine("\nPreceding code:")
                 context.surroundingContext.precedingCode.take(3).forEach { line ->
@@ -142,17 +142,14 @@ IMPORTANT: Always use the same language as specified in the user's request for a
                 }
             }
 
-            // 用户意图（用于特殊符号生成）
+            // 用户意图描述（例如：重命名/重构/优化）
             context.userIntent?.let { intent ->
                 appendLine("\nUser intent: $intent")
             }
 
             // 项目信息
             appendLine("\nProject information:")
-            appendLine("  Project name: ${context.projectInfo.projectName}")
-            context.projectInfo.framework?.let { framework ->
-                appendLine("  Framework: $framework")
-            }
+            appendLine("  Project name: ${context.projectMeta.projectName}")
 
             // 命名模式分析
             context.surroundingContext.namingPatterns?.let { patterns ->
@@ -180,7 +177,7 @@ IMPORTANT: Always use the same language as specified in the user's request for a
     }
 
     /**
-     * 创建注释生成的提示
+     * 创建注释生成的提示词
      */
     fun createCommentPrompt(context: CodeContext, model: String = "gpt-4"): OpenAIRequest {
         val userPrompt = buildString {
@@ -228,7 +225,7 @@ IMPORTANT: Always use the same language as specified in the user's request for a
     }
 
     /**
-     * 创建自定义生成的提示
+     * 创建自定义内容生成的提示词
      */
     fun createCustomPrompt(prompt: String, context: CodeContext?, model: String = "gpt-4"): OpenAIRequest {
         val userPrompt = buildString {
@@ -238,7 +235,7 @@ IMPORTANT: Always use the same language as specified in the user's request for a
                 appendLine()
                 appendLine("Code context:")
                 appendLine("  Language: ${ctx.language}")
-                appendLine("  Project: ${ctx.projectInfo.projectName}")
+                appendLine("  Project: ${ctx.projectMeta.projectName}")
 
                 if (ctx.surroundingContext.precedingCode.isNotEmpty()) {
                     appendLine("\nRelated code:")
@@ -263,7 +260,7 @@ IMPORTANT: Always use the same language as specified in the user's request for a
     }
 
     /**
-     * 为方法上下文添加详细信息（用于命名）
+     * 为方法上下文添加详细信息（命名建议专用）
      */
     private fun StringBuilder.appendMethodContext(context: MethodContext) {
         appendLine("\nMethod information:")
@@ -300,7 +297,7 @@ IMPORTANT: Always use the same language as specified in the user's request for a
     }
 
     /**
-     * 为类上下文添加详细信息（用于命名）
+     * 为类上下文添加详细信息（命名建议专用）
      */
     private fun StringBuilder.appendClassContext(context: ClassContext) {
         appendLine("\nClass information:")
@@ -338,7 +335,7 @@ IMPORTANT: Always use the same language as specified in the user's request for a
     }
 
     /**
-     * 为变量上下文添加详细信息（用于命名）
+     * 为变量上下文添加详细信息（命名建议专用）
      */
     private fun StringBuilder.appendVariableContext(context: VariableContext) {
         appendLine("\nVariable information:")
@@ -356,15 +353,6 @@ IMPORTANT: Always use the same language as specified in the user's request for a
             appendLine("  Initializer: $init")
         }
 
-        context.usagePattern?.let { usage ->
-            appendLine("  Usage pattern:")
-            appendLine("    Read count: ${usage.readCount}")
-            appendLine("    Write count: ${usage.writeCount}")
-            if (usage.isLoopVariable) appendLine("    Loop variable: yes")
-            if (usage.isParameterPassed) appendLine("    Passed as parameter: yes")
-            if (usage.isReturnValue) appendLine("    Used as return value: yes")
-        }
-
         context.containingClass?.let { clazz ->
             appendLine("  Containing class: ${clazz.name}")
         }
@@ -375,7 +363,7 @@ IMPORTANT: Always use the same language as specified in the user's request for a
     }
 
     /**
-     * 为方法上下文添加注释生成所需信息
+     * 为方法上下文添加注释专用详细信息
      */
     private fun StringBuilder.appendMethodContextForComment(context: MethodContext) {
         appendLine("\nMethod signature:")
@@ -400,7 +388,7 @@ IMPORTANT: Always use the same language as specified in the user's request for a
     }
 
     /**
-     * 为类上下文添加注释生成所需信息
+     * 为类上下文添加注释专用详细信息
      */
     private fun StringBuilder.appendClassContextForComment(context: ClassContext) {
         appendLine("\nClass definition:")
@@ -437,7 +425,7 @@ IMPORTANT: Always use the same language as specified in the user's request for a
     }
 
     /**
-     * 为变量上下文添加注释生成所需信息
+     * 为变量上下文添加注释专用详细信息
      */
     private fun StringBuilder.appendVariableContextForComment(context: VariableContext) {
         appendLine("\nVariable declaration:")
@@ -448,14 +436,5 @@ IMPORTANT: Always use the same language as specified in the user's request for a
         val init = context.initializer?.let { " = $it" } ?: ""
 
         appendLine("  $modifiers$type $name$init")
-
-        context.usagePattern?.let { usage ->
-            if (usage.usageContexts.isNotEmpty()) {
-                appendLine("\nUsage scenarios:")
-                usage.usageContexts.take(3).forEach { usageContext ->
-                    appendLine("  - $usageContext")
-                }
-            }
-        }
     }
 }

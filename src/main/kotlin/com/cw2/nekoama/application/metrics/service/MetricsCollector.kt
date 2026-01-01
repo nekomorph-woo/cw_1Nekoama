@@ -1,8 +1,8 @@
 package com.cw2.nekoama.application.metrics.service
 
-import com.cw2.nekoama.infra.storage.metrics.IMetricsStorage
-import com.cw2.nekoama.infra.storage.metrics.JsonMetricsStorage
-import com.cw2.nekoama.infra.storage.metrics.StorageStats
+import com.cw2.nekoama.infrastructure.storage.metrics.IMetricsStorage
+import com.cw2.nekoama.infrastructure.storage.metrics.JsonMetricsStorage
+import com.cw2.nekoama.infrastructure.storage.metrics.StorageStats
 import com.cw2.nekoama.domain.metrics.model.ActionRecord
 import com.cw2.nekoama.domain.metrics.model.ActionType
 import com.cw2.nekoama.domain.metrics.model.AggregatedMetrics

@@ -2,7 +2,7 @@ package com.cw2.nekoama.shared.lifecycle
 
 import com.cw2.nekoama.shared.logging.NekoamaLogger
 import com.cw2.nekoama.domain.editor.service.NekoamaTypedActionHandler
-import com.cw2.nekoama.infra.network.lifecycle.ProxyInitializationManager
+import com.cw2.nekoama.infrastructure.network.lifecycle.ProxyInitializationManager
 import com.intellij.openapi.editor.actionSystem.EditorActionManager
 import com.intellij.openapi.editor.actionSystem.TypedAction
 import com.intellij.openapi.editor.actionSystem.TypedActionHandler

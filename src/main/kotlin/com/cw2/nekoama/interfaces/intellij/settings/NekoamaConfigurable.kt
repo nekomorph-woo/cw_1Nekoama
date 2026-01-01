@@ -2,7 +2,7 @@ package com.cw2.nekoama.interfaces.intellij.settings
 
 import com.cw2.nekoama.domain.settings.model.NekoamaSettings
 import com.cw2.nekoama.domain.settings.service.NekoamaSecureStorage
-import com.cw2.nekoama.infra.network.diagnostic.ProxyConnectionTester
+import com.cw2.nekoama.infrastructure.network.diagnostic.ProxyConnectionTester
 import com.cw2.nekoama.shared.i18n.NekoamaBundle
 import com.cw2.nekoama.shared.util.NekoamaNotifier
 import com.intellij.openapi.application.ApplicationManager
