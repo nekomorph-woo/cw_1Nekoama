@@ -2,9 +2,9 @@ package com.cw2.nekoama.domain.editor.service
 
 import com.cw2.nekoama.shared.i18n.NekoamaBundle
 import com.cw2.nekoama.shared.util.NekoamaNotifier
-import com.cw2.nekoama.domain.ai.service.AIProvider
-import com.cw2.nekoama.domain.ai.service.CustomAIService
-import com.cw2.nekoama.domain.ai.service.CustomAPIConfig
+import com.cw2.nekoama.domain.code_suggestion_gen.model.AIProvider
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.client.openai.OpenAIClient
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomAPIConfig
 import com.cw2.nekoama.domain.settings.model.NekoamaSettings
 import com.cw2.nekoama.domain.settings.service.NekoamaSecureStorage
 import com.cw2.nekoama.shared.logging.NekoamaLogger
@@ -136,7 +136,7 @@ internal class NekoamaTypedActionHandler(
         val resolvedKey = secureKey.ifBlank { settings.apiKey.ifBlank { System.getenv("OPENAI_API_KEY") ?: "" } }
         if (resolvedKey.isBlank() || settings.apiEndpoint.isBlank()) return null
 
-        return CustomAIService(
+        return OpenAIClient(
             CustomAPIConfig(
                 providerName = "Custom API",
                 apiUrl = settings.apiEndpoint,

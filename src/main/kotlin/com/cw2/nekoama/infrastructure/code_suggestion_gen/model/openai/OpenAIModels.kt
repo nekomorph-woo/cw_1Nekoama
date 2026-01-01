@@ -1,4 +1,4 @@
-package com.cw2.nekoama.infrastructure.ai.client.openai
+package com.cw2.nekoama.infrastructure.code_suggestion_gen.model.openai
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName

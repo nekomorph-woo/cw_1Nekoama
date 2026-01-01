@@ -1,4 +1,4 @@
-package com.cw2.nekoama.domain.ai.service
+package com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config
 
 import com.cw2.nekoama.shared.model.Result
 

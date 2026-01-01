@@ -1,7 +1,8 @@
 package com.cw2.nekoama.interfaces.intellij.actions
 
-import com.cw2.nekoama.domain.ai.service.CustomAPIConfig
-import com.cw2.nekoama.domain.ai.service.CustomAIService
+import com.cw2.nekoama.domain.code_suggestion_gen.model.AIProvider
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.client.openai.OpenAIClient
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomAPIConfig
 import com.cw2.nekoama.shared.logging.NekoamaLogger
 import com.cw2.nekoama.domain.settings.service.NekoamaSecureStorage
 import com.cw2.nekoama.domain.settings.model.NekoamaSettings
@@ -17,7 +18,6 @@ import com.cw2.nekoama.domain.code_suggestion_gen.model.SurroundingContext
 import com.cw2.nekoama.domain.code_suggestion_gen.model.TypeMetadata
 import com.cw2.nekoama.domain.code_suggestion_gen.model.VariableContext
 import com.cw2.nekoama.domain.code_suggestion_gen.model.VariableScope
-import com.cw2.nekoama.domain.ai.service.AIProvider
 import com.cw2.nekoama.shared.exception.NekoamaError
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
@@ -219,7 +219,7 @@ internal class GenerateCommentAction : BaseAction() {
 
         if (resolvedKey.isBlank() || settings.apiEndpoint.isBlank()) return null
 
-        return CustomAIService(
+        return OpenAIClient(
             CustomAPIConfig(
                 providerName = "Custom API",
                 apiUrl = settings.apiEndpoint,

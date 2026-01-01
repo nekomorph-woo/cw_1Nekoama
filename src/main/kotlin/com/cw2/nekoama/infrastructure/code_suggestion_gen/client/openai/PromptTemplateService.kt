@@ -1,20 +1,20 @@
-package com.cw2.nekoama.domain.ai.service
+package com.cw2.nekoama.infrastructure.code_suggestion_gen.client.openai
 
-import com.cw2.nekoama.infrastructure.ai.client.openai.OpenAIMessage
-import com.cw2.nekoama.infrastructure.ai.client.openai.OpenAIRequest
 import com.cw2.nekoama.domain.settings.model.NekoamaSettings
 import com.cw2.nekoama.domain.code_suggestion_gen.model.ClassContext
 import com.cw2.nekoama.domain.code_suggestion_gen.model.CodeContext
 import com.cw2.nekoama.domain.code_suggestion_gen.model.MethodContext
 import com.cw2.nekoama.domain.code_suggestion_gen.model.VariableContext
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.openai.OpenAIRequest
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.openai.OpenAIMessage
 
 /**
- * OpenAI 提示模板系统
+ * OpenAI 提示词模板服务
  *
- * 根据不同的代码生成场景，创建对应的提示词，支持命名建议、注释生成和自定义内容生成。
+ * 根据不同的代码生成场景，创建对应的 OpenAI 请求，支持命名建议、注释生成和自定义内容生成。
  * 提示模板遵循场景化设计，可灵活配置以适应不同的 AI 响应需求。
  */
-class PromptService {
+class PromptTemplateService {
     // 构建基于用户语言偏好的系统提示词，用于控制输出语言（注释/说明/描述）
     private fun buildLanguageSystemMessage(): OpenAIMessage? {
         return try {

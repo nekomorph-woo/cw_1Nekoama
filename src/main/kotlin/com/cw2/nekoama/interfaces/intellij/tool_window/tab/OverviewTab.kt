@@ -6,9 +6,9 @@ import com.cw2.nekoama.domain.settings.model.NekoamaSettings
 import com.cw2.nekoama.domain.settings.service.NekoamaSecureStorage
 import com.cw2.nekoama.shared.i18n.NekoamaBundle
 import com.cw2.nekoama.infrastructure.network.diagnostic.ProxyConnectionTester
-import com.cw2.nekoama.domain.ai.service.AIProvider
-import com.cw2.nekoama.domain.ai.service.CustomAIService
-import com.cw2.nekoama.domain.ai.service.CustomAPIConfig
+import com.cw2.nekoama.domain.code_suggestion_gen.model.AIProvider
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.client.openai.OpenAIClient
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomAPIConfig
 import com.cw2.nekoama.domain.metrics.model.DailyTrendPoint
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.options.ShowSettingsUtil
@@ -1156,7 +1156,7 @@ class OverviewTab : BaseNekoamaTab() {
             }
 
             // 创建Custom API Provider实例
-            return CustomAIService(
+            return OpenAIClient(
                 CustomAPIConfig(
                     providerName = "Custom API",
                     apiUrl = settings.apiEndpoint,

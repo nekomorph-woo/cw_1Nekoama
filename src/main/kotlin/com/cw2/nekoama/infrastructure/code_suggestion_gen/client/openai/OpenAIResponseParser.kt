@@ -1,4 +1,4 @@
-package com.cw2.nekoama.infrastructure.ai.client.openai
+package com.cw2.nekoama.infrastructure.code_suggestion_gen.client.openai
 
 import com.cw2.nekoama.shared.model.Result
 import com.cw2.nekoama.shared.exception.NekoamaError
@@ -16,14 +16,15 @@ import com.cw2.nekoama.domain.code_suggestion_gen.model.MethodContext
 import com.cw2.nekoama.domain.code_suggestion_gen.model.NamingConvention
 import com.cw2.nekoama.domain.code_suggestion_gen.model.ProgrammingLanguage
 import com.cw2.nekoama.domain.code_suggestion_gen.model.VariableContext
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.openai.OpenAIResponse
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 
 /**
- * OpenAI 响应解析�?
+ * OpenAI 响应解析
  * 
- * 负责解析 OpenAI API 的响应，�?JSON 格式的响应转换为具体的建议对象�?
- * 包含对不同类型响应的解析逻辑和错误处理�?
+ * 负责解析 OpenAI API 的响应，JSON 格式的响应转换为具体的建议对象
+ * 包含对不同类型响应的解析逻辑和错误处理
  */
 object OpenAIResponseParser {
     
@@ -46,7 +47,7 @@ object OpenAIResponseParser {
             val jsonElement = jsonResponse.getOrNull() ?: return Result.error(NekoamaError.ParseError.JsonParse("JSON解析失败"))
             
             val suggestionsJson = jsonElement.jsonObject["suggestions"]?.jsonArray
-                ?: return Result.error(NekoamaError.ParseError.InvalidResponse("响应中缺�?suggestions 字段"))
+                ?: return Result.error(NekoamaError.ParseError.InvalidResponse("响应中缺suggestions 字段"))
             
             val suggestions = suggestionsJson.mapNotNull { suggestionJson ->
                 try {
@@ -99,9 +100,9 @@ object OpenAIResponseParser {
             val jsonElement = jsonResponse.getOrNull() ?: return Result.error(NekoamaError.ParseError.JsonParse("JSON解析失败"))
             
             val commentContent = jsonElement.jsonObject["content"]?.jsonPrimitive?.content
-                ?: return Result.error(NekoamaError.ParseError.InvalidResponse("响应中缺�?content 字段"))
+                ?: return Result.error(NekoamaError.ParseError.InvalidResponse("响应中缺content 字段"))
             
-            // 解析结构化信�?
+            // 解析结构化信
             val structure = parseCommentStructure(jsonElement.jsonObject)
             
             val commentSuggestion = CommentSuggestion(
@@ -127,7 +128,7 @@ object OpenAIResponseParser {
     }
     
     /**
-     * 解析自定义生成响�?
+     * 解析自定义生成响应
      */
     fun parseCustomResponse(response: OpenAIResponse): Result<String> {
         return try {
@@ -139,7 +140,7 @@ object OpenAIResponseParser {
         } catch (e: Exception) {
             NekoamaLogger.logError("parseCustomResponse", NekoamaError.ParseError.JsonParse(),
                 context = mapOf("error" to e.message))
-            Result.error(NekoamaError.ParseError.JsonParse("解析自定义响应失�? ${e.message}"))
+            Result.error(NekoamaError.ParseError.JsonParse("解析自定义响应失 ${e.message}"))
         }
     }
     
@@ -169,10 +170,10 @@ object OpenAIResponseParser {
      */
     private fun parseSingleNamingSuggestion(jsonObject: JsonObject, context: CodeContext): NamingSuggestion {
         val name = jsonObject["name"]?.jsonPrimitive?.content
-            ?: throw IllegalArgumentException("建议中缺�?name 字段")
+            ?: throw IllegalArgumentException("建议中缺name 字段")
         
         val description = jsonObject["description"]?.jsonPrimitive?.content
-            ?: throw IllegalArgumentException("建议中缺�?description 字段")
+            ?: throw IllegalArgumentException("建议中缺description 字段")
         
         val score = jsonObject["score"]?.jsonPrimitive?.doubleOrNull ?: 0.8
 
@@ -182,7 +183,7 @@ object OpenAIResponseParser {
             score = score,
             namingConvention = determineNamingConvention(name, context),
             applicableFor = listOf(context.elementType),
-            confidence = score, // 使用 score 作为置信�?
+            confidence = score, // 使用 score 作为置信
         )
     }
     
@@ -223,7 +224,7 @@ object OpenAIResponseParser {
             Result.success(suggestions)
             
         } catch (e: Exception) {
-            Result.error(NekoamaError.ParseError.InvalidResponse("纯文本解析失�? ${e.message}"))
+            Result.error(NekoamaError.ParseError.InvalidResponse("纯文本解析失 ${e.message}"))
         }
     }
     
@@ -246,7 +247,7 @@ object OpenAIResponseParser {
             Result.success(commentSuggestion)
             
         } catch (e: Exception) {
-            Result.error(NekoamaError.ParseError.InvalidResponse("纯文本注释解析失�? ${e.message}"))
+            Result.error(NekoamaError.ParseError.InvalidResponse("纯文本注释解析失 ${e.message}"))
         }
     }
     
@@ -311,7 +312,7 @@ object OpenAIResponseParser {
     }
     
     /**
-     * 生成上下文哈希�?
+     * 生成上下文哈希
      */
     private fun generateContextHash(context: CodeContext): String {
         val contextString = buildString {
@@ -340,7 +341,7 @@ object OpenAIResponseParser {
 }
 
 /**
- * OpenAI 命名建议响应结构（用�?JSON 解析�?
+ * OpenAI 命名建议响应结构
  */
 @Serializable
 private data class OpenAINamingResponse(

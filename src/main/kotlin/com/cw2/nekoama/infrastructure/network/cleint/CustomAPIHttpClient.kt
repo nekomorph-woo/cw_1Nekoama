@@ -1,6 +1,6 @@
 package com.cw2.nekoama.infrastructure.network.cleint
 
-import com.cw2.nekoama.infrastructure.ai.client.openai.OpenAIRequest
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.openai.OpenAIRequest
 import com.cw2.nekoama.shared.logging.NekoamaLogger
 import com.cw2.nekoama.shared.util.toJson
 import com.cw2.nekoama.infrastructure.network.detection.ProxyDetector
@@ -11,7 +11,7 @@ import com.cw2.nekoama.infrastructure.network.interceptor.RetryInterceptor
 import com.cw2.nekoama.infrastructure.network.interceptor.MonitoringInterceptor
 import com.cw2.nekoama.infrastructure.network.proxy.ProxyAuthenticatorFactory
 import com.cw2.nekoama.infrastructure.network.config.ProxyConfig
-import com.cw2.nekoama.domain.ai.service.CustomAPIConfig
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomAPIConfig
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody

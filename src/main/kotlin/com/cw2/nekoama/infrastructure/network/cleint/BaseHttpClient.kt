@@ -1,7 +1,7 @@
 package com.cw2.nekoama.infrastructure.network.cleint
 
-import com.cw2.nekoama.infrastructure.ai.client.openai.OpenAIRequest
-import com.cw2.nekoama.infrastructure.ai.client.openai.OpenAIResponse
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.openai.OpenAIRequest
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.openai.OpenAIResponse
 import com.cw2.nekoama.shared.model.Result
 import com.cw2.nekoama.shared.exception.NekoamaError
 import com.cw2.nekoama.shared.logging.NekoamaLogger

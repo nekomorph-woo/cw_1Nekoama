@@ -1,31 +1,33 @@
-package com.cw2.nekoama.domain.ai.service
+package com.cw2.nekoama.infrastructure.code_suggestion_gen.client.openai
 
-import com.cw2.nekoama.infrastructure.network.cleint.CustomAPIHttpClient
-import com.cw2.nekoama.shared.exception.NekoamaError
-import com.cw2.nekoama.shared.logging.NekoamaLogger
+import com.cw2.nekoama.domain.code_suggestion_gen.model.AIProvider
+import com.cw2.nekoama.domain.code_suggestion_gen.model.AIProviderStatus
 import com.cw2.nekoama.domain.code_suggestion_gen.model.CodeContext
 import com.cw2.nekoama.domain.code_suggestion_gen.model.CommentSuggestion
 import com.cw2.nekoama.domain.code_suggestion_gen.model.NamingSuggestion
-import com.cw2.nekoama.infrastructure.ai.client.openai.OpenAIMessage
-import com.cw2.nekoama.infrastructure.ai.client.openai.OpenAIRequest
-import com.cw2.nekoama.infrastructure.ai.client.openai.OpenAIResponseParser
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomAPIConfig
+import com.cw2.nekoama.infrastructure.network.cleint.CustomAPIHttpClient
+import com.cw2.nekoama.shared.exception.NekoamaError
+import com.cw2.nekoama.shared.logging.NekoamaLogger
 import com.cw2.nekoama.shared.model.Result
 
 /**
- * 自定�?API 服务提供商实�?
+ * OpenAI 客户端实现
+ *
+ * 实现了 AIProvider 接口，提供基于 OpenAI 兼容 API 的代码建议生成功能。
  */
-class CustomAIService(
+class OpenAIClient(
     override val config: CustomAPIConfig
 ) : AIProvider {
 
     override val name = config.providerName
 
-    // 复用 OpenAI �?HTTP 客户端和模板系统，但使用自定义配�?
+    // 复用 OpenAI 格的 HTTP 客户端和模板系统，但使用自定义配置
     private val httpClient by lazy {
         CustomAPIHttpClient(config)
     }
     private val promptTemplates by lazy {
-        PromptService() // 使用相同的提示模�?
+        PromptTemplateService() // 使用相同的提示模板
     }
 
     /**
@@ -97,7 +99,7 @@ class CustomAIService(
     }
 
     /**
-     * 自定义生�?
+     * 自定义生成
      */
     override suspend fun generateCustom(prompt: String, context: CodeContext?): Result<String> {
         return try {
@@ -124,22 +126,22 @@ class CustomAIService(
             }
 
         } catch (e: Exception) {
-            val error = NekoamaError.APIError.ServerError("自定义生成失�? ${e.message}")
+            val error = NekoamaError.APIError.ServerError("自定义生成失败: ${e.message}")
             NekoamaLogger.logError("generateCustom", error, mapOf("provider" to name, "exception" to e.message))
             Result.error(error)
         }
     }
 
     /**
-     * 检查服务可用�?
+     * 检查服务可用性
      */
     override suspend fun isAvailable(): Result<Boolean> {
         return try {
-            // 发送一个简单的测试请求检查服务可用�?
-            val testRequest = OpenAIRequest(
+            // 发送一个简单的测试请求检查服务可用性
+            val testRequest = com.cw2.nekoama.infrastructure.code_suggestion_gen.model.openai.OpenAIRequest(
                 model = config.model,
                 messages = listOf(
-                    OpenAIMessage("user", "test")
+                    com.cw2.nekoama.infrastructure.code_suggestion_gen.model.openai.OpenAIMessage("user", "test")
                 ),
                 maxTokens = 1
             )
@@ -157,7 +159,7 @@ class CustomAIService(
     }
 
     /**
-     * 获取服务状�?
+     * 获取服务状态
      */
     override suspend fun getStatus(): Result<AIProviderStatus> {
         return try {
@@ -174,7 +176,7 @@ class CustomAIService(
             }
 
         } catch (e: Exception) {
-            val error = NekoamaError.APIError.ServerError("获取状态失�? ${e.message}")
+            val error = NekoamaError.APIError.ServerError("获取状态失败: ${e.message}")
             NekoamaLogger.logError("getStatus", error, mapOf("provider" to name, "exception" to e.message))
             Result.error(error)
         }
