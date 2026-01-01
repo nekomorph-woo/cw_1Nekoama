@@ -73,23 +73,30 @@ resources/                        # 插件资源 - 配置、国际化、静态�
 - **Rule:** Define `Data Class` (Kotlin) and `Type Definition` (JS) simultaneously.
 
 ## 3. 📚 Knowledge Base Indexing (知识库索引)
-**Always refer to these files first according to the task requirements:**
-- **Tech Constraints:** `agent_docs/tech_guidance/*.md` (Your "Laws of Physics")
-    - `edt-threading-rules.md`: 当你开发IntelliJ插件的 Swing UI 操作时或者需要执行耗时操作（如网络请求、文件 IO、AI 调用）时查阅该规则
-    - `intellij-psi-usage-rules.md`: 当你需要读取或修改IntelliJ插件开发SDK提供的的 Java/Kotlin 源代码的结构化表示（Program Structure Interface）时查阅，例如分析代码元素（类、方法、字段）、生成代码、执行代码重构等
-    - `intellij-swing-ui-rules.md`: 当你在IntelliJ插件开发中需要创建或修改Swing UI组件时查阅该规则，例如处理线程安全、组件创建、主题适配、对话框显示等UI操作
-    - `intellij-theme-adaptation-rules.md`: 当你在IntelliJ插件UI代码开发中需要确保自定义 UI 组件在浅色和深色主题下都能正确显示时查阅该规则
-    - `kotlin-idea-plugin-tdd-testing.md`: 当你开始实现一个新的后端功能时。当你需要在 src/test/kotlin 目录下创建或修改测试文件时查阅该规则
-    - `kotlin-mockk-testing-rules.md`: 当你的测试需要模拟（mock）IntelliJ 平台服务（如 Project, Editor, PsiFile）或其他依赖项、或需要隔离外部依赖（如数据库、网络请求、文件系统）、或使用JUnit 5 注解（如 `@Test`, `@BeforeEach`, `@AfterEach`）时查阅该规则
-    - `okhttp-proxy-auto-detection-rules.md`: 当你需要在Intellij插件构建新的 OkHttpClient 处理Intellij的代理时
-    - `nekoama-tab-extension-system-rules.md`: 当你需要为 Nekoama 工具窗口添加一个新的标签页时查阅该规则
-- **Memories:** `agent_docs/memories/active_context.md` (Current task status).
 
-If you cannot actually read files under `agent_docs/tech_guidance/`,
-you MUST:
-- Explicitly say you do not have direct access.
-- Infer likely constraints from the file names.
-- Add a TODO note suggesting that the human confirms details in those docs.
+**在编写生产代码前，必须根据任务类型查阅以下技术约束文档：**
+
+### 3.1 架构与设计规范
+- **DDD 分包架构规范** (`ddd-packaging-rules.md`): 当你需要进行代码分层、模块划分、确定依赖方向时查阅该规则。涵盖领域层、基础设施层、接口适配层的职责边界和依赖倒置原则。
+
+### 3.2 IntelliJ 平台开发规范
+- **EDT 线程安全规则** (`edt-threading-rules.md`): 当你开发 Swing UI 操作或执行耗时操作（网络请求、文件 IO、AI 调用）时查阅该规则，确保 IDE 稳定性。
+- **PSI 使用规范** (`intellij-psi-usage-rules.md`): 当你需要读取或修改 Java/Kotlin 源代码结构（Program Structure Interface）时查阅该规则，例如分析代码元素、生成代码、执行重构等。
+- **Swing UI 规范** (`intellij-swing-ui-rules.md`): 当你需要创建或修改 Swing UI 组件时查阅该规则，涵盖线程安全、组件创建、对话框显示等。
+- **主题适配规范** (`intellij-theme-adaptation-rules.md`): 当你开发自定义 UI 组件时查阅该规则，确保组件在浅色和深色主题下都能正确显示。
+
+### 3.3 测试开发规范
+- **TDD 测试规范** (`kotlin-idea-plugin-tdd-testing.md`): 当你开始实现新的后端功能或需要在 src/test/kotlin 目录下创建测试文件时查阅该规则。
+- **MockK 测试规范** (`kotlin-mockk-testing-rules.md`): 当你的测试需要模拟 IntelliJ 平台服务（Project, Editor, PsiFile）或隔离外部依赖（数据库、网络、文件系统）时查阅该规则。
+
+### 3.4 网络与代理规范
+- **OkHttp 代理检测规范** (`okhttp-proxy-auto-detection-rules.md`): 当你需要构建 OkHttpClient 处理 IntelliJ 代理配置时查阅该规则。
+
+### 3.5 查阅协议
+如果无法直接访问 `agent_docs/tech_guidance/` 下的文件，必须：
+1. 明确说明无法直接访问该文件
+2. 根据文件名推断可能的约束
+3. 添加 TODO 注释，提示用户确认相关文档详情
 
 ## 4. ⚙️ Vibe Coding Workflow (Adaptive)
 Strictly follow the loop corresponding to the current **Mode**:
