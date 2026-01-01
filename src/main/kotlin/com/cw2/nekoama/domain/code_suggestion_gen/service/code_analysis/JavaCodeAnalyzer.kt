@@ -26,12 +26,20 @@ import com.cw2.nekoama.domain.code_suggestion_gen.model.VariableScope
  */
 class JavaCodeAnalyzer(private val project: Project) {
 
+    /**
+     * 分析 Java 方法并提取其上下文信息
+     *
+     * @param method 要分析的 PSI 方法对象
+     * @return 包含方法上下文信息的 Result 对象，成功时返回 MethodContext，失败时返回错误信息
+     */
     fun analyzeJavaMethod(method: PsiMethod): Result<MethodContext> {
         return try {
+            // 在 ReadAction 中执行 PSI 访问，确保线程安全
             ReadAction.compute<Result<MethodContext>, Throwable> {
+                // 提取方法参数信息：遍历参数列表，构建参数元数据
                 val parameters = method.parameterList.parameters.map { param ->
                     ParameterMetadata(
-                        name = param.name ?: "",
+                        name = param.name,
                         type = TypeMetadata(
                             typeName = param.type.presentableText
                         ),
@@ -41,11 +49,13 @@ class JavaCodeAnalyzer(private val project: Project) {
                     )
                 }
 
+                // 提取返回类型信息，若无返回类型则默认为 "void"
                 val returnType = TypeMetadata(
                     typeName = method.returnType?.presentableText ?: "void"
                 )
 
-                val modifiers = method.modifierList?.let { modifierList ->
+                // 提取方法修饰符：检查并收集所有适用的修饰符
+                val modifiers = method.modifierList.let { modifierList ->
                     mutableListOf<String>().apply {
                         if (modifierList.hasModifierProperty(PsiModifier.PUBLIC)) add("public")
                         if (modifierList.hasModifierProperty(PsiModifier.PRIVATE)) add("private")
@@ -54,8 +64,9 @@ class JavaCodeAnalyzer(private val project: Project) {
                         if (modifierList.hasModifierProperty(PsiModifier.FINAL)) add("final")
                         if (modifierList.hasModifierProperty(PsiModifier.ABSTRACT)) add("abstract")
                     }
-                } ?: emptyList()
+                }
 
+                // 构建完整的方法上下文对象
                 val methodContext = MethodContext(
                     language = ProgrammingLanguage.JAVA,
                     projectMeta = ProjectMetadata(project.name),
@@ -68,9 +79,11 @@ class JavaCodeAnalyzer(private val project: Project) {
                     parameters = parameters,
                     returnType = returnType,
                     modifiers = modifiers,
+                    // 提取方法上的注解
                     annotations = method.annotations.map {
                         AnnotationMetadata(it.qualifiedName ?: "")
                     },
+                    // 提取方法声明的异常类型
                     exceptions = method.throwsList.referencedTypes.map {
                         TypeMetadata(it.presentableText)
                     },
@@ -86,15 +99,24 @@ class JavaCodeAnalyzer(private val project: Project) {
         }
     }
     
+    /**
+     * 分析 Java 类并提取其上下文信息
+     *
+     * @param clazz 要分析的 PSI 类对象
+     * @return 包含类上下文信息的 Result 对象，成功时返回 ClassContext，失败时返回错误信息
+     */
     fun analyzeJavaClass(clazz: PsiClass): Result<ClassContext> {
         return try {
+            // 在 ReadAction 中执行 PSI 访问，确保线程安全
             ReadAction.compute<Result<ClassContext>, Throwable> {
+                // 提取父类信息（如果存在）
                 val superClass = clazz.superClass?.let { superCls ->
                     TypeMetadata(
                         typeName = superCls.name ?: ""
                     )
                 }
 
+                // 构建完整的类上下文对象
                 val classContext = ClassContext(
                     language = ProgrammingLanguage.JAVA,
                     projectMeta = ProjectMetadata(project.name),
@@ -108,6 +130,7 @@ class JavaCodeAnalyzer(private val project: Project) {
                     isInterface = clazz.isInterface,
                     isAbstract = clazz.hasModifierProperty(PsiModifier.ABSTRACT),
                     isEnum = clazz.isEnum,
+                    // 从包含文件中提取包名，若非 Java 文件则返回空字符串
                     packageName = (clazz.containingFile as? PsiJavaFile)?.packageName ?: ""
                 )
 
@@ -118,13 +141,22 @@ class JavaCodeAnalyzer(private val project: Project) {
         }
     }
     
+    /**
+     * 分析 Java 变量并提取其上下文信息
+     *
+     * @param variable 要分析的 PSI 变量对象（可能是字段、局部变量或参数）
+     * @return 包含变量上下文信息的 Result 对象，成功时返回 VariableContext，失败时返回错误信息
+     */
     fun analyzeJavaVariable(variable: PsiVariable): Result<VariableContext> {
         return try {
+            // 在 ReadAction 中执行 PSI 访问，确保线程安全
             ReadAction.compute<Result<VariableContext>, Throwable> {
+                // 提取变量类型信息
                 val variableType = TypeMetadata(
                     typeName = variable.type.presentableText
                 )
 
+                // 提取变量修饰符：检查并收集所有适用的修饰符
                 val modifiers = variable.modifierList?.let { modifierList ->
                     mutableListOf<String>().apply {
                         if (modifierList.hasModifierProperty(PsiModifier.FINAL)) add("final")
@@ -134,6 +166,16 @@ class JavaCodeAnalyzer(private val project: Project) {
                     }
                 } ?: emptyList()
 
+                // 根据变量的具体类型确定其作用域
+                // PsiVariable 是一个接口，其实现包括 PsiField（字段）、PsiLocalVariable（局部变量）和 PsiParameter（参数）
+                val variableScope = when (variable) {
+                    is PsiField -> VariableScope.FIELD
+                    is PsiLocalVariable -> VariableScope.LOCAL
+                    is PsiParameter -> VariableScope.PARAMETER
+                    else -> VariableScope.LOCAL
+                }
+
+                // 构建完整的变量上下文对象
                 val variableContext = VariableContext(
                     language = ProgrammingLanguage.JAVA,
                     projectMeta = ProjectMetadata(project.name),
@@ -149,12 +191,7 @@ class JavaCodeAnalyzer(private val project: Project) {
                         AnnotationMetadata(it.qualifiedName ?: "")
                     },
                     initializer = variable.initializer?.text,
-                    scope = when (variable) {
-                        is PsiField -> VariableScope.FIELD
-                        is PsiLocalVariable -> VariableScope.LOCAL
-                        is PsiParameter -> VariableScope.PARAMETER
-                        else -> VariableScope.LOCAL
-                    },
+                    scope = variableScope,
                     isConstant = variable.modifierList?.hasModifierProperty(PsiModifier.FINAL) == true,
                     isStatic = variable.modifierList?.hasModifierProperty(PsiModifier.STATIC) == true
                 )
@@ -162,58 +199,7 @@ class JavaCodeAnalyzer(private val project: Project) {
                 Result.success(variableContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("Java 方法分析失败: ${e.message}"))
-        }
-    }
-    
-    fun analyzeJavaField(field: PsiField): Result<VariableContext> {
-        return try {
-            ReadAction.compute<Result<VariableContext>, Throwable> {
-                val fieldType = TypeMetadata(
-                    typeName = field.type.presentableText
-                )
-
-                val modifiers = field.modifierList?.let { modifierList ->
-                    mutableListOf<String>().apply {
-                        if (modifierList.hasModifierProperty(PsiModifier.PUBLIC)) add("public")
-                        if (modifierList.hasModifierProperty(PsiModifier.PRIVATE)) add("private")
-                        if (modifierList.hasModifierProperty(PsiModifier.PROTECTED)) add("protected")
-                        if (modifierList.hasModifierProperty(PsiModifier.STATIC)) add("static")
-                        if (modifierList.hasModifierProperty(PsiModifier.FINAL)) add("final")
-                        if (modifierList.hasModifierProperty(PsiModifier.VOLATILE)) add("volatile")
-                        if (modifierList.hasModifierProperty(PsiModifier.TRANSIENT)) add("transient")
-                    }
-                } ?: emptyList()
-
-                val variableContext = VariableContext(
-                    language = ProgrammingLanguage.JAVA,
-                    projectMeta = ProjectMetadata(project.name),
-                    surroundingContext = SurroundingContext(
-                        precedingCode = emptyList(),
-                        followingCode = emptyList(),
-                        imports = emptyList()
-                    ),
-                    variableName = field.name,
-                    variableType = fieldType,
-                    modifiers = modifiers,
-                    annotations = field.annotations.map {
-                        AnnotationMetadata(it.qualifiedName ?: "")
-                    },
-                    initializer = field.initializer?.text,
-                    scope = if (field.hasModifierProperty(PsiModifier.STATIC)) VariableScope.STATIC_FIELD else VariableScope.FIELD,
-                    isConstant = field.hasModifierProperty(PsiModifier.FINAL),
-                    isStatic = field.hasModifierProperty(PsiModifier.STATIC),
-                    containingClass = field.containingClass?.let { containingClass ->
-                        ClassMetadata(
-                            name = containingClass.name ?: ""
-                        )
-                    }
-                )
-
-                Result.success(variableContext)
-            }
-        } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("Java 字段分析失败: ${e.message}"))
+            Result.error(NekoamaError.Unknown("Java 变量分析失败: ${e.message}"))
         }
     }
 }

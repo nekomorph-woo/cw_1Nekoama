@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 enum class ProgrammingLanguage {
-    JAVA, KOTLIN, PYTHON, JAVASCRIPT, TYPESCRIPT, C_SHARP, CPP, GO, RUST, SWIFT, OTHER
+    JAVA, KOTLIN, OTHER
 }
 
 /**

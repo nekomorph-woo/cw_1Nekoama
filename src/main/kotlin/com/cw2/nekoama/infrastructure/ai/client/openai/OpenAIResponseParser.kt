@@ -306,7 +306,6 @@ object OpenAIResponseParser {
         return when (context.language) {
             ProgrammingLanguage.JAVA -> CommentFormat.JAVADOC
             ProgrammingLanguage.KOTLIN -> CommentFormat.KDOC
-            ProgrammingLanguage.JAVASCRIPT, ProgrammingLanguage.TYPESCRIPT -> CommentFormat.JSDOC
             else -> CommentFormat.JAVADOC
         }
     }

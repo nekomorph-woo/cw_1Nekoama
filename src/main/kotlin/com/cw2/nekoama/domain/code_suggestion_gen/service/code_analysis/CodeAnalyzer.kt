@@ -127,7 +127,6 @@ class UniversalCodeAnalyzer(
                 ProgrammingLanguage.JAVA -> {
                     when (variable) {
                         is PsiVariable -> javaAnalyzer.analyzeJavaVariable(variable)
-                        is PsiField -> javaAnalyzer.analyzeJavaField(variable)
                         else -> Result.error(NekoamaError.PlatformError.EditorUnavailable("元素不是有效的 Java 变量"))
                     }
                 }
@@ -165,7 +164,7 @@ class UniversalCodeAnalyzer(
             for (i in maxOf(0, startLine - radius) until startLine) {
                 val lineStartOffset = document.getLineStartOffset(i)
                 val lineEndOffset = document.getLineEndOffset(i)
-                precedingLines.add(document.getText().substring(lineStartOffset, lineEndOffset).trim())
+                precedingLines.add(document.text.substring(lineStartOffset, lineEndOffset).trim())
             }
             
             // 获取后续代码
@@ -174,7 +173,7 @@ class UniversalCodeAnalyzer(
             for (i in (endLine + 1)..minOf(totalLines - 1, endLine + radius)) {
                 val lineStartOffset = document.getLineStartOffset(i)
                 val lineEndOffset = document.getLineEndOffset(i)
-                followingLines.add(document.getText().substring(lineStartOffset, lineEndOffset).trim())
+                followingLines.add(document.text.substring(lineStartOffset, lineEndOffset).trim())
             }
             
             // 获取导入语句
@@ -207,14 +206,6 @@ class UniversalCodeAnalyzer(
         return when {
             file.language.id == "JAVA" || file.name.endsWith(".java") -> ProgrammingLanguage.JAVA
             file.language.id == "kotlin" || file.name.endsWith(".kt") -> ProgrammingLanguage.KOTLIN
-            file.name.endsWith(".py") -> ProgrammingLanguage.PYTHON
-            file.name.endsWith(".js") -> ProgrammingLanguage.JAVASCRIPT
-            file.name.endsWith(".ts") -> ProgrammingLanguage.TYPESCRIPT
-            file.name.endsWith(".cs") -> ProgrammingLanguage.C_SHARP
-            file.name.endsWith(".cpp") || file.name.endsWith(".cc") -> ProgrammingLanguage.CPP
-            file.name.endsWith(".go") -> ProgrammingLanguage.GO
-            file.name.endsWith(".rs") -> ProgrammingLanguage.RUST
-            file.name.endsWith(".swift") -> ProgrammingLanguage.SWIFT
             else -> ProgrammingLanguage.OTHER
         }
     }
@@ -284,7 +275,7 @@ class UniversalCodeAnalyzer(
         val camelCaseCount = names.count { name -> name.matches(Regex("[a-z][a-zA-Z0-9]*")) }
         val pascalCaseCount = names.count { name -> name.matches(Regex("[A-Z][a-zA-Z0-9]*")) }
         val snakeCaseCount = names.count { name -> name.contains("_") }
-        
+
         val convention = when {
             pascalCaseCount > camelCaseCount && pascalCaseCount > snakeCaseCount -> NamingConvention.PASCAL_CASE
             snakeCaseCount > camelCaseCount && snakeCaseCount > pascalCaseCount -> NamingConvention.SNAKE_CASE
@@ -304,34 +295,5 @@ class UniversalCodeAnalyzer(
         return ProjectMetadata(
             projectName = project.name
         )
-    }
-    
-    private fun detectProjectType(): String? {
-        // 根据文件结构判断项目类型
-        val baseDir = project.baseDir
-        return when {
-            baseDir?.findChild("pom.xml") != null -> "Maven"
-            baseDir?.findChild("build.gradle") != null || baseDir?.findChild("build.gradle.kts") != null -> "Gradle"
-            else -> null
-        }
-    }
-    
-    private fun detectFramework(): String? {
-        // 通过扫描依赖注解判断
-        return null // 待实现
-    }
-
-    private fun detectBuildTool(): String? {
-        return detectProjectType() // 待实现
-    }
-
-    private fun detectJavaVersion(): String? {
-        // 通过模块推断检测Java版本
-        return null // 待实现
-    }
-
-    private fun detectKotlinVersion(): String? {
-        // 通过Kotlin标准库版本
-        return null // 待实现
     }
 }
