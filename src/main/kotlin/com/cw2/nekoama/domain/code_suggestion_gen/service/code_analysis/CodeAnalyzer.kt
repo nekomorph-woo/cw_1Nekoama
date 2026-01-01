@@ -150,51 +150,16 @@ class UniversalCodeAnalyzer(
     override fun extractSurroundingContext(element: PsiElement, radius: Int): Result<SurroundingContext> {
         return try {
             val containingFile = element.containingFile
-            val document = PsiDocumentManager.getInstance(project).getDocument(containingFile)
-                ?: return Result.error(NekoamaError.PlatformError.EditorUnavailable("无法获取文档"))
-            
-            val elementStartOffset = element.textRange.startOffset
-            val elementEndOffset = element.textRange.endOffset
-            
-            val startLine = document.getLineNumber(elementStartOffset)
-            val endLine = document.getLineNumber(elementEndOffset)
-            
-            // 获取前置代码
-            val precedingLines = mutableListOf<String>()
-            for (i in maxOf(0, startLine - radius) until startLine) {
-                val lineStartOffset = document.getLineStartOffset(i)
-                val lineEndOffset = document.getLineEndOffset(i)
-                precedingLines.add(document.text.substring(lineStartOffset, lineEndOffset).trim())
-            }
-            
-            // 获取后续代码
-            val followingLines = mutableListOf<String>()
-            val totalLines = document.lineCount
-            for (i in (endLine + 1)..minOf(totalLines - 1, endLine + radius)) {
-                val lineStartOffset = document.getLineStartOffset(i)
-                val lineEndOffset = document.getLineEndOffset(i)
-                followingLines.add(document.text.substring(lineStartOffset, lineEndOffset).trim())
-            }
-            
-            // 获取导入语句
-            val imports = extractImportStatements(containingFile)
-            
-            // 获取包名
-            val packageName = extractPackageDeclaration(containingFile)
 
             // 分析命名模式
             val namingPatterns = analyzeNamingPatterns(containingFile)
 
             val surroundingContext = SurroundingContext(
-                precedingCode = precedingLines.filter { it.isNotBlank() },
-                followingCode = followingLines.filter { it.isNotBlank() },
-                imports = imports,
-                packageDeclaration = packageName,
                 namingPatterns = namingPatterns
             )
-            
+
             Result.success(surroundingContext)
-            
+
         } catch (e: Exception) {
             NekoamaLogger.logError("extractSurroundingContext", NekoamaError.Unknown("上下文提取失败: ${e.message}"))
             Result.error(NekoamaError.Unknown("上下文提取失败: ${e.message}"))
@@ -209,47 +174,7 @@ class UniversalCodeAnalyzer(
             else -> ProgrammingLanguage.OTHER
         }
     }
-    
-    /**
-     * 获取导入语句
-     */
-    private fun extractImportStatements(file: PsiFile): List<String> {
-        val imports = mutableListOf<String>()
-        
-        when (file) {
-            is PsiJavaFile -> {
-                file.importList?.allImportStatements?.forEach { importStatement ->
-                    importStatement.importReference?.qualifiedName?.let { qualifiedName ->
-                        imports.add("import $qualifiedName")
-                    }
-                }
-            }
-            is KtFile -> {
-                file.importDirectives.forEach { importDirective ->
-                    // K2-compatible approach: extract import from the directive text directly
-                    importDirective.text.let { importText ->
-                        if (importText.startsWith("import ") && !importText.contains("*")) {
-                            imports.add(importText.trim())
-                        }
-                    }
-                }
-            }
-        }
-        
-        return imports
-    }
-    
-    /**
-     * 获取包名
-     */
-    private fun extractPackageDeclaration(file: PsiFile): String? {
-        return when (file) {
-            is PsiJavaFile -> file.packageName.takeIf { it.isNotEmpty() }
-            is KtFile -> file.packageDirective?.fqName?.asString()?.takeIf { it.isNotEmpty() }
-            else -> null
-        }
-    }
-    
+
     /**
      * 分析命名模式
      */

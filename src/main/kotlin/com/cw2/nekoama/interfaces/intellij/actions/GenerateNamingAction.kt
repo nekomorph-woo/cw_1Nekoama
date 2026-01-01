@@ -188,10 +188,6 @@ internal class GenerateNamingAction : BaseAction() {
                 val language = analyzer.detectLanguage(element)
                 val projectInfo = analyzer.getProjectInfo()
                 val surroundingContext = analyzer.extractSurroundingContext(element).getOrNull() ?: SurroundingContext(
-                    precedingCode = emptyList(),
-                    followingCode = emptyList(),
-                    imports = emptyList(),
-                    packageDeclaration = null,
                     namingPatterns = null
                 )
 
@@ -328,7 +324,7 @@ internal class GenerateNamingAction : BaseAction() {
                                 userIntent = customContext,
                                 className = cls.name,
                                 superClass = null,
-                                packageName = surroundingContext.packageDeclaration ?: "",
+                                packageName = cls.containingKtFile.packageDirective?.fqName?.asString() ?: "",
                                 isInterface = cls.isInterface(),
                                 isAbstract = cls.hasModifier(KtTokens.ABSTRACT_KEYWORD),
                                 isEnum = cls.isEnum()
@@ -344,7 +340,7 @@ internal class GenerateNamingAction : BaseAction() {
                                 userIntent = customContext,
                                 className = cls.name,
                                 superClass = null,
-                                packageName = surroundingContext.packageDeclaration ?: "",
+                                packageName = (cls.containingFile as? PsiJavaFile)?.packageName ?: "",
                                 isInterface = cls.isInterface,
                                 isAbstract = cls.hasModifierProperty(PsiModifier.ABSTRACT),
                                 isEnum = cls.isEnum
@@ -718,7 +714,7 @@ internal class GenerateNamingAction : BaseAction() {
                                     userIntent = customContext,
                                     className = cls.name,
                                     superClass = analyzeResult.getOrNull()?.superClass,
-                                    packageName = surroundingContext.packageDeclaration ?: "",
+                                    packageName = cls.containingKtFile.packageDirective?.fqName?.asString() ?: "",
                                     isInterface = cls.isInterface(),
                                     isAbstract = cls.hasModifier(KtTokens.ABSTRACT_KEYWORD),
                                     isEnum = cls.isEnum()
@@ -734,7 +730,7 @@ internal class GenerateNamingAction : BaseAction() {
                                 userIntent = customContext,
                                 className = cls.name,
                                 superClass = null,
-                                packageName = surroundingContext.packageDeclaration ?: "",
+                                packageName = cls.containingKtFile.packageDirective?.fqName?.asString() ?: "",
                                 isInterface = cls.isInterface(),
                                 isAbstract = cls.hasModifier(KtTokens.ABSTRACT_KEYWORD),
                                 isEnum = cls.isEnum()
@@ -755,7 +751,7 @@ internal class GenerateNamingAction : BaseAction() {
                                     userIntent = customContext,
                                     className = cls.name,
                                     superClass = analyzeResult.getOrNull()?.superClass,
-                                    packageName = surroundingContext.packageDeclaration ?: "",
+                                    packageName = (cls.containingFile as? PsiJavaFile)?.packageName ?: "",
                                     isInterface = cls.isInterface,
                                     isAbstract = cls.hasModifierProperty(PsiModifier.ABSTRACT),
                                     isEnum = cls.isEnum
@@ -771,7 +767,7 @@ internal class GenerateNamingAction : BaseAction() {
                                 userIntent = customContext,
                                 className = cls.name,
                                 superClass = null,
-                                packageName = surroundingContext.packageDeclaration ?: "",
+                                packageName = (cls.containingFile as? PsiJavaFile)?.packageName ?: "",
                                 isInterface = cls.isInterface,
                                 isAbstract = cls.hasModifierProperty(PsiModifier.ABSTRACT),
                                 isEnum = cls.isEnum

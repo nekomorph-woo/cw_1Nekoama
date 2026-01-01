@@ -74,9 +74,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
                     language = ProgrammingLanguage.KOTLIN,
                     projectMeta = ProjectMetadata(project.name),
                     surroundingContext = SurroundingContext(
-                        precedingCode = emptyList(),
-                        followingCode = emptyList(),
-                        imports = emptyList()
+                        namingPatterns = null
                     ),
                     methodName = function.name,
                     parameters = parameters,
@@ -125,9 +123,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
                     language = ProgrammingLanguage.KOTLIN,
                     projectMeta = ProjectMetadata(project.name),
                     surroundingContext = SurroundingContext(
-                        precedingCode = emptyList(),
-                        followingCode = emptyList(),
-                        imports = emptyList()
+                        namingPatterns = null
                     ),
                     className = clazz.name,
                     superClass = superClass,
@@ -181,9 +177,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
                     language = ProgrammingLanguage.KOTLIN,
                     projectMeta = ProjectMetadata(project.name),
                     surroundingContext = SurroundingContext(
-                        precedingCode = emptyList(),
-                        followingCode = emptyList(),
-                        imports = emptyList()
+                        namingPatterns = null
                     ),
                     variableName = property.name,
                     variableType = propertyType,
@@ -239,9 +233,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
                     language = ProgrammingLanguage.KOTLIN,
                     projectMeta = ProjectMetadata(project.name),
                     surroundingContext = SurroundingContext(
-                        precedingCode = emptyList(),
-                        followingCode = emptyList(),
-                        imports = emptyList()
+                        namingPatterns = null
                     ),
                     variableName = parameter.name,
                     variableType = parameterType,

@@ -9,30 +9,10 @@ import kotlinx.serialization.Serializable
 /**
  * 周围上下文环境信息
  *
- * 描述代码元素周围的环境信息，包括相邻代码、导入语句、项目命名规范等。
+ * 描述代码元素周围的环境信息，目前包含项目命名规范分析。
  */
 @Serializable
 data class SurroundingContext(
-    /**
-     * 前置代码片段（当前元素前n行代码）
-     */
-    val precedingCode: List<String>,
-
-    /**
-     * 后续代码片段（当前元素后n行代码）
-     */
-    val followingCode: List<String>,
-
-    /**
-     * 导入语句列表
-     */
-    val imports: List<String>,
-
-    /**
-     * 包声明
-     */
-    val packageDeclaration: String? = null,
-
     /**
      * 项目命名模式分析
      */

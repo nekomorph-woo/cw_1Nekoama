@@ -127,21 +127,6 @@ IMPORTANT: Always use the same language as specified in the user's request for a
                 is VariableContext -> appendVariableContext(context)
             }
 
-            // 添加周边代码上下文信息
-            if (context.surroundingContext.precedingCode.isNotEmpty()) {
-                appendLine("\nPreceding code:")
-                context.surroundingContext.precedingCode.take(3).forEach { line ->
-                    appendLine("  $line")
-                }
-            }
-
-            if (context.surroundingContext.followingCode.isNotEmpty()) {
-                appendLine("\nFollowing code:")
-                context.surroundingContext.followingCode.take(3).forEach { line ->
-                    appendLine("  $line")
-                }
-            }
-
             // 用户意图描述（例如：重命名/重构/优化）
             context.userIntent?.let { intent ->
                 appendLine("\nUser intent: $intent")
@@ -185,19 +170,6 @@ IMPORTANT: Always use the same language as specified in the user's request for a
                 is ClassContext -> appendClassContextForComment(context)
                 is VariableContext -> appendVariableContextForComment(context)
             }
-
-            // 添加代码片段
-            if (context.surroundingContext.precedingCode.isNotEmpty() ||
-                context.surroundingContext.followingCode.isNotEmpty()
-            ) {
-                appendLine("\nRelated code:")
-                context.surroundingContext.precedingCode.take(2).forEach { line ->
-                    appendLine("  $line")
-                }
-                context.surroundingContext.followingCode.take(2).forEach { line ->
-                    appendLine("  $line")
-                }
-            }
         }
 
         val messages = mutableListOf(
@@ -225,13 +197,6 @@ IMPORTANT: Always use the same language as specified in the user's request for a
                 appendLine("Code context:")
                 appendLine("  Language: ${ctx.language}")
                 appendLine("  Project: ${ctx.projectMeta.projectName}")
-
-                if (ctx.surroundingContext.precedingCode.isNotEmpty()) {
-                    appendLine("\nRelated code:")
-                    ctx.surroundingContext.precedingCode.take(5).forEach { line ->
-                        appendLine("  $line")
-                    }
-                }
             }
         }
 

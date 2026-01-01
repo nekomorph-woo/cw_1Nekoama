@@ -242,10 +242,6 @@ internal class GenerateCommentAction : BaseAction() {
                 val language = analyzer.detectLanguage(element)
                 val projectInfo = analyzer.getProjectInfo()
                 val surroundingContext = analyzer.extractSurroundingContext(element).getOrNull() ?: SurroundingContext(
-                    precedingCode = emptyList(),
-                    followingCode = emptyList(),
-                    imports = emptyList(),
-                    packageDeclaration = null,
                     namingPatterns = null
                 )
 
@@ -353,7 +349,7 @@ internal class GenerateCommentAction : BaseAction() {
                                 surroundingContext = surroundingContext,
                                 className = element.name,
                                 superClass = null,
-                                packageName = surroundingContext.packageDeclaration ?: "",
+                                packageName = element.containingKtFile.packageDirective?.fqName?.asString() ?: "",
                                 isInterface = element.isInterface(),
                                 isAbstract = element.hasModifier(KtTokens.ABSTRACT_KEYWORD),
                                 isEnum = element.isEnum()
@@ -372,7 +368,7 @@ internal class GenerateCommentAction : BaseAction() {
                                 surroundingContext = surroundingContext,
                                 className = element.name,
                                 superClass = null,
-                                packageName = surroundingContext.packageDeclaration ?: "",
+                                packageName = (element.containingFile as? PsiJavaFile)?.packageName ?: "",
                                 isInterface = element.isInterface,
                                 isAbstract = element.hasModifierProperty(PsiModifier.ABSTRACT),
                                 isEnum = element.isEnum

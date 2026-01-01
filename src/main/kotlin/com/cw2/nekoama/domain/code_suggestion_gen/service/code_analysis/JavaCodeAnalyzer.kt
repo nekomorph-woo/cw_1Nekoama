@@ -71,9 +71,7 @@ class JavaCodeAnalyzer(private val project: Project) {
                     language = ProgrammingLanguage.JAVA,
                     projectMeta = ProjectMetadata(project.name),
                     surroundingContext = SurroundingContext(
-                        precedingCode = emptyList(),
-                        followingCode = emptyList(),
-                        imports = emptyList()
+                        namingPatterns = null
                     ),
                     methodName = method.name,
                     parameters = parameters,
@@ -121,9 +119,7 @@ class JavaCodeAnalyzer(private val project: Project) {
                     language = ProgrammingLanguage.JAVA,
                     projectMeta = ProjectMetadata(project.name),
                     surroundingContext = SurroundingContext(
-                        precedingCode = emptyList(),
-                        followingCode = emptyList(),
-                        imports = emptyList()
+                        namingPatterns = null
                     ),
                     className = clazz.name,
                     superClass = superClass,
@@ -180,9 +176,7 @@ class JavaCodeAnalyzer(private val project: Project) {
                     language = ProgrammingLanguage.JAVA,
                     projectMeta = ProjectMetadata(project.name),
                     surroundingContext = SurroundingContext(
-                        precedingCode = emptyList(),
-                        followingCode = emptyList(),
-                        imports = emptyList()
+                        namingPatterns = null
                     ),
                     variableName = variable.name,
                     variableType = variableType,
