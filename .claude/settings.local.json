@@ -32,7 +32,8 @@
       "Bash(rg:*)",
       "Bash(git add:*)",
       "Bash(node:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(powershell -Command \"& { cd ''D:\\\\Coding\\\\neko-codebase\\\\cw_1Nekoama''; .\\\\gradlew.bat compileKotlin }\")"
     ],
     "deny": [],
     "ask": []
