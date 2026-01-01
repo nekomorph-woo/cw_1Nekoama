@@ -6,7 +6,8 @@ import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomGen
 import com.cw2.nekoama.shared.logging.NekoamaLogger
 import com.cw2.nekoama.domain.settings.service.NekoamaSecureStorage
 import com.cw2.nekoama.domain.settings.model.NekoamaSettings
-import com.cw2.nekoama.domain.code_suggestion_gen.service.code_analysis.UniversalCodeAnalyzer
+import com.cw2.nekoama.domain.code_suggestion_gen.service.code_analysis.CodeAnalysisService
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.code_analysis.UniversalCodeElementAnalyzer
 import com.cw2.nekoama.shared.i18n.NekoamaBundle
 import com.cw2.nekoama.shared.util.NekoamaNotifier
 import com.cw2.nekoama.domain.code_suggestion_gen.model.ClassContext
@@ -238,22 +239,22 @@ internal class GenerateCommentAction : BaseAction() {
     private fun buildCodeContext(project: Project, element: PsiElement, indicator: ProgressIndicator): CodeContext? {
         return try {
             ReadAction.compute<CodeContext?, Throwable> {
-                val analyzer = UniversalCodeAnalyzer(project)
-                val language = analyzer.detectLanguage(element)
-                val projectInfo = analyzer.getProjectInfo()
-                val surroundingContext = analyzer.extractSurroundingContext(element).getOrNull() ?: SurroundingContext(
+                val codeAnalysisService = CodeAnalysisService(UniversalCodeElementAnalyzer(project))
+                val language = codeAnalysisService.detectLanguage(element)
+                val projectMetadata = codeAnalysisService.getProjectMetadata()
+                val surroundingContext = codeAnalysisService.extractSurroundingContext(element).getOrNull() ?: SurroundingContext(
                     namingPatterns = null
                 )
 
                 when (element) {
                     is KtFunction -> {
-                        val analyzeResult = analyzer.analyzeMethod(element)
+                        val analyzeResult = codeAnalysisService.analyzeMethod(element)
                         if (analyzeResult.isSuccess) {
                             analyzeResult.getOrNull() as? MethodContext
                         } else {
                             MethodContext(
                                 language = language,
-                                projectMeta = projectInfo,
+                                projectMeta = projectMetadata,
                                 surroundingContext = surroundingContext,
                                 methodName = element.name,
                                 parameters = emptyList(),
@@ -270,13 +271,13 @@ internal class GenerateCommentAction : BaseAction() {
                     }
 
                     is PsiMethod -> {
-                        val analyzeResult = analyzer.analyzeMethod(element)
+                        val analyzeResult = codeAnalysisService.analyzeMethod(element)
                         if (analyzeResult.isSuccess) {
                             analyzeResult.getOrNull() as? MethodContext
                         } else {
                             MethodContext(
                                 language = language,
-                                projectMeta = projectInfo,
+                                projectMeta = projectMetadata,
                                 surroundingContext = surroundingContext,
                                 methodName = element.name,
                                 parameters = emptyList(),
@@ -293,13 +294,13 @@ internal class GenerateCommentAction : BaseAction() {
                     }
 
                     is KtProperty -> {
-                        val analyzeResult = analyzer.analyzeVariable(element)
+                        val analyzeResult = codeAnalysisService.analyzeVariable(element)
                         if (analyzeResult.isSuccess) {
                             analyzeResult.getOrNull() as? VariableContext
                         } else {
                             VariableContext(
                                 language = language,
-                                projectMeta = projectInfo,
+                                projectMeta = projectMetadata,
                                 surroundingContext = surroundingContext,
                                 variableName = element.name,
                                 variableType = TypeMetadata("Any"),
@@ -316,13 +317,13 @@ internal class GenerateCommentAction : BaseAction() {
                     }
 
                     is PsiField -> {
-                        val analyzeResult = analyzer.analyzeVariable(element)
+                        val analyzeResult = codeAnalysisService.analyzeVariable(element)
                         if (analyzeResult.isSuccess) {
                             analyzeResult.getOrNull() as? VariableContext
                         } else {
                             VariableContext(
                                 language = language,
-                                projectMeta = projectInfo,
+                                projectMeta = projectMetadata,
                                 surroundingContext = surroundingContext,
                                 variableName = element.name,
                                 variableType = TypeMetadata(element.type.presentableText),
@@ -339,13 +340,13 @@ internal class GenerateCommentAction : BaseAction() {
                     }
 
                     is KtClass -> {
-                        val analyzeResult = analyzer.analyzeClass(element)
+                        val analyzeResult = codeAnalysisService.analyzeClass(element)
                         if (analyzeResult.isSuccess) {
                             analyzeResult.getOrNull() as? ClassContext
                         } else {
                             ClassContext(
                                 language = language,
-                                projectMeta = projectInfo,
+                                projectMeta = projectMetadata,
                                 surroundingContext = surroundingContext,
                                 className = element.name,
                                 superClass = null,
@@ -358,13 +359,13 @@ internal class GenerateCommentAction : BaseAction() {
                     }
 
                     is PsiClass -> {
-                        val analyzeResult = analyzer.analyzeClass(element)
+                        val analyzeResult = codeAnalysisService.analyzeClass(element)
                         if (analyzeResult.isSuccess) {
                             analyzeResult.getOrNull() as? ClassContext
                         } else {
                             ClassContext(
                                 language = language,
-                                projectMeta = projectInfo,
+                                projectMeta = projectMetadata,
                                 surroundingContext = surroundingContext,
                                 className = element.name,
                                 superClass = null,
@@ -379,7 +380,7 @@ internal class GenerateCommentAction : BaseAction() {
                     else -> {
                         MethodContext(
                             language = language,
-                            projectMeta = projectInfo,
+                            projectMeta = projectMetadata,
                             surroundingContext = surroundingContext,
                             methodName = null,
                             parameters = emptyList(),

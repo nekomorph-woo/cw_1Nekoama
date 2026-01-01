@@ -1,4 +1,4 @@
-package com.cw2.nekoama.domain.code_suggestion_gen.service.code_analysis
+package com.cw2.nekoama.infrastructure.code_suggestion_gen.code_analysis
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.application.ReadAction
@@ -96,7 +96,7 @@ class JavaCodeAnalyzer(private val project: Project) {
             Result.error(NekoamaError.Unknown("Java 方法分析失败: ${e.message}"))
         }
     }
-    
+
     /**
      * 分析 Java 类并提取其上下文信息
      *
@@ -136,7 +136,7 @@ class JavaCodeAnalyzer(private val project: Project) {
             Result.error(NekoamaError.Unknown("Java 类分析失败: ${e.message}"))
         }
     }
-    
+
     /**
      * 分析 Java 变量并提取其上下文信息
      *

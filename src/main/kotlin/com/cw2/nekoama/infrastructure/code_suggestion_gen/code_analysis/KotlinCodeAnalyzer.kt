@@ -1,4 +1,4 @@
-package com.cw2.nekoama.domain.code_suggestion_gen.service.code_analysis
+package com.cw2.nekoama.infrastructure.code_suggestion_gen.code_analysis
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.application.ReadAction
@@ -98,7 +98,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
             Result.error(NekoamaError.Unknown("Kotlin 函数分析失败: ${e.message}"))
         }
     }
-    
+
     /**
      * 分析 Kotlin 类并提取其上下文信息
      *
@@ -140,7 +140,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
             Result.error(NekoamaError.Unknown("Kotlin 类分析失败: ${e.message}"))
         }
     }
-    
+
     /**
      * 分析 Kotlin 属性并提取其上下文信息
      *
@@ -204,7 +204,7 @@ class KotlinCodeAnalyzer(private val project: Project) {
             Result.error(NekoamaError.Unknown("Kotlin 属性分析失败: ${e.message}"))
         }
     }
-    
+
     /**
      * 分析 Kotlin 函数参数并提取其上下文信息
      *

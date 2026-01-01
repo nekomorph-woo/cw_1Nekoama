@@ -1,72 +1,32 @@
-package com.cw2.nekoama.domain.code_suggestion_gen.service.code_analysis
+package com.cw2.nekoama.infrastructure.code_suggestion_gen.code_analysis
 
 import com.intellij.psi.*
 import com.cw2.nekoama.shared.model.Result
 import com.cw2.nekoama.shared.exception.NekoamaError
 import com.cw2.nekoama.shared.logging.NekoamaLogger
-import com.cw2.nekoama.domain.code_suggestion_gen.model.ClassContext
-import com.cw2.nekoama.domain.code_suggestion_gen.model.MethodContext
-import com.cw2.nekoama.domain.code_suggestion_gen.model.NamingConvention
-import com.cw2.nekoama.domain.code_suggestion_gen.model.NamingPatternAnalysis
-import com.cw2.nekoama.domain.code_suggestion_gen.model.ProgrammingLanguage
-import com.cw2.nekoama.domain.code_suggestion_gen.model.ProjectMetadata
-import com.cw2.nekoama.domain.code_suggestion_gen.model.SurroundingContext
-import com.cw2.nekoama.domain.code_suggestion_gen.model.VariableContext
+import com.cw2.nekoama.domain.code_suggestion_gen.model.*
+import com.cw2.nekoama.domain.code_suggestion_gen.model.CodeElementAnalyzer
 import com.intellij.openapi.project.Project
-import com.intellij.psi.PsiDocumentManager
-import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtFunction
 import org.jetbrains.kotlin.psi.KtClass
 import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtParameter
 
 /**
- * 代码分析器接口
- *
- * 定义了代码元素分析的通用接口，支持分析类、方法、变量等对象。
- * 实现了安全的 PSI 访问和对象支持。
- */
-interface CodeAnalyzer {
-    
-    /**
-     * 分析方法信息
-     */
-    fun analyzeMethod(method: PsiElement): Result<MethodContext>
-
-    /**
-     * 分析类信息
-     */
-    fun analyzeClass(clazz: PsiElement): Result<ClassContext>
-
-    /**
-     * 分析变量信息
-     */
-    fun analyzeVariable(variable: PsiElement): Result<VariableContext>
-
-    /**
-     * 获取周围代码
-     */
-    fun extractSurroundingContext(element: PsiElement, radius: Int = 5): Result<SurroundingContext>
-
-    /**
-     * 检测编程语言
-     */
-    fun detectLanguage(element: PsiElement): ProgrammingLanguage
-}
-
-/**
- * 通用代码分析器实现
+ * 通用代码元素分析器实现
  *
  * 提供了对 Java 和 Kotlin 代码的统一分析功能，
  * 包括详细的代码分析和日志记录。
+ *
+ * 这是 infrastructure 层的实现，通过 PSI 完成具体的代码分析工作。
  */
-class UniversalCodeAnalyzer(
+class UniversalCodeElementAnalyzer(
     private val project: Project
-) : CodeAnalyzer {
-    
+) : CodeElementAnalyzer {
+
     private val javaAnalyzer = JavaCodeAnalyzer(project)
     private val kotlinAnalyzer = KotlinCodeAnalyzer(project)
-    
+
     override fun analyzeMethod(method: PsiElement): Result<MethodContext> {
         return try {
             when (val language = detectLanguage(method)) {
@@ -93,7 +53,7 @@ class UniversalCodeAnalyzer(
             Result.error(NekoamaError.Unknown("方法分析失败: ${e.message}"))
         }
     }
-    
+
     override fun analyzeClass(clazz: PsiElement): Result<ClassContext> {
         return try {
             when (val language = detectLanguage(clazz)) {
@@ -120,7 +80,7 @@ class UniversalCodeAnalyzer(
             Result.error(NekoamaError.Unknown("类分析失败: ${e.message}"))
         }
     }
-    
+
     override fun analyzeVariable(variable: PsiElement): Result<VariableContext> {
         return try {
             when (val language = detectLanguage(variable)) {
@@ -146,7 +106,7 @@ class UniversalCodeAnalyzer(
             Result.error(NekoamaError.Unknown("变量分析失败: ${e.message}"))
         }
     }
-    
+
     override fun extractSurroundingContext(element: PsiElement, radius: Int): Result<SurroundingContext> {
         return try {
             val containingFile = element.containingFile
@@ -165,7 +125,7 @@ class UniversalCodeAnalyzer(
             Result.error(NekoamaError.Unknown("上下文提取失败: ${e.message}"))
         }
     }
-    
+
     override fun detectLanguage(element: PsiElement): ProgrammingLanguage {
         val file = element.containingFile
         return when {
@@ -173,6 +133,12 @@ class UniversalCodeAnalyzer(
             file.language.id == "kotlin" || file.name.endsWith(".kt") -> ProgrammingLanguage.KOTLIN
             else -> ProgrammingLanguage.OTHER
         }
+    }
+
+    override fun getProjectMetadata(): ProjectMetadata {
+        return ProjectMetadata(
+            projectName = project.name
+        )
     }
 
     /**
@@ -210,15 +176,6 @@ class UniversalCodeAnalyzer(
 
         return NamingPatternAnalysis(
             conventionType = convention
-        )
-    }
-
-    /**
-     * 获取项目信息
-     */
-    fun getProjectInfo(): ProjectMetadata {
-        return ProjectMetadata(
-            projectName = project.name
         )
     }
 }
