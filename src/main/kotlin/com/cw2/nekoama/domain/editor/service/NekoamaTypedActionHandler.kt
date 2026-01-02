@@ -91,6 +91,12 @@ internal class NekoamaTypedActionHandler(
             title = NekoamaBundle.message("typed.handler.title"),
             cancellable = true,
             task = {
+                // 等待 Smart 模式后再调用 AI，避免 PSI 访问触发 LoadingState 错误
+                // 注意：DumbService.runWhenSmart 会阻塞直到索引完成，确保后续 PSI 访问安全
+                DumbService.getInstance(project).runWhenSmart {
+                    // 空实现，仅用于等待 Smart 模式
+                }
+                // Smart 模式就绪后，执行 AI 调用
                 runBlocking {
                     generator.generateCustom(prompt, null)
                 }
