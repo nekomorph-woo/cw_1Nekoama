@@ -1,7 +1,5 @@
-package com.cw2.nekoama.infrastructure.network.lifecycle
+package com.cw2.nekoama.infrastructure.network.proxy
 
-import com.cw2.nekoama.infrastructure.network.detection.ProxyDetector
-import com.cw2.nekoama.infrastructure.network.config.HttpClientProxyConfigurator
 import com.cw2.nekoama.shared.logging.NekoamaLogger
 
 /**

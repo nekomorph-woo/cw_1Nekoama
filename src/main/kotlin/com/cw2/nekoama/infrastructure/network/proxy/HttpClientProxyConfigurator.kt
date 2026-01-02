@@ -1,6 +1,5 @@
-package com.cw2.nekoama.infrastructure.network.config
+package com.cw2.nekoama.infrastructure.network.proxy
 
-import com.cw2.nekoama.infrastructure.network.detection.ProxyDetector
 import com.cw2.nekoama.shared.logging.NekoamaLogger
 import okhttp3.Credentials
 import okhttp3.OkHttpClient

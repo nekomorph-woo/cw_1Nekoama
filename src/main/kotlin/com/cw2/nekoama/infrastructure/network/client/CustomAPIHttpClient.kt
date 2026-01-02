@@ -1,15 +1,15 @@
-package com.cw2.nekoama.infrastructure.network.cleint
+package com.cw2.nekoama.infrastructure.network.client
 
 import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.openai.OpenAIRequest
 import com.cw2.nekoama.shared.logging.NekoamaLogger
 import com.cw2.nekoama.shared.util.toJson
-import com.cw2.nekoama.infrastructure.network.detection.ProxyDetector
-import com.cw2.nekoama.infrastructure.network.config.ProxyType
-import com.cw2.nekoama.infrastructure.network.interceptor.HeadersInterceptor
-import com.cw2.nekoama.infrastructure.network.interceptor.LoggingInterceptor
-import com.cw2.nekoama.infrastructure.network.interceptor.RetryInterceptor
+import com.cw2.nekoama.infrastructure.network.proxy.ProxyDetector
+import com.cw2.nekoama.infrastructure.network.proxy.ProxyType
+import com.cw2.nekoama.infrastructure.network.client.interceptor.HeadersInterceptor
+import com.cw2.nekoama.infrastructure.network.client.interceptor.LoggingInterceptor
+import com.cw2.nekoama.infrastructure.network.client.interceptor.RetryInterceptor
 import com.cw2.nekoama.infrastructure.network.proxy.ProxyAuthenticatorFactory
-import com.cw2.nekoama.infrastructure.network.config.ProxyConfig
+import com.cw2.nekoama.infrastructure.network.proxy.ProxyConfig
 import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomGeneratorConfig
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType

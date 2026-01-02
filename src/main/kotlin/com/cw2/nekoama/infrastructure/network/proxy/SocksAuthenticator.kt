@@ -1,8 +1,6 @@
 package com.cw2.nekoama.infrastructure.network.proxy
 
 import com.cw2.nekoama.shared.logging.NekoamaLogger
-import com.cw2.nekoama.infrastructure.network.config.ProxyType
-import com.cw2.nekoama.infrastructure.network.config.ProxyConfig
 import java.net.Authenticator
 import java.net.PasswordAuthentication
 

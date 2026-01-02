@@ -1,4 +1,4 @@
-package com.cw2.nekoama.infrastructure.network.config
+package com.cw2.nekoama.infrastructure.network.proxy
 
 import kotlinx.serialization.Serializable
 import java.net.InetSocketAddress

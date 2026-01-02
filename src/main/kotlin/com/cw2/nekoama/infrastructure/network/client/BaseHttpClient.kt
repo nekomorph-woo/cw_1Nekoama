@@ -1,4 +1,4 @@
-package com.cw2.nekoama.infrastructure.network.cleint
+package com.cw2.nekoama.infrastructure.network.client
 
 import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.openai.OpenAIRequest
 import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.openai.OpenAIResponse

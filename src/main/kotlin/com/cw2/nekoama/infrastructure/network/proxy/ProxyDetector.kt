@@ -1,8 +1,7 @@
-package com.cw2.nekoama.infrastructure.network.detection
+package com.cw2.nekoama.infrastructure.network.proxy
 
-import com.cw2.nekoama.infrastructure.network.config.ProxyConfig
-import com.cw2.nekoama.infrastructure.network.config.ProxyType
 import com.cw2.nekoama.shared.logging.NekoamaLogger
+import com.cw2.nekoama.shared.util.toJson
 import com.intellij.util.net.HttpConfigurable
 import java.net.URI
 

@@ -6,7 +6,7 @@ import com.cw2.nekoama.domain.code_suggestion_gen.model.CodeContext
 import com.cw2.nekoama.domain.code_suggestion_gen.model.CommentSuggestion
 import com.cw2.nekoama.domain.code_suggestion_gen.model.NamingSuggestion
 import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomGeneratorConfig
-import com.cw2.nekoama.infrastructure.network.cleint.CustomAPIHttpClient
+import com.cw2.nekoama.infrastructure.network.client.CustomAPIHttpClient
 import com.cw2.nekoama.shared.exception.NekoamaError
 import com.cw2.nekoama.shared.logging.NekoamaLogger
 import com.cw2.nekoama.shared.model.Result

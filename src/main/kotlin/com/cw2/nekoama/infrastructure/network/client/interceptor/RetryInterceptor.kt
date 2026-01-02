@@ -1,4 +1,4 @@
-package com.cw2.nekoama.infrastructure.network.interceptor
+package com.cw2.nekoama.infrastructure.network.client.interceptor
 
 import com.cw2.nekoama.shared.logging.NekoamaLogger
 import okhttp3.Interceptor

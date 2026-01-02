@@ -2,7 +2,7 @@ package com.cw2.nekoama.interfaces.intellij.settings
 
 import com.cw2.nekoama.domain.settings.model.NekoamaSettings
 import com.cw2.nekoama.domain.settings.service.NekoamaSecureStorage
-import com.cw2.nekoama.infrastructure.network.diagnostic.ProxyConnectionTester
+import com.cw2.nekoama.infrastructure.network.proxy.ProxyConnectionTester
 import com.cw2.nekoama.shared.i18n.NekoamaBundle
 import com.cw2.nekoama.shared.util.NekoamaNotifier
 import com.intellij.openapi.application.ApplicationManager
@@ -29,12 +29,7 @@ import javax.swing.JTextField
 import javax.swing.SpinnerNumberModel
 
 /**
- * 设置页面（最简实现）
- *
- * 说明：
- * - 遵循即时校验与数据绑定的基本模式
- * - 并未引入复杂的表单框架，控制在最小变更
- * - 本次补充 AI 服务配置区（提供商/端点/API Key/温度）与“连接测试”按钮
+ * 设置页面
  */
 class NekoamaConfigurable : Configurable {
 

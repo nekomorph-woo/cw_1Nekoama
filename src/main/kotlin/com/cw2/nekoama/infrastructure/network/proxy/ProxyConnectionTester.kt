@@ -1,9 +1,5 @@
-package com.cw2.nekoama.infrastructure.network.diagnostic
+package com.cw2.nekoama.infrastructure.network.proxy
 
-import com.cw2.nekoama.infrastructure.network.detection.ProxyDetector
-import com.cw2.nekoama.infrastructure.network.config.HttpClientProxyConfigurator
-import com.cw2.nekoama.infrastructure.network.config.ProxyConfig
-import com.cw2.nekoama.infrastructure.network.config.ProxyType
 import com.cw2.nekoama.shared.logging.NekoamaLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
