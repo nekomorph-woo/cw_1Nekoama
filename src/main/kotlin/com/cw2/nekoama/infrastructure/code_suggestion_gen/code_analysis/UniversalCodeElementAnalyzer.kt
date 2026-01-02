@@ -109,14 +109,14 @@ class UniversalCodeElementAnalyzer(
 
     override fun extractSurroundingContext(element: PsiElement, radius: Int): Result<SurroundingContext> {
         return try {
-            val containingFile = element.containingFile
-
-            // 分析命名模式
-            val namingPatterns = analyzeNamingPatterns(containingFile)
-
-            val surroundingContext = SurroundingContext(
-                namingPatterns = namingPatterns
-            )
+            // 使用 runReadAction 显式包装 PSI 访问，确保线程安全
+            val surroundingContext = com.intellij.openapi.application.ApplicationManager
+                .getApplication()
+                .runReadAction<SurroundingContext> {
+                    val containingFile = element.containingFile
+                    val namingPatterns = analyzeNamingPatterns(containingFile)
+                    SurroundingContext(namingPatterns = namingPatterns)
+                }
 
             Result.success(surroundingContext)
 
