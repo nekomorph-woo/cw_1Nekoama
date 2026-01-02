@@ -28,9 +28,6 @@ class NekoamaSettings : PersistentStateComponent<NekoamaSettings> {
     // 缓存开关
     var cacheEnabled: Boolean = true
 
-    // 自动触发（预留）
-    var autoTrigger: Boolean = false
-
     // ===== AI 服务配置 =====
     var aiProvider: String = "Custom"
     var apiEndpoint: String = ""

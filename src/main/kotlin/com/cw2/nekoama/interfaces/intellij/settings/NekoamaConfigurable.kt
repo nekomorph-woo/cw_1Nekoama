@@ -40,7 +40,6 @@ class NekoamaConfigurable : Configurable {
     private val enableNaming = JCheckBox(NekoamaBundle.message("settings.enable.naming"))
     private val enableComment = JCheckBox(NekoamaBundle.message("settings.enable.comment"))
     private val cacheEnabled = JCheckBox(NekoamaBundle.message("settings.cache.enabled"))
-    private val autoTrigger = JCheckBox(NekoamaBundle.message("settings.auto.trigger"))
     private val depthLabel = JLabel(NekoamaBundle.message("settings.context.depth"))
     private val depthSlider = JSlider(1, 3, 2)
     private val depthValueLabel = JLabel(NekoamaBundle.message("settings.depth.value", "2", "1", "3")) // 显示当前值和范围
@@ -109,8 +108,6 @@ class NekoamaConfigurable : Configurable {
         form.add(enableComment, c)
         c.gridy++
         form.add(cacheEnabled, c)
-        c.gridy++
-        form.add(autoTrigger, c)
         c.gridy++
         form.add(depthLabel, c)
         c.gridx = 1
@@ -344,7 +341,6 @@ class NekoamaConfigurable : Configurable {
         return enableNaming.isSelected != settings.enableNaming ||
             enableComment.isSelected != settings.enableComment ||
             cacheEnabled.isSelected != settings.cacheEnabled ||
-            autoTrigger.isSelected != settings.autoTrigger ||
             depthSlider.value != settings.contextDepth ||
             endpointField.text != settings.apiEndpoint ||
             modelField.text != settings.model ||
@@ -362,7 +358,6 @@ class NekoamaConfigurable : Configurable {
         settings.enableNaming = enableNaming.isSelected
         settings.enableComment = enableComment.isSelected
         settings.cacheEnabled = cacheEnabled.isSelected
-        settings.autoTrigger = autoTrigger.isSelected
         settings.contextDepth = depthSlider.value
 
         settings.aiProvider = "Custom"  // 固定为 Custom
@@ -394,7 +389,6 @@ class NekoamaConfigurable : Configurable {
         enableNaming.isSelected = settings.enableNaming
         enableComment.isSelected = settings.enableComment
         cacheEnabled.isSelected = settings.cacheEnabled
-        autoTrigger.isSelected = settings.autoTrigger
         depthSlider.value = settings.contextDepth
         depthValueLabel.text = NekoamaBundle.message("settings.depth.value", settings.contextDepth.toString(), "1", "3") // 更新深度值标签
 
