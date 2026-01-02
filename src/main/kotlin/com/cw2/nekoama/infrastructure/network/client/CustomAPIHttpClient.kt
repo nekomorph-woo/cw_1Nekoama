@@ -270,10 +270,24 @@ class CustomAPIHttpClient(
                 headers = response.headers.toMultimap()
             )
         } catch (e: IOException) {
-            // 提供详细的代理诊断信息
+            // 降级重试机制：当代理连接失败时，尝试使用另一种代理类型
             val proxyConfig = ProxyDetector.detectSystemProxy(config.buildEndpointUrl())
-            val errorMessage = generateDetailedErrorMessage(e, proxyConfig, config.buildEndpointUrl())
 
+            if (proxyConfig.type != ProxyType.DIRECT && isProxyConnectionError(e)) {
+                NekoamaLogger.warn("CustomAPIHttpClient",
+                    "代理连接失败（${proxyConfig.type}），尝试使用降级模式重试...")
+
+                try {
+                    return fallbackSendRequest(okHttpRequest, proxyConfig)
+                } catch (fallbackError: IOException) {
+                    NekoamaLogger.error("CustomAPIHttpClient",
+                        "降级重试也失败，输出详细错误信息", error = fallbackError)
+                    // 继续到最后的错误处理
+                }
+            }
+
+            // 生成详细错误信息
+            val errorMessage = generateDetailedErrorMessage(e, proxyConfig, config.buildEndpointUrl())
             NekoamaLogger.error("CustomAPIHttpClient", errorMessage, error = e)
             throw e
         }
@@ -293,10 +307,27 @@ class CustomAPIHttpClient(
                 headers = response.headers.toMultimap()
             )
         } catch (e: IOException) {
-            // 提供详细的代理诊断信息
+            // 降级重试机制：当代理连接失败时，尝试使用另一种代理类型
             val proxyConfig = ProxyDetector.detectSystemProxy(config.buildEndpointUrl())
-            val errorMessage = generateDetailedErrorMessage(e, proxyConfig, config.buildEndpointUrl())
 
+            if (proxyConfig.type != ProxyType.DIRECT && isProxyConnectionError(e)) {
+                NekoamaLogger.warn("CustomAPIHttpClient",
+                    "代理连接失败（${proxyConfig.type}），尝试使用降级模式重试...")
+
+                try {
+                    // 同步方法需要使用 runBlocking 包装 suspend 函数
+                    return kotlinx.coroutines.runBlocking {
+                        fallbackSendRequest(okHttpRequest, proxyConfig)
+                    }
+                } catch (fallbackError: Exception) {
+                    NekoamaLogger.error("CustomAPIHttpClient",
+                        "降级重试也失败，输出详细错误信息", error = fallbackError)
+                    // 继续到最后的错误处理
+                }
+            }
+
+            // 生成详细错误信息
+            val errorMessage = generateDetailedErrorMessage(e, proxyConfig, config.buildEndpointUrl())
             NekoamaLogger.error("CustomAPIHttpClient", errorMessage, error = e)
             throw e
         }
@@ -330,6 +361,60 @@ class CustomAPIHttpClient(
     ): String {
         val sb = StringBuilder()
         sb.append("HTTP请求失败: ${e.message}\n")
+
+        // ✅ 新增：代理类型误用检测
+        if (isProxyConnectionError(e) && proxyConfig.type != ProxyType.DIRECT) {
+            val port = proxyConfig.port ?: 0
+
+            sb.append("=== 代理诊断信息 ===\n")
+            sb.append("当前配置: ${ProxyDetector.getProxyStatus(proxyConfig)}\n")
+
+            // 检测可能的配置错误
+            when (proxyConfig.type) {
+                ProxyType.SOCKS -> {
+                    if (port in 10800..10999 || port == 7890) {
+                        sb.append("⚠️ 端口 $port 通常是 HTTP 代理端口（如 Clash），但配置为 SOCKS\n")
+                        sb.append("建议操作:\n")
+                        sb.append("  1. 在 IDEA 设置中将代理类型从 SOCKS 改为 HTTP\n")
+                        sb.append("  2. 确认代理软件（如 Clash）的 HTTP 代理端口是否为 $port\n")
+                    } else {
+                        sb.append("SOCKS 代理连接失败\n")
+                        sb.append("可能原因：\n")
+                        sb.append("  - SOCKS 代理服务器未启动或端口错误\n")
+                        sb.append("  - SOCKS 认证配置错误\n")
+                        if (proxyConfig.username.isNullOrBlank()) {
+                            sb.append("  - 当前代理可能需要认证（请检查代理软件设置）\n")
+                        } else {
+                            sb.append("  - 用户名或密码错误（当前: ${proxyConfig.username}）\n")
+                        }
+                    }
+                }
+                ProxyType.HTTP -> {
+                    sb.append("HTTP 代理连接失败\n")
+                    sb.append("可能原因：\n")
+                    sb.append("  - HTTP 代理服务器未启动或端口错误\n")
+                    if (!proxyConfig.username.isNullOrBlank()) {
+                        sb.append("  - 用户名或密码错误（当前配置: ${proxyConfig.username}）\n")
+                        sb.append("  - 代理服务器可能不支持 Basic 认证\n")
+                    } else {
+                        sb.append("  - 当前代理可能需要认证（请检查代理软件设置）\n")
+                    }
+                    sb.append("  - 防火墙阻止了连接\n")
+                }
+                else -> {
+                    sb.append("代理连接失败\n")
+                }
+            }
+
+            sb.append("\n")
+            sb.append("常见本地代理端口说明:\n")
+            sb.append("  - 10809/10811: HTTP 代理（如 Clash、V2Ray）\n")
+            sb.append("  - 7890: Clash 默认 HTTP 代理端口\n")
+            sb.append("  - 1080: 标准 SOCKS5 代理端口\n")
+            sb.append("  - 7891: Clash SOCKS5 代理端口\n")
+            sb.append("\n")
+            sb.append("======================\n")
+        }
 
         // 分析错误类型（区分HTTP和SOCKS代理）
         val errorAnalysis = when {
@@ -463,6 +548,107 @@ class CustomAPIHttpClient(
 
         sb.append("目标URL: $targetUrl")
         return sb.toString()
+    }
+
+    /**
+     * 检测是否为代理连接错误（可重试）
+     */
+    private fun isProxyConnectionError(e: IOException): Boolean {
+        return when {
+            e.message?.contains("timeout", ignoreCase = true) == true -> true
+            e.message?.contains("Connection refused", ignoreCase = true) == true -> true
+            e is java.net.SocketTimeoutException -> true
+            e.message?.contains("proxy", ignoreCase = true) == true -> true
+            else -> false
+        }
+    }
+
+    /**
+     * 创建降级客户端（尝试另一种代理类型）
+     */
+    private fun createFallbackHttpClient(originalProxyConfig: ProxyConfig): OkHttpClient {
+        val fallbackProxyConfig = when (originalProxyConfig.type) {
+            ProxyType.SOCKS -> originalProxyConfig.copy(type = ProxyType.HTTP)
+            ProxyType.HTTP, ProxyType.HTTPS -> originalProxyConfig.copy(type = ProxyType.SOCKS)
+            else -> originalProxyConfig
+        }
+
+        val builder = OkHttpClient.Builder()
+            .connectTimeout(30000, TimeUnit.MILLISECONDS)
+            .readTimeout(60000, TimeUnit.MILLISECONDS)
+            .writeTimeout(60000, TimeUnit.MILLISECONDS)
+            .callTimeout(config.timeoutMs, TimeUnit.MILLISECONDS)
+
+        // 配置连接池
+        builder.connectionPool(ConnectionPool(5, 5, TimeUnit.MINUTES))
+
+        // 配置降级代理
+        configureProxyForFallback(builder, fallbackProxyConfig)
+
+        // 配置 SSL
+        configureSSL(builder)
+
+        // 添加拦截器
+        builder.addInterceptor(RetryInterceptor())
+        builder.addInterceptor(LoggingInterceptor(LoggingInterceptor.LogLevel.BASIC))
+        builder.addInterceptor(HeadersInterceptor(config.getAuthHeaders()))
+
+        return builder.build()
+    }
+
+    /**
+     * 为降级客户端配置代理
+     */
+    private fun configureProxyForFallback(builder: OkHttpClient.Builder, proxyConfig: ProxyConfig) {
+        val okHttpProxy = when (proxyConfig.type) {
+            ProxyType.HTTP, ProxyType.HTTPS ->
+                Proxy(Proxy.Type.HTTP, InetSocketAddress(proxyConfig.host, proxyConfig.port ?: 8080))
+            ProxyType.SOCKS ->
+                Proxy(Proxy.Type.SOCKS, InetSocketAddress(proxyConfig.host, proxyConfig.port ?: 1080))
+            else -> Proxy.NO_PROXY
+        }
+
+        builder.proxy(okHttpProxy)
+
+        // 配置认证
+        if (proxyConfig.type == ProxyType.HTTP && !proxyConfig.username.isNullOrBlank()) {
+            val httpAuthenticator = ProxyAuthenticatorFactory.createHttpAuthenticator(proxyConfig)
+            if (httpAuthenticator != null) {
+                builder.proxyAuthenticator(httpAuthenticator)
+                NekoamaLogger.info("CustomAPIHttpClient",
+                    "降级HTTP代理已配置认证: ${proxyConfig.username}@${proxyConfig.host}:${proxyConfig.port}")
+            }
+        } else if (proxyConfig.type == ProxyType.SOCKS && !proxyConfig.username.isNullOrBlank()) {
+            // 配置 SOCKS 认证
+            ProxyAuthenticatorFactory.configureSocksAuthentication(proxyConfig)
+            NekoamaLogger.info("CustomAPIHttpClient",
+                "降级SOCKS代理已配置认证: ${proxyConfig.username}@${proxyConfig.host}:${proxyConfig.port}")
+        }
+
+        NekoamaLogger.info("CustomAPIHttpClient",
+            "降级使用 ${proxyConfig.type} 代理: ${proxyConfig.host}:${proxyConfig.port}")
+    }
+
+    /**
+     * 降级发送请求
+     */
+    private suspend fun fallbackSendRequest(okHttpRequest: Request, originalProxyConfig: ProxyConfig): HttpResponseData {
+        val fallbackClient = createFallbackHttpClient(originalProxyConfig)
+
+        try {
+            val response = fallbackClient.newCall(okHttpRequest).execute()
+            NekoamaLogger.info("CustomAPIHttpClient",
+                "降级模式连接成功！建议检查 IDEA 代理类型配置（当前: ${originalProxyConfig.type}）")
+
+            return HttpResponseData(
+                statusCode = response.code,
+                body = response.body?.string() ?: "",
+                headers = response.headers.toMultimap()
+            )
+        } finally {
+            fallbackClient.dispatcher.executorService.shutdown()
+            fallbackClient.connectionPool.evictAll()
+        }
     }
 
     /**

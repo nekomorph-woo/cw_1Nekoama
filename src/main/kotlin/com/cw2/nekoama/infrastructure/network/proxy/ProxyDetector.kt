@@ -153,9 +153,12 @@ object ProxyDetector {
         score += when {
             port == 1080 || port == 1081 -> 50  // 标准SOCKS端口
             port in 1082..1089 -> 40              // SOCKS扩展端口
-            port in 10000..65535 -> 30            // 高端口（动态代理）
+            port in 7890..7899 -> 35              // Clash SOCKS 端口
             port in 1024..1089 -> 25              // 保留端口范围
-            port in 9000..9999 -> 15              // 可能的SOCKS端口
+            // ✅ 降低：高端口范围降低优先级（避免误判本地HTTP代理为SOCKS）
+            port in 10800..10999 -> 15            // 降低：可能是HTTP代理
+            port in 11000..65535 -> 20            // 降低：动态代理
+            port in 9000..9999 -> 10              // 可能但不典型
             else -> 0
         }
 
@@ -188,6 +191,10 @@ object ProxyDetector {
         score += when {
             port == 3128 || port == 3129 -> 50     // 标准HTTP代理端口
             port == 8080 || port == 8081 -> 45     // 常用HTTP代理端口
+            // ✅ 新增：本地常用代理端口（覆盖用户场景）
+            port == 10809 || port == 10811 -> 50   // 本地HTTP代理端口（高优先级）
+            port in 10800..10999 -> 40              // 本地代理端口范围
+            port in 7890..7899 -> 45                // Clash HTTP 默认端口
             port in 8082..8089 -> 40                // HTTP代理扩展端口
             port == 8000 || port == 8001 -> 35     // 开发代理端口
             port in 8888..8899 -> 30                // 备用HTTP代理端口
