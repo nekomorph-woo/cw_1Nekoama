@@ -18,6 +18,15 @@ data class ParameterComment(
     val defaultValue: String? = null
 )
 
+/**
+ * 异常注释信息
+ */
+@Serializable
+data class ExceptionComment(
+    val type: String,
+    val description: String
+)
+
 // ============================================================================
 // 注释结构
 // ============================================================================
@@ -35,7 +44,12 @@ data class CommentStructure(
     /**
      * 返回值描述
      */
-    val returnDescription: String? = null
+    val returnDescription: String? = null,
+
+    /**
+     * 异常说明列表
+     */
+    val exceptions: List<ExceptionComment> = emptyList()
 )
 
 // ============================================================================
@@ -63,16 +77,6 @@ data class CommentSuggestion(
      * 注释的结构化信息
      */
     val structure: CommentStructure? = null,
-
-    /**
-     * 建议的质量评分（0.0-1.0）
-     */
-    val score: Double,
-
-    /**
-     * 生成置信度（0.0-1.0）
-     */
-    val confidence: Double,
 
     /**
      * 注释语言（中文/英文）
@@ -124,6 +128,12 @@ data class CommentSuggestion(
                 appendLine(" * @return $returnDesc")
             }
 
+            if (structure.exceptions.isNotEmpty()) {
+                structure.exceptions.forEach { exc ->
+                    appendLine(" * @throws ${exc.type} ${exc.description}")
+                }
+            }
+
             append(" */")
         }
     }
@@ -154,6 +164,12 @@ data class CommentSuggestion(
 
             structure.returnDescription?.let { returnDesc ->
                 appendLine(" * @returns $returnDesc")
+            }
+
+            if (structure.exceptions.isNotEmpty()) {
+                structure.exceptions.forEach { exc ->
+                    appendLine(" * @throws {${exc.type}} ${exc.description}")
+                }
             }
 
             append(" */")

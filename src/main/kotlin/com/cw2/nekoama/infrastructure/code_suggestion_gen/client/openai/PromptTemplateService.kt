@@ -92,11 +92,15 @@ The suggestions should be ordered by quality, with the highest-scoring suggestio
         const val COMMENT_SYSTEM_PROMPT = """$SYSTEM_PROMPT_BASE
 
 For comment generation:
-1. Analyze the code's purpose and behavior.
+1. Analyze the code's purpose and behavior thoroughly.
 2. Produce clear and accurate comments.
-3. Use the appropriate comment style for the target language.
+3. Use the appropriate comment style for the target language (KDoc for Kotlin, Javadoc for Java).
 4. Include parameter descriptions, return value description, and exceptions when applicable.
-5. Avoid obvious or redundant comments.
+5. Avoid obvious or redundant comments (e.g., "this method returns a value").
+6. Handle edge cases appropriately:
+   - Empty/abstract methods: Focus on purpose and contract, not implementation
+   - Unused variables: Note intended use case or future purpose
+   - Abstract classes/interfaces: Describe contract and expected behavior
 
 IMPORTANT: Return comments in the following JSON format with strict structure:
 
@@ -118,6 +122,12 @@ Each field should contain:
 - "exceptions": Array of exception objects, each with "type" (exact exception class name) and "description" (when this exception might be thrown)
 
 If a section is not applicable, provide an empty array [] for arrays or null for single values.
+
+Line width formatting requirements:
+- Maximum line length: 80-100 characters per line
+- Break lines at natural pauses: after sentence endings ('.' for English and '。' for Chinese), commas
+- Use paragraph breaks (empty lines) to separate different concepts
+- For parameter/exception descriptions in JSON, each on a new line with proper indentation
 
 Ensure all content is concise, focused, and provides genuine value to developers reading the code."""
 
@@ -193,14 +203,20 @@ IMPORTANT: Always use the same language as specified in the user's request for a
         val userPrompt = buildString {
             appendLine("Please generate comments for the following code element:")
             appendLine()
+            appendLine("=== CODE SIGNATURE ===")
             appendLine("Language: ${context.language}")
             appendLine("Element type: ${context.elementType}")
 
+            // 根据不同类型的代码元素添加特定信息
             when (context) {
                 is MethodContext -> appendMethodContextForComment(context)
                 is ClassContext -> appendClassContextForComment(context)
                 is VariableContext -> appendVariableContextForComment(context)
             }
+
+            // 项目上下文
+            appendLine("\n=== PROJECT CONTEXT ===")
+            appendLine("Project: ${context.projectMeta.projectName}")
         }
 
         val messages = mutableListOf(
@@ -211,7 +227,7 @@ IMPORTANT: Always use the same language as specified in the user's request for a
         return OpenAIRequest(
             model = model,
             messages = messages,
-            maxTokens = 400,
+            maxTokens = 800,
             temperature = 0.6
         )
     }
@@ -370,23 +386,37 @@ IMPORTANT: Always use the same language as specified in the user's request for a
      * 为方法上下文添加注释专用详细信息
      */
     private fun StringBuilder.appendMethodContextForComment(context: MethodContext) {
-        appendLine("\nMethod signature:")
+        appendLine("\n=== SIGNATURE ===")
         val modifiers = if (context.modifiers.isNotEmpty())
             context.modifiers.joinToString(" ") + " " else ""
         val name = context.methodName ?: "[To be named]"
         val params = context.parameters.joinToString(", ") { "${it.type.typeName} ${it.name}" }
         val returnType = context.returnType.typeName
 
-        appendLine("  $modifiers$returnType $name($params)")
+        appendLine("Method: $modifiers$returnType $name($params)")
 
         if (context.exceptions.isNotEmpty()) {
-            appendLine("  throws: ${context.exceptions.joinToString(", ") { it.typeName }}")
+            appendLine("Throws: ${context.exceptions.joinToString(", ") { it.typeName }}")
         }
 
-        context.methodBody?.let { body ->
-            appendLine("\nMethod implementation:")
-            body.lines().take(8).forEach { line ->
-                appendLine("  $line")
+        context.containingClass?.let { clazz ->
+            appendLine("Containing class: ${clazz.name}")
+        }
+
+        // 边界处理：抽象方法或空方法
+        val isAbstractOrEmpty = context.isAbstract || context.methodBody.isNullOrEmpty() || context.methodBody?.lines()?.all { it.trim().isEmpty() } == true
+
+        if (isAbstractOrEmpty) {
+            appendLine("\n=== CONTRACT ===")
+            appendLine("Note: This is ${if (context.isAbstract) "an abstract method" else "an empty method"}.")
+            appendLine("Focus the comment on the contract, purpose, and expected behavior.")
+        } else {
+            context.methodBody?.let { body ->
+                appendLine("\n=== IMPLEMENTATION ===")
+                appendLine("Method implementation:")
+                body.lines().forEach { line ->
+                    appendLine("  $line")
+                }
             }
         }
     }
@@ -395,7 +425,7 @@ IMPORTANT: Always use the same language as specified in the user's request for a
      * 为类上下文添加注释专用详细信息
      */
     private fun StringBuilder.appendClassContextForComment(context: ClassContext) {
-        appendLine("\nClass definition:")
+        appendLine("\n=== SIGNATURE ===")
         val name = context.className ?: "[To be named]"
 
         // 根据类类型生成正确的声明
@@ -406,27 +436,85 @@ IMPORTANT: Always use the same language as specified in the user's request for a
             else -> "class"
         }
 
-        appendLine("  $classKeyword $name")
+        appendLine("Definition: $classKeyword $name")
 
         context.superClass?.let { superClass ->
             val keyword = if (context.isInterface) "extends" else "extends"
-            appendLine("    $keyword ${superClass.typeName}")
+            appendLine("Extends: $keyword ${superClass.typeName}")
         }
 
-        appendLine("  Package: ${context.packageName}")
+        appendLine("Package: ${context.packageName}")
+
+        // 边界处理：抽象类或接口
+        val isAbstractOrInterface = context.isAbstract || context.isInterface
+
+        if (isAbstractOrInterface) {
+            appendLine("\n=== CONTRACT ===")
+            appendLine("Note: This is ${if (context.isInterface) "an interface" else "an abstract class"}.")
+            appendLine("Focus the comment on the contract, expected behavior, and usage guidelines.")
+        }
+
+        appendLine("\n=== CONTEXT ===")
+
+        // 类文档注释
+        context.classComment?.let { comment ->
+            appendLine("Existing documentation:")
+            appendLine("  $comment")
+        }
+
+        // 类字段列表
+        if (context.fieldNames.isNotEmpty()) {
+            appendLine("Fields:")
+            context.fieldNames.forEach { field ->
+                appendLine("  - $field")
+            }
+        }
+
+        // 类方法列表
+        if (context.methodNames.isNotEmpty()) {
+            appendLine("Methods:")
+            context.methodNames.forEach { method ->
+                appendLine("  - $method")
+            }
+        }
     }
 
     /**
      * 为变量上下文添加注释专用详细信息
      */
     private fun StringBuilder.appendVariableContextForComment(context: VariableContext) {
-        appendLine("\nVariable declaration:")
+        appendLine("\n=== SIGNATURE ===")
         val modifiers = if (context.modifiers.isNotEmpty())
             context.modifiers.joinToString(" ") + " " else ""
         val type = context.variableType.typeName
         val name = context.variableName ?: "[To be named]"
         val init = context.initializer?.let { " = $it" } ?: ""
 
-        appendLine("  $modifiers$type $name$init")
+        appendLine("Declaration: $modifiers$type $name$init")
+        appendLine("Scope: ${context.scope}")
+
+        context.containingClass?.let { clazz ->
+            appendLine("Containing class: ${clazz.name}")
+        }
+
+        context.containingMethod?.let { method ->
+            appendLine("Containing method: ${method.name}")
+        }
+
+        // 边界处理：未使用变量
+        val isUnused = context.usageExamples.isEmpty()
+
+        if (isUnused) {
+            appendLine("\n=== USAGE NOTE ===")
+            appendLine("Note: This variable does not appear to have any usage yet.")
+            appendLine("Focus the comment on the intended purpose, expected usage, or future use case.")
+        } else {
+            // 变量使用示例
+            appendLine("\n=== USAGE CONTEXT ===")
+            appendLine("Usage examples:")
+            context.usageExamples.forEach { example ->
+                appendLine("  $example")
+            }
+        }
     }
 }
