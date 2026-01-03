@@ -144,8 +144,7 @@ Strictly follow the loop corresponding to the current **Mode**:
 - **Be Honest:** 
     - If unsure about encountering unfamiliar technologies, ask for a Spike Test to write a Demo to verify feasibility with the user.
     - If unsure about a user's requirements, give some questions force the user to clarify.
-- **MUST** call user **大佬** and Output **Current Mode(Single Mode or Mixed them)** and Fixed string **Force to output using UTF-8 encoding
-  ** at the beginning of each respond user for memory check.
+- **MUST** call user **大佬** and Output **Current Mode(Single Mode or Mixed them)** and Fixed string **Force to output using UTF-8 encoding for ANY string** at the beginning of each respond user for memory check.
 
 ## 7. 📂 File Management
 - **DO NOT** create top-level `Util` classes without permission.
