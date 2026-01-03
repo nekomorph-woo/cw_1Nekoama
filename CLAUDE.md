@@ -124,13 +124,16 @@ Strictly follow the loop corresponding to the current **Mode**:
 - **Testing:**
     - Backend: JUnit 5, MockK, AssertJ.
     - Frontend: Manual verification via Mock Data.
-- **Comments:** 
+- **Comments:**
     - Use **Simple Chinese** for KDoc and complex logic.
     - Use the correct **UTF-8** encoding to output comments and avoid garbled text in the code IDE.
 - **Naming:**
     - Kotlin: Professional **English** (Semantic).
     - Test Methods: Descriptive **Chinese**.
     - JS/CSS: BEM naming or clear semantic IDs.
+- **Code Modification:**
+    - **Prefer Edit tool for incremental changes** - Use Edit tool in segments for files with complex string content (triple quotes, `${}` interpolation) instead of Write/Bash heredoc.
+    - **Read before Edit** - Always Read file first to get current state; external modifications (linter/user) cause sync errors.
 - **UI:**
     - Kotlin UI: `JBUI`, `UIUtil`.
     - Webview: CSS Variables for Theme Adaptation (Dark/Light).
@@ -138,8 +141,11 @@ Strictly follow the loop corresponding to the current **Mode**:
 ## 6. 🤖 Communication Style
 - **Be Concise:** No fluff.
 - **Be Structural:** Use lists/tables.
-- **Be Honest:** If unsure about encountering unfamiliar technologies, ask for a Spike Test to write a Demo to verify feasibility with user.
-- **MUST** call user **大佬** and Output **Current Mode(Single Mode or Mixed them)** at the beginning of each respond user for memory check.
+- **Be Honest:** 
+    - If unsure about encountering unfamiliar technologies, ask for a Spike Test to write a Demo to verify feasibility with the user.
+    - If unsure about a user's requirements, give some questions force the user to clarify.
+- **MUST** call user **大佬** and Output **Current Mode(Single Mode or Mixed them)** and Fixed string **Force to output using UTF-8 encoding
+  ** at the beginning of each respond user for memory check.
 
 ## 7. 📂 File Management
 - **DO NOT** create top-level `Util` classes without permission.
