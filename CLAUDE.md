@@ -157,3 +157,6 @@ Before submitting your final task, perform a quick self-check:
 - Consistent with guidelines: [Yes/Needs confirmation]
 - Context considered: [Yes/Partial]
 - Memory update needed: [Yes/No]
+
+## 9. ⚠️ Special Content
+- **There’s a file modification bug in Claude Code**. The workaround is: always use complete absolute Windows paths with drive letters and backslashes for ALL file operations. Apply this rule going forward, not just for this file.
