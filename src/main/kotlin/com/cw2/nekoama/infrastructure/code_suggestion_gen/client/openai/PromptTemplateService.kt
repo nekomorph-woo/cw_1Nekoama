@@ -1,12 +1,12 @@
 package com.cw2.nekoama.infrastructure.code_suggestion_gen.client.openai
 
-import com.cw2.nekoama.domain.settings.model.NekoamaSettings
 import com.cw2.nekoama.domain.code_suggestion_gen.model.ClassContext
 import com.cw2.nekoama.domain.code_suggestion_gen.model.CodeContext
 import com.cw2.nekoama.domain.code_suggestion_gen.model.MethodContext
 import com.cw2.nekoama.domain.code_suggestion_gen.model.VariableContext
-import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.openai.OpenAIRequest
+import com.cw2.nekoama.domain.settings.model.NekoamaSettings
 import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.openai.OpenAIMessage
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.openai.OpenAIRequest
 
 /**
  * OpenAI 提示词模板服务
@@ -40,12 +40,34 @@ Your responses must be accurate, concise, and aligned with established programmi
 
         const val NAMING_SYSTEM_PROMPT = """$SYSTEM_PROMPT_BASE
 
+Analysis phase before suggesting:
+1. Identify the core purpose and responsibility of the code element
+2. Consider the business domain and terminology used in the project
+3. Determine if the element represents an action, entity, property, or concept
+4. Generate names that reflect this understanding
+
 For naming suggestions:
 1. Provide 3-5 high-quality name candidates.
 2. Each suggestion should include: "name - brief description".
 3. Follow the naming conventions of the target language.
 4. Ensure excellent readability and precise semantics.
 5. Avoid abbreviations and ambiguous terms.
+
+Avoid these patterns:
+- Single letter names except for loop counters (i, j, k)
+- Generic names (data, info, temp, manager, handler) unless contextually appropriate
+- Abbreviations that aren't widely recognized (usr → user, cnt → count is OK)
+- Hungarian notation or type prefixes (strName, intCount)
+
+Scoring criteria:
+- 0.9-1.0: Perfect match - follows all conventions, highly descriptive
+- 0.7-0.8: Good - mostly correct with minor improvements possible
+- 0.5-0.6: Acceptable - works but could be clearer
+- Below 0.5: Poor - avoid using
+
+Language requirement:
+- The "name" field MUST ALWAYS be in English as it is a code identifier
+- The "description" and "reasoning" fields follow the language preference setting
 
 Return strictly in JSON format using the structure below. Do not include any extra text:
 {
@@ -60,7 +82,7 @@ Return strictly in JSON format using the structure below. Do not include any ext
 }
 
 IMPORTANT: Each suggestion should use this exact format with the following structure:
-- "name": The proposed name for the code element
+- "name": The proposed name for the code element (MUST be in English)
 - "description": A very brief description (1-3 words) of what the name represents
 - "score": A confidence score between 0.0 and 1.0
 - "reasoning": A concise explanation (1-2 sentences) of why this name is appropriate
@@ -117,8 +139,14 @@ IMPORTANT: Always use the same language as specified in the user's request for a
         val userPrompt = buildString {
             appendLine("Please provide naming suggestions for the following code element:")
             appendLine()
+            appendLine("=== CORE IDENTITY ===")
             appendLine("Language: ${context.language}")
             appendLine("Element type: ${context.elementType}")
+
+            // 用户意图描述（优先级最高）
+            context.userIntent?.let { intent ->
+                appendLine("\nUser intent: $intent")
+            }
 
             // 根据不同类型的代码元素添加特定信息
             when (context) {
@@ -127,18 +155,13 @@ IMPORTANT: Always use the same language as specified in the user's request for a
                 is VariableContext -> appendVariableContext(context)
             }
 
-            // 用户意图描述（例如：重命名/重构/优化）
-            context.userIntent?.let { intent ->
-                appendLine("\nUser intent: $intent")
-            }
-
-            // 项目信息
-            appendLine("\nProject information:")
-            appendLine("  Project name: ${context.projectMeta.projectName}")
+            // 项目信息（优先级最低，作为补充上下文）
+            appendLine("\n=== PROJECT CONTEXT ===")
+            appendLine("Project name: ${context.projectMeta.projectName}")
 
             // 命名模式分析
             context.surroundingContext.namingPatterns?.let { patterns ->
-                appendLine("\nProject naming conventions: ${patterns.conventionType}")
+                appendLine("Project naming conventions: ${patterns.conventionType}")
             }
         }
 
@@ -146,6 +169,14 @@ IMPORTANT: Always use the same language as specified in the user's request for a
             OpenAIMessage("system", NAMING_SYSTEM_PROMPT)
         )
         buildLanguageSystemMessage()?.let { messages.add(it) }
+        messages.add(
+            OpenAIMessage(
+                "system", """
+  Language requirement for response fields: Use had specified language for the 'description' and 'reasoning' fields only.
+  The 'name' field must ALWAYS be in English as it is a code identifier.
+"""
+            )
+        )
         messages.add(OpenAIMessage("user", userPrompt))
         return OpenAIRequest(
             model = model,
@@ -217,36 +248,37 @@ IMPORTANT: Always use the same language as specified in the user's request for a
      * 为方法上下文添加详细信息（命名建议专用）
      */
     private fun StringBuilder.appendMethodContext(context: MethodContext) {
-        appendLine("\nMethod information:")
+        appendLine("\n=== SIGNATURE ===")
         context.methodName?.let { name ->
-            appendLine("  Current name: $name")
+            appendLine("Current name: $name")
         }
-        appendLine("  Return type: ${context.returnType.typeName}")
+        appendLine("Return type: ${context.returnType.typeName}")
 
         if (context.parameters.isNotEmpty()) {
-            appendLine("  Parameters:")
+            appendLine("Parameters:")
             context.parameters.forEach { param ->
-                appendLine("    ${param.name}: ${param.type.typeName}")
+                appendLine("  ${param.name}: ${param.type.typeName}")
             }
         }
 
         if (context.modifiers.isNotEmpty()) {
-            appendLine("  Modifiers: ${context.modifiers.joinToString(", ")}")
+            appendLine("Modifiers: ${context.modifiers.joinToString(", ")}")
         }
 
         if (context.exceptions.isNotEmpty()) {
-            appendLine("  Possible exceptions: ${context.exceptions.map { it.typeName }.joinToString(", ")}")
-        }
-
-        context.methodBody?.let { body ->
-            appendLine("\nMethod body snippet:")
-            body.lines().take(5).forEach { line ->
-                appendLine("  $line")
-            }
+            appendLine("Possible exceptions: ${context.exceptions.map { it.typeName }.joinToString(", ")}")
         }
 
         context.containingClass?.let { clazz ->
-            appendLine("\nContaining class: ${clazz.name}")
+            appendLine("Containing class: ${clazz.name}")
+        }
+
+        context.methodBody?.let { body ->
+            appendLine("\n=== BEHAVIOR & CONTEXT ===")
+            appendLine("Method implementation:")
+            body.lines().forEach { line ->
+                appendLine("  $line")
+            }
         }
     }
 
@@ -254,23 +286,46 @@ IMPORTANT: Always use the same language as specified in the user's request for a
      * 为类上下文添加详细信息（命名建议专用）
      */
     private fun StringBuilder.appendClassContext(context: ClassContext) {
-        appendLine("\nClass information:")
+        appendLine("\n=== SIGNATURE ===")
         context.className?.let { name ->
-            appendLine("  Current name: $name")
+            appendLine("Current name: $name")
         }
 
         context.superClass?.let { superClass ->
-            appendLine("  Superclass: ${superClass.typeName}")
+            appendLine("Superclass: ${superClass.typeName}")
         }
 
-        appendLine("  Package: ${context.packageName}")
+        appendLine("Package: ${context.packageName}")
 
         // 添加类类型信息
         when {
-            context.isInterface -> appendLine("  Type: Interface")
-            context.isEnum -> appendLine("  Type: Enum")
-            context.isAbstract -> appendLine("  Type: Abstract class")
-            else -> appendLine("  Type: Class")
+            context.isInterface -> appendLine("Type: Interface")
+            context.isEnum -> appendLine("Type: Enum")
+            context.isAbstract -> appendLine("Type: Abstract class")
+            else -> appendLine("Type: Class")
+        }
+
+        appendLine("\n=== BEHAVIOR & CONTEXT ===")
+        // 类文档注释
+        context.classComment?.let { comment ->
+            appendLine("Class documentation:")
+            appendLine("  $comment")
+        }
+
+        // 类字段列表
+        if (context.fieldNames.isNotEmpty()) {
+            appendLine("Fields:")
+            context.fieldNames.forEach { field ->
+                appendLine("  - $field")
+            }
+        }
+
+        // 类方法列表
+        if (context.methodNames.isNotEmpty()) {
+            appendLine("Methods:")
+            context.methodNames.forEach { method ->
+                appendLine("  - $method")
+            }
         }
     }
 
@@ -278,27 +333,36 @@ IMPORTANT: Always use the same language as specified in the user's request for a
      * 为变量上下文添加详细信息（命名建议专用）
      */
     private fun StringBuilder.appendVariableContext(context: VariableContext) {
-        appendLine("\nVariable information:")
+        appendLine("\n=== SIGNATURE ===")
         context.variableName?.let { name ->
-            appendLine("  Current name: $name")
+            appendLine("Current name: $name")
         }
-        appendLine("  Type: ${context.variableType.typeName}")
-        appendLine("  Scope: ${context.scope}")
+        appendLine("Type: ${context.variableType.typeName}")
+        appendLine("Scope: ${context.scope}")
 
         if (context.modifiers.isNotEmpty()) {
-            appendLine("  Modifiers: ${context.modifiers.joinToString(", ")}")
+            appendLine("Modifiers: ${context.modifiers.joinToString(", ")}")
         }
 
         context.initializer?.let { init ->
-            appendLine("  Initializer: $init")
+            appendLine("Initializer: $init")
         }
 
         context.containingClass?.let { clazz ->
-            appendLine("  Containing class: ${clazz.name}")
+            appendLine("Containing class: ${clazz.name}")
         }
 
         context.containingMethod?.let { method ->
-            appendLine("  Containing method: ${method.name}")
+            appendLine("Containing method: ${method.name}")
+        }
+
+        // 变量使用示例
+        if (context.usageExamples.isNotEmpty()) {
+            appendLine("\n=== BEHAVIOR & CONTEXT ===")
+            appendLine("Usage examples:")
+            context.usageExamples.forEach { example ->
+                appendLine("  $example")
+            }
         }
     }
 

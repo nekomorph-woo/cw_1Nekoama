@@ -114,6 +114,24 @@ class JavaCodeAnalyzer(private val project: Project) {
                     )
                 }
 
+                // 提取当前类的字段名列表（仅当前类，不包含父类）
+                val fieldNames = clazz.fields.mapNotNull { it.name }.toList()
+
+                // 提取当前类的方法名列表（排除父类、构造方法、Java原生方法）
+                val javaNativeMethods = setOf("equals", "hashCode", "toString", "clone", "finalize", "wait", "notify", "notifyAll", "getClass")
+                val methodNames = clazz.methods
+                    .filter { method ->
+                        !method.isConstructor &&
+                        method.name !in javaNativeMethods &&
+                        // 确保是当前类声明的方法，不是从父类继承的
+                        method.containingClass == clazz
+                    }
+                    .mapNotNull { it.name }
+                    .toList()
+
+                // 提取类的文档注释内容
+                val classComment = clazz.docComment?.text
+
                 // 构建完整的类上下文对象
                 val classContext = ClassContext(
                     language = ProgrammingLanguage.JAVA,
@@ -127,7 +145,10 @@ class JavaCodeAnalyzer(private val project: Project) {
                     isAbstract = clazz.hasModifierProperty(PsiModifier.ABSTRACT),
                     isEnum = clazz.isEnum,
                     // 从包含文件中提取包名，若非 Java 文件则返回空字符串
-                    packageName = (clazz.containingFile as? PsiJavaFile)?.packageName ?: ""
+                    packageName = (clazz.containingFile as? PsiJavaFile)?.packageName ?: "",
+                    fieldNames = fieldNames,
+                    methodNames = methodNames,
+                    classComment = classComment
                 )
 
                 Result.success(classContext)
@@ -171,6 +192,23 @@ class JavaCodeAnalyzer(private val project: Project) {
                     else -> VariableScope.LOCAL
                 }
 
+                // 提取变量使用场景（收集后续几行中对该变量的引用）
+                val usageExamples = mutableListOf<String>()
+                var linesCounted = 0
+                var currentElement: PsiElement? = variable.nextSibling
+                while (currentElement != null && linesCounted < 5) {
+                    val text = currentElement.text
+                    val varName = variable.name
+                    if (varName != null && text.contains(varName)) {
+                        val line = text.lines().firstOrNull { it.contains(varName) }
+                        if (line != null) {
+                            usageExamples.add(line.trim().take(100))
+                        }
+                    }
+                    currentElement = currentElement.nextSibling
+                    linesCounted++
+                }
+
                 // 构建完整的变量上下文对象
                 val variableContext = VariableContext(
                     language = ProgrammingLanguage.JAVA,
@@ -187,7 +225,8 @@ class JavaCodeAnalyzer(private val project: Project) {
                     initializer = variable.initializer?.text,
                     scope = variableScope,
                     isConstant = variable.modifierList?.hasModifierProperty(PsiModifier.FINAL) == true,
-                    isStatic = variable.modifierList?.hasModifierProperty(PsiModifier.STATIC) == true
+                    isStatic = variable.modifierList?.hasModifierProperty(PsiModifier.STATIC) == true,
+                    usageExamples = usageExamples
                 )
 
                 Result.success(variableContext)

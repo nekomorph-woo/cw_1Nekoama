@@ -100,7 +100,22 @@ data class ClassContext(
     /**
      * 包名
      */
-    val packageName: String
+    val packageName: String,
+
+    /**
+     * 类的属性字段名列表（仅当前类，包含私有/公共/受保护/常量）
+     */
+    val fieldNames: List<String> = emptyList(),
+
+    /**
+     * 类的方法名列表（仅当前类，排除父类、构造方法、Java原生方法）
+     */
+    val methodNames: List<String> = emptyList(),
+
+    /**
+     * 类的文档注释内容
+     */
+    val classComment: String? = null
 ) : CodeContext() {
     override val elementType = CodeElementType.CLASS
 }
@@ -230,7 +245,12 @@ data class VariableContext(
     /**
      * 所属方法信息（如果是局部变量或参数）
      */
-    val containingMethod: MethodMetadata? = null
+    val containingMethod: MethodMetadata? = null,
+
+    /**
+     * 变量在后续代码中的使用方式（提取的关键代码片段）
+     */
+    val usageExamples: List<String> = emptyList()
 ) : CodeContext() {
     override val elementType = CodeElementType.VARIABLE
 }

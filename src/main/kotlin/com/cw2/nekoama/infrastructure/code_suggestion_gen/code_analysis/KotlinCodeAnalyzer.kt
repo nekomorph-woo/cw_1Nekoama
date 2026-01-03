@@ -118,6 +118,24 @@ class KotlinCodeAnalyzer(private val project: Project) {
                         )
                     }
 
+                // 提取当前类的属性字段名列表（仅当前类，不包含父类）
+                val fieldNames = clazz.getProperties()
+                    .filter { it.isMember }
+                    .mapNotNull { it.name }
+                    .toList()
+
+                // 提取当前类的方法名列表（排除父类、构造方法、Java原生方法）
+                val javaNativeMethods = setOf("equals", "hashCode", "toString", "clone", "finalize")
+                val methodNames = clazz.body?.functions
+                    ?.filter { func ->
+                        func !is KtConstructor<*> && func.name !in javaNativeMethods
+                    }
+                    ?.mapNotNull { it.name }
+                    ?: emptyList()
+
+                // 提取类的文档注释内容
+                val classComment = clazz.docComment?.text
+
                 // 构建完整的类上下文对象
                 val classContext = ClassContext(
                     language = ProgrammingLanguage.KOTLIN,
@@ -131,7 +149,10 @@ class KotlinCodeAnalyzer(private val project: Project) {
                     isAbstract = clazz.hasModifier(KtTokens.ABSTRACT_KEYWORD),
                     isEnum = clazz.isEnum(),
                     // 从包含文件的包指令中提取包名
-                    packageName = clazz.containingKtFile.packageDirective?.fqName?.asString() ?: ""
+                    packageName = clazz.containingKtFile.packageDirective?.fqName?.asString() ?: "",
+                    fieldNames = fieldNames,
+                    methodNames = methodNames,
+                    classComment = classComment
                 )
 
                 Result.success(classContext)
@@ -172,6 +193,23 @@ class KotlinCodeAnalyzer(private val project: Project) {
                 // 属性的父元素通常是 KtPropertyAccessor，再上层才是 KtClass
                 val containingClass = property.parent?.parent as? KtClass
 
+                // 提取变量使用场景（收集后续几行中对该变量的引用）
+                val usageExamples = mutableListOf<String>()
+                val nextSibling = property.nextSibling
+                var linesCounted = 0
+                var currentElement = nextSibling
+                while (currentElement != null && linesCounted < 5) {
+                    val text = currentElement.text
+                    if (property.name != null && text.contains(property.name!!)) {
+                        val line = text.lines().firstOrNull { it.contains(property.name!!) }
+                        if (line != null) {
+                            usageExamples.add(line.trim().take(100))
+                        }
+                    }
+                    currentElement = currentElement.nextSibling
+                    linesCounted++
+                }
+
                 // 构建完整的属性上下文对象
                 val variableContext = VariableContext(
                     language = ProgrammingLanguage.KOTLIN,
@@ -195,7 +233,8 @@ class KotlinCodeAnalyzer(private val project: Project) {
                         ClassMetadata(
                             name = cls.name ?: ""
                         )
-                    }
+                    },
+                    usageExamples = usageExamples
                 )
 
                 Result.success(variableContext)
@@ -256,7 +295,8 @@ class KotlinCodeAnalyzer(private val project: Project) {
                                 typeName = function.typeReference?.text ?: "Unit"
                             )
                         )
-                    }
+                    },
+                    usageExamples = emptyList()
                 )
 
                 Result.success(variableContext)
