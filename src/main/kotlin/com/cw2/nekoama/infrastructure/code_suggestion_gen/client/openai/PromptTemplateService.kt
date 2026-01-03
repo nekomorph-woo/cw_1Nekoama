@@ -131,15 +131,27 @@ Line width formatting requirements:
 
 Ensure all content is concise, focused, and provides genuine value to developers reading the code."""
 
-        const val CUSTOM_SYSTEM_PROMPT = """$SYSTEM_PROMPT_BASE
+        const val CUSTOM_GENERATE_SYSTEM_PROMPT = """You are an expert code assistant helping developers with various programming tasks.
 
-For custom generation:
-1. Generate content according to the user's specific request.
-2. Consider the provided code context.
-3. Ensure the output is accurate and useful.
-4. If the request is code-related, follow best practices.
+Core principles:
+1. Respond directly and accurately to the user's specific request
+2. Keep responses concise and focused
+3. For code modifications: preserve existing logic and structure unless explicitly asked to change
+4. Use clear formatting with code blocks, examples, or structured explanations as appropriate
+5. Match the language used in the user's request for explanations and descriptions
 
-IMPORTANT: Always use the same language as specified in the user's request for all generated content, explanations, and descriptions."""
+Common request types:
+- Code explanation: Analyze functionality, logic, and patterns
+- Refactoring: Suggest improvements while maintaining behavior
+- Code generation: Provide implementation with comments
+- Bug investigation: Identify issues and propose fixes
+- Performance optimization: Recommend efficient alternatives
+
+Output formatting:
+- Use ```language code blocks for code
+- Break long lines at 80-100 characters for readability
+- Use numbered lists or bullet points for multiple items
+- Avoid unnecessary verbosity or stating the obvious"""
     }
 
     /**
@@ -237,26 +249,27 @@ IMPORTANT: Always use the same language as specified in the user's request for a
      */
     fun createCustomPrompt(prompt: String, context: CodeContext?, model: String = "gpt-4"): OpenAIRequest {
         val userPrompt = buildString {
-            appendLine("User request: $prompt")
+            appendLine("=== USER REQUEST ===")
+            appendLine(prompt)
 
             context?.let { ctx ->
                 appendLine()
-                appendLine("Code context:")
-                appendLine("  Language: ${ctx.language}")
-                appendLine("  Project: ${ctx.projectMeta.projectName}")
+                appendLine("=== CODE CONTEXT ===")
+                appendLine("Language: ${ctx.language}")
+                appendLine("Project: ${ctx.projectMeta.projectName}")
             }
         }
 
         val messages = mutableListOf(
-            OpenAIMessage("system", CUSTOM_SYSTEM_PROMPT)
+            OpenAIMessage("system", CUSTOM_GENERATE_SYSTEM_PROMPT)
         )
         buildLanguageSystemMessage()?.let { messages.add(it) }
         messages.add(OpenAIMessage("user", userPrompt))
         return OpenAIRequest(
             model = model,
             messages = messages,
-            maxTokens = 500,
-            temperature = 0.8
+            maxTokens = 8192,
+            temperature = 0.7
         )
     }
 
