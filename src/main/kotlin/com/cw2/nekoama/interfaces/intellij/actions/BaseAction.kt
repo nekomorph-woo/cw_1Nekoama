@@ -1,5 +1,7 @@
 package com.cw2.nekoama.interfaces.intellij.actions
 
+import com.cw2.nekoama.domain.settings.model.NekoamaSettings
+import com.cw2.nekoama.infrastructure.config.MenuTextProvider
 import com.cw2.nekoama.shared.i18n.NekoamaBundle
 import com.cw2.nekoama.shared.util.NekoamaNotifier
 import com.intellij.openapi.actionSystem.AnAction
@@ -28,7 +30,11 @@ internal abstract class BaseAction : AnAction(), DumbAware {
         val editor = e.getData(CommonDataKeys.EDITOR)
         val enabled = project != null && (requiresEditor() || editor != null)
         e.presentation.isEnabledAndVisible = enabled
-        // 在 Dumb 模式下也允许显示，但实际执行时会等待 Smart 模式
+
+        // 动态更新菜单文本（解决 addTextOverride 不刷新的问题）
+        if (enabled) {
+            updateMenuText(e)
+        }
     }
 
     final override fun actionPerformed(e: AnActionEvent) {
@@ -62,6 +68,35 @@ internal abstract class BaseAction : AnAction(), DumbAware {
      * @return true 表示等待 Smart 模式，false 表示立即执行
      */
     protected open fun shouldWaitForSmartMode(): Boolean = true
+
+    /**
+     * 动态更新菜单文本
+     * 根据 NekoamaSettings 中的配置动态设置菜单显示文本
+     */
+    private fun updateMenuText(e: AnActionEvent) {
+        val settings = NekoamaSettings.getInstance()
+        val menuText = MenuTextProvider.getMenuText(
+            menuTextKey = getMenuTextKey(),
+            style = settings.menuDisplayNameStyle,
+            customText = getCustomText(settings)
+        )
+        e.presentation.text = menuText
+    }
+
+    /**
+     * 子类提供菜单文本的国际化 key（用于默认文本）
+     *
+     * @return 菜单类型标识 ("naming", "comment", "generate")
+     */
+    protected abstract fun getMenuTextKey(): String
+
+    /**
+     * 子类提供自定义文本字段（当 style = CUSTOM 时使用）
+     *
+     * @param settings 当前设置对象
+     * @return 自定义菜单文本
+     */
+    protected abstract fun getCustomText(settings: NekoamaSettings): String
 
     /**
      * 子类实现具体处理逻辑

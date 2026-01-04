@@ -2,6 +2,7 @@ package com.cw2.nekoama.interfaces.intellij.actions
 
 import com.cw2.nekoama.application.usecase.CustomGenerateUseCase
 import com.cw2.nekoama.application.usecase.GeneratorFactory
+import com.cw2.nekoama.domain.settings.model.NekoamaSettings
 import com.cw2.nekoama.shared.i18n.NekoamaBundle
 import com.cw2.nekoama.shared.util.NekoamaNotifier
 import com.cw2.nekoama.shared.logging.NekoamaLogger
@@ -28,6 +29,11 @@ import kotlinx.coroutines.runBlocking
  * 业务逻辑已移至 CustomGenerateUseCase
  */
 internal class CustomGenerateAction : BaseAction() {
+
+    override fun getMenuTextKey(): String = "generate"
+
+    override fun getCustomText(settings: NekoamaSettings): String =
+        settings.customGenerateMenuText
 
     override fun perform(project: Project, editor: Editor?, e: AnActionEvent) {
         // 创建 UseCase 实例

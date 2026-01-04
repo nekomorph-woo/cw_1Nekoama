@@ -3,6 +3,7 @@ package com.cw2.nekoama.interfaces.intellij.actions
 import com.cw2.nekoama.application.usecase.GenerateCommentUseCase
 import com.cw2.nekoama.application.usecase.GeneratorFactory
 import com.cw2.nekoama.domain.code_suggestion_gen.service.code_analysis.CodeAnalysisService
+import com.cw2.nekoama.domain.settings.model.NekoamaSettings
 import com.cw2.nekoama.infrastructure.code_suggestion_gen.code_analysis.UniversalCodeElementAnalyzer
 import com.cw2.nekoama.shared.i18n.NekoamaBundle
 import com.cw2.nekoama.shared.util.NekoamaNotifier
@@ -35,6 +36,11 @@ import org.jetbrains.kotlin.psi.*
  * 业务逻辑已移至 GenerateCommentUseCase
  */
 internal class GenerateCommentAction : BaseAction() {
+
+    override fun getMenuTextKey(): String = "comment"
+
+    override fun getCustomText(settings: NekoamaSettings): String =
+        settings.customCommentMenuText
 
     override fun perform(project: Project, editor: Editor?, e: AnActionEvent) {
         // 创建 UseCase 实例

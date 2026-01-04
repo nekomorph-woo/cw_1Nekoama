@@ -8,6 +8,26 @@ import com.intellij.openapi.components.Storage
 import com.intellij.util.xmlb.XmlSerializerUtil
 
 /**
+ * 菜单显示风格枚举
+ */
+enum class MenuDisplayNameStyle {
+    /** 猫主题品牌型 - Neko Name / Neko Comment / Neko Magic */
+    NEKO_BRAND,
+
+    /** AI 助手型 - AI Name Suggester / AI Doc Writer / AI Code Assistant */
+    AI_ASSISTANT,
+
+    /** 动词行动型 - Rename Smart / Document It / Generate Context */
+    ACTION_VERB,
+
+    /** 极简两词型 - Quick Name / Quick Doc / Quick Gen */
+    MINIMALIST,
+
+    /** 自定义文本 */
+    CUSTOM
+}
+
+/**
  * 插件设置持久化组件
  *
  * 设计原则：
@@ -44,6 +64,19 @@ class NekoamaSettings : PersistentStateComponent<NekoamaSettings> {
     var languagePreference: String = "AUTO"
     var namingStyle: String = "CAMEL_CASE"
     var commentFormat: String = "JAVADOC"
+
+    // ===== 菜单外观配置 =====
+    /** 菜单显示风格（默认：猫主题品牌型） */
+    var menuDisplayNameStyle: MenuDisplayNameStyle = MenuDisplayNameStyle.NEKO_BRAND
+
+    /** 自定义命名菜单文本（当 style = CUSTOM 时使用） */
+    var customNamingMenuText: String = "Neko Name"
+
+    /** 自定义注释菜单文本（当 style = CUSTOM 时使用） */
+    var customCommentMenuText: String = "Neko Comment"
+
+    /** 自定义生成菜单文本（当 style = CUSTOM 时使用） */
+    var customGenerateMenuText: String = "Neko Magic"
 
     override fun getState(): NekoamaSettings = this
 
