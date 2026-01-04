@@ -52,18 +52,6 @@
     </extensions>
 
     <actions>
-        <!-- 顶层 Nekoama 组（可用于扩展） -->
-        <group id="Nekoama.Actions" text="Nekoama" popup="true">
-            <action id="Nekoama.GenerateNaming" class="com.cw2.nekoama.interfaces.intellij.actions.GenerateNamingAction"
-                    text="Name for Any" description="Generate naming suggestions"
-                    icon="AllIcons.Actions.GroupByModuleGroup"/>
-            <action id="Nekoama.GenerateComment" class="com.cw2.nekoama.interfaces.intellij.actions.GenerateCommentAction"
-                    text="Comment for Me" description="Generate documentation" icon="AllIcons.Actions.Lightning"/>
-            <action id="Nekoama.CustomGenerate" class="com.cw2.nekoama.interfaces.intellij.actions.CustomGenerateAction"
-                    text="IDEA for Neko" description="Custom generate with context"
-                    icon="AllIcons.Actions.EnableNewUi"/>
-        </group>
-
         <!-- 右键菜单集成 -->
         <action id="Nekoama.CustomGenerate.Popup" class="com.cw2.nekoama.interfaces.intellij.actions.CustomGenerateAction"
                 text="IDEA for Neko" icon="AllIcons.Actions.EnableNewUi">
