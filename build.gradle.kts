@@ -5,6 +5,8 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization") version "2.1.0"
     id("com.github.ben-manes.versions") version "0.50.0" // 自动依赖更新检查
     alias(libs.plugins.detekt) // 使用版本目录管理的 detekt 插件
+    // 添加 kover 插件
+    alias(libs.plugins.kover)
 }
 
 group = "me.cw2"
@@ -67,8 +69,10 @@ dependencies {
     // 测试框架依赖 - Testing framework dependencies
     testImplementation("io.mockk:mockk:1.13.8")
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.1")
+    testImplementation("org.assertj:assertj-core:3.24.2")
     testImplementation("org.testcontainers:testcontainers:1.19.3")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
 }
 
 intellijPlatform {
@@ -90,10 +94,41 @@ tasks {
         targetCompatibility = "21"
     }
 
+    // 测试任务配置 - Test task configuration
+    test {
+        useJUnitPlatform()
+
+        testLogging {
+            events("passed", "skipped", "failed")
+            exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+            showStandardStreams = true
+        }
+
+        // JVM 参数配置 - JVM arguments configuration
+        jvmArgs("-Dfile.encoding=UTF-8")
+    }
+
     runIde {
         2
         jvmArgumentProviders += CommandLineArgumentProvider {
             listOf("-Didea.kotlin.plugin.use.k2=true")
+        }
+    }
+}
+
+// 添加 Kover 配置
+kover {
+    reports {
+        // 配置总覆盖率报告
+        total {
+            // 生成 XML 报告（CI常用）
+            xml {
+                onCheck = true
+            }
+            // 生成 HTML 报告（本地查看）
+            html {
+                onCheck = true
+            }
         }
     }
 }
