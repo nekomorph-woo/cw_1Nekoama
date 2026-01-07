@@ -23,20 +23,21 @@ If a user request conflicts with `tech_guidance`, you must point it out immediat
 - **Key Directories:**
 ```
 src/main/kotlin/com/cw2/nekoama/
-├── application/                  # 应用服务层 - 业务流程编排、指标收集服务
-├── domain/                       # 领域模型层 - 核心业务逻辑、AI服务、代码分析、设置管理
-│   ├── ai/                      # AI领域 - 模型定义、提示服务、自定义AI
-│   ├── code_analysis/           # 代码分析领域 - Java/Kotlin分析器、未使用代码检测
-│   ├── editor/                  # 编辑器领域 - 键入处理
-│   ├── metrics/                 # 指标领域 - 指标模型定义
-│   └── settings/                # 设置领域 - 配置模型、安全存储
-├── infra/                        # 基础设施层 - AI客户端、网络代理、存储实现
-│   ├── ai/                      # AI基础设施 - OpenAI客户端、响应解析
-│   ├── network/                 # 网络基础设施 - HTTP客户端、代理配置、拦截器
-│   └── storage/                 # 存储基础设施 - 指标存储
+├── application/                  # 应用服务层 - 用例编排
+├── domain/                       # 领域模型层 - 核心业务逻辑
+│   ├── code_suggestion_gen/      # 代码建议生成领域
+│   └── settings/                # 设置领域
+├── infrastructure/               # 基础设施层 - 外部依赖实现
+│   ├── code_suggestion_gen/      # 代码建议生成基础设施
+│   └── network/                 # 网络基础设施
 ├── interfaces/                   # 接口适配层 - IntelliJ平台集成
-│   └── intellij/                # IntelliJ适配器 - 动作、设置界面、工具窗口
-├── shared/                       # 共享模块 - 异常、日志、工具类、生命周期管理
+│   └── intellij/                # IntelliJ适配器
+└── shared/                       # 共享模块
+    ├── exception/               # 异常定义
+    ├── i18n/                    # 国际化
+    ├── logging/                 # 日志
+    ├── model/                   # 通用模型
+    └── util/                    # 工具类 - 任务管理、通知、JSON配置
 resources/                        # 插件资源 - 配置、国际化、静态资源、报告模板
 ```
 
@@ -123,13 +124,16 @@ Strictly follow the loop corresponding to the current **Mode**:
 - **Testing:**
     - Backend: JUnit 5, MockK, AssertJ.
     - Frontend: Manual verification via Mock Data.
-- **Comments:** 
+- **Comments:**
     - Use **Simple Chinese** for KDoc and complex logic.
     - Use the correct **UTF-8** encoding to output comments and avoid garbled text in the code IDE.
 - **Naming:**
     - Kotlin: Professional **English** (Semantic).
     - Test Methods: Descriptive **Chinese**.
     - JS/CSS: BEM naming or clear semantic IDs.
+- **Code Modification:**
+    - **Prefer Edit tool for incremental changes** - Use Edit tool in segments for files with complex string content (triple quotes, `${}` interpolation) instead of Write/Bash heredoc.
+    - **Read before Edit** - Always Read file first to get current state; external modifications (linter/user) cause sync errors.
 - **UI:**
     - Kotlin UI: `JBUI`, `UIUtil`.
     - Webview: CSS Variables for Theme Adaptation (Dark/Light).
@@ -137,8 +141,10 @@ Strictly follow the loop corresponding to the current **Mode**:
 ## 6. 🤖 Communication Style
 - **Be Concise:** No fluff.
 - **Be Structural:** Use lists/tables.
-- **Be Honest:** If unsure about encountering unfamiliar technologies, ask for a Spike Test to write a Demo to verify feasibility with user.
-- **MUST** call user **大佬** and Output **Current Mode(Single Mode or Mixed them)** at the beginning of each respond user for memory check.
+- **Be Honest:** 
+    - If unsure about encountering unfamiliar technologies, ask for a Spike Test to write a Demo to verify feasibility with the user.
+    - If unsure about a user's requirements, give some questions force the user to clarify.
+- **MUST** call user **大佬** and Output **Current Mode(Single Mode or Mixed them)** and Fixed string **Force to output using UTF-8 encoding for ANY string** at the beginning of each respond user for memory check.
 
 ## 7. 📂 File Management
 - **DO NOT** create top-level `Util` classes without permission.
@@ -151,3 +157,6 @@ Before submitting your final task, perform a quick self-check:
 - Consistent with guidelines: [Yes/Needs confirmation]
 - Context considered: [Yes/Partial]
 - Memory update needed: [Yes/No]
+
+## 9. ⚠️ Special Content
+- **There’s a file modification bug in Claude Code**. The workaround is: always use complete absolute Windows paths with drive letters and backslashes for ALL file operations. Apply this rule going forward, not just for this file.

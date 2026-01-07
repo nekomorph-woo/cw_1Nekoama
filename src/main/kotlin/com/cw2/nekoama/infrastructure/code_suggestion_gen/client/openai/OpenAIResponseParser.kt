@@ -9,6 +9,7 @@ import com.cw2.nekoama.domain.code_suggestion_gen.model.CommentStructure
 import com.cw2.nekoama.domain.code_suggestion_gen.model.CommentSuggestion
 import com.cw2.nekoama.domain.code_suggestion_gen.model.NamingSuggestion
 import com.cw2.nekoama.domain.code_suggestion_gen.model.ParameterComment
+import com.cw2.nekoama.domain.code_suggestion_gen.model.ExceptionComment
 import com.cw2.nekoama.domain.code_suggestion_gen.model.SuggestionMetadata
 import com.cw2.nekoama.domain.code_suggestion_gen.model.ClassContext
 import com.cw2.nekoama.domain.code_suggestion_gen.model.CodeContext
@@ -16,6 +17,7 @@ import com.cw2.nekoama.domain.code_suggestion_gen.model.MethodContext
 import com.cw2.nekoama.domain.code_suggestion_gen.model.NamingConvention
 import com.cw2.nekoama.domain.code_suggestion_gen.model.ProgrammingLanguage
 import com.cw2.nekoama.domain.code_suggestion_gen.model.VariableContext
+import com.cw2.nekoama.domain.settings.model.NekoamaSettings
 import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.openai.OpenAIResponse
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
@@ -88,9 +90,9 @@ object OpenAIResponseParser {
         return try {
             val content = response.choices.firstOrNull()?.message?.content
                 ?: return Result.error(NekoamaError.ParseError.InvalidResponse("响应内容为空"))
-            
+
             NekoamaLogger.debug("parseCommentResponse", "解析响应内容: $content")
-            
+
             // 尝试解析 JSON 响应
             val jsonResponse = parseJsonContent(content)
             if (jsonResponse.errorOrNull() != null) {
@@ -98,28 +100,26 @@ object OpenAIResponseParser {
                 return parseCommentFromPlainText(content, context)
             }
             val jsonElement = jsonResponse.getOrNull() ?: return Result.error(NekoamaError.ParseError.JsonParse("JSON解析失败"))
-            
+
             val commentContent = jsonElement.jsonObject["content"]?.jsonPrimitive?.content
-                ?: return Result.error(NekoamaError.ParseError.InvalidResponse("响应中缺content 字段"))
-            
-            // 解析结构化信
+                ?: return Result.error(NekoamaError.ParseError.InvalidResponse("响应中缺少 content 字段"))
+
+            // 解析结构化信息
             val structure = parseCommentStructure(jsonElement.jsonObject)
-            
+
             val commentSuggestion = CommentSuggestion(
                 content = commentContent,
                 format = determineCommentFormat(context),
                 structure = structure,
-                score = 0.8, // 默认分数，可根据实际情况调整
-                confidence = 0.85,
-                language = CommentLanguage.CHINESE, // 根据实际需求调整
+                language = determineCommentLanguage(),
                 metadata = SuggestionMetadata(
                     source = "OpenAI",
                     model = response.model
                 )
             )
-            
+
             Result.success(commentSuggestion)
-            
+
         } catch (e: Exception) {
             NekoamaLogger.logError("parseCommentResponse", NekoamaError.ParseError.JsonParse(),
                 context = mapOf("error" to e.message))
@@ -236,18 +236,16 @@ object OpenAIResponseParser {
             val commentSuggestion = CommentSuggestion(
                 content = content.trim(),
                 format = determineCommentFormat(context),
-                score = 0.7,
-                confidence = 0.75,
-                language = CommentLanguage.CHINESE,
+                language = determineCommentLanguage(),
                 metadata = SuggestionMetadata(
                     source = "OpenAI"
                 )
             )
-            
+
             Result.success(commentSuggestion)
-            
+
         } catch (e: Exception) {
-            Result.error(NekoamaError.ParseError.InvalidResponse("纯文本注释解析失 ${e.message}"))
+            Result.error(NekoamaError.ParseError.InvalidResponse("纯文本注释解析失败: ${e.message}"))
         }
     }
     
@@ -265,13 +263,21 @@ object OpenAIResponseParser {
 
             val returnDescription = jsonObject["returnDescription"]?.jsonPrimitive?.content
 
-            if (parameters.isEmpty() && returnDescription == null) {
+            val exceptions = jsonObject["exceptions"]?.jsonArray?.mapNotNull { exceptionJson ->
+                val excObj = exceptionJson.jsonObject
+                val type = excObj["type"]?.jsonPrimitive?.content ?: return@mapNotNull null
+                val description = excObj["description"]?.jsonPrimitive?.content ?: return@mapNotNull null
+                ExceptionComment(type = type, description = description)
+            } ?: emptyList()
+
+            if (parameters.isEmpty() && returnDescription == null && exceptions.isEmpty()) {
                 return null
             }
 
             CommentStructure(
                 parameters = parameters,
-                returnDescription = returnDescription
+                returnDescription = returnDescription,
+                exceptions = exceptions
             )
 
         } catch (e: Exception) {
@@ -310,7 +316,23 @@ object OpenAIResponseParser {
             else -> CommentFormat.JAVADOC
         }
     }
-    
+
+    /**
+     * 确定注释语言（从设置读取）
+     */
+    private fun determineCommentLanguage(): CommentLanguage {
+        return try {
+            val pref = NekoamaSettings.getInstance().languagePreference.uppercase()
+            when (pref) {
+                "EN" -> CommentLanguage.ENGLISH
+                "ZH", "ZH_CN", "ZH-CN" -> CommentLanguage.CHINESE
+                else -> CommentLanguage.CHINESE // AUTO 默认使用中文
+            }
+        } catch (_: Throwable) {
+            CommentLanguage.CHINESE // 降级：默认中文
+        }
+    }
+
     /**
      * 生成上下文哈希
      */

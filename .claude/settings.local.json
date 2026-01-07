@@ -42,7 +42,10 @@
       "Bash(powershell -Command:*)",
       "Bash(Select-Object -First 100)",
       "Bash(Select-String -Pattern \"BUILD|error|FAILED\" -CaseSensitive)",
-      "Bash(Select-Object -Last 10)"
+      "Bash(Select-Object -Last 10)",
+      "mcp__web-reader__webReader",
+      "mcp__web-search-prime__webSearchPrime",
+      "Bash(tree:*)"
     ],
     "deny": [],
     "ask": []

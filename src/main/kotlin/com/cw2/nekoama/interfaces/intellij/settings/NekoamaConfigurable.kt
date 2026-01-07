@@ -2,6 +2,7 @@ package com.cw2.nekoama.interfaces.intellij.settings
 
 import com.cw2.nekoama.domain.settings.model.NekoamaSettings
 import com.cw2.nekoama.domain.settings.service.NekoamaSecureStorage
+import com.cw2.nekoama.infrastructure.config.MenuTextProvider
 import com.cw2.nekoama.infrastructure.network.proxy.ProxyConnectionTester
 import com.cw2.nekoama.shared.i18n.NekoamaBundle
 import com.cw2.nekoama.shared.util.NekoamaNotifier
@@ -77,6 +78,17 @@ class NekoamaConfigurable : Configurable {
     private val commentFormatLabel = JLabel(NekoamaBundle.message("settings.pref.commentFormat"))
     private val commentFormatCombo = JComboBox(arrayOf("LINE", "JAVADOC", "JSDOC"))
 
+    // 菜单外观设置区域
+    private val menuSectionLabel = JLabel(NekoamaBundle.message("settings.menu.section"))
+    private val menuStyleLabel = JLabel(NekoamaBundle.message("settings.menu.style"))
+    private val menuStyleCombo = JComboBox(arrayOf("NEKO_BRAND", "AI_ASSISTANT", "ACTION_VERB", "MINIMALIST", "CUSTOM"))
+    private val customNamingLabel = JLabel(NekoamaBundle.message("settings.menu.custom.naming"))
+    private val customNamingField = JTextField(20)
+    private val customCommentLabel = JLabel(NekoamaBundle.message("settings.menu.custom.comment"))
+    private val customCommentField = JTextField(20)
+    private val customGenerateLabel = JLabel(NekoamaBundle.message("settings.menu.custom.generate"))
+    private val customGenerateField = JTextField(20)
+
     private val settings: NekoamaSettings = NekoamaSettings.Companion.getInstance()
 
     // 密钥显示状态（仅影响回显，不改变真实存储）
@@ -94,6 +106,7 @@ class NekoamaConfigurable : Configurable {
         val boldFont = perfSectionLabel.font.deriveFont(Font.BOLD)
         perfSectionLabel.font = boldFont
         prefSectionLabel.font = boldFont
+        menuSectionLabel.font = boldFont
 
         // 表单布局（左标签右控件），添加合理的间距使界面更美观
         val c = GridBagConstraints().apply {
@@ -204,6 +217,40 @@ class NekoamaConfigurable : Configurable {
         c.gridx = 1
         form.add(commentFormatCombo, c)
 
+        // ===== 菜单外观设置区域 =====
+        c.gridx = 0
+        c.gridy++
+        c.insets = Insets(20, 5, 10, 5) // 区域标题：上间距20，下间距10
+        form.add(menuSectionLabel, c)
+
+        // 显示风格
+        c.gridy++
+        c.insets = Insets(5, 5, 5, 5) // 恢复默认间距
+        form.add(menuStyleLabel, c)
+        c.gridx = 1
+        form.add(menuStyleCombo, c)
+
+        // 自定义命名菜单文本（仅 CUSTOM 模式启用）
+        c.gridx = 0
+        c.gridy++
+        form.add(customNamingLabel, c)
+        c.gridx = 1
+        form.add(customNamingField, c)
+
+        // 自定义注释菜单文本（仅 CUSTOM 模式启用）
+        c.gridx = 0
+        c.gridy++
+        form.add(customCommentLabel, c)
+        c.gridx = 1
+        form.add(customCommentField, c)
+
+        // 自定义生成菜单文本（仅 CUSTOM 模式启用）
+        c.gridx = 0
+        c.gridy++
+        form.add(customGenerateLabel, c)
+        c.gridx = 1
+        form.add(customGenerateField, c)
+
         // 记录默认的回显字符，用于显示/隐藏切换
         defaultEchoChar = apiKeyField.echoChar
 
@@ -216,6 +263,11 @@ class NekoamaConfigurable : Configurable {
         tempSlider.addChangeListener {
             val tempValue = tempSlider.value / 100.0
             tempValueLabel.text = String.format(NekoamaBundle.message("settings.temperature.value.format"), tempValue)
+        }
+
+        // 菜单风格下拉框监听器：启用/禁用自定义文本输入框
+        menuStyleCombo.addActionListener {
+            updateCustomFieldsState()
         }
 
         // 显示/隐藏 API Key 回显（中文说明：仅改变 JPasswordField 回显，不改变存储安全性）
@@ -319,6 +371,34 @@ class NekoamaConfigurable : Configurable {
     }
 
     /**
+     * 更新自定义文本输入框状态
+     * - 当选择 CUSTOM 风格时，启用自定义文本输入框
+     * - 当选择其他风格时，禁用输入框并自动填充预设文本
+     */
+    private fun updateCustomFieldsState() {
+        val selectedStyle = menuStyleCombo.selectedItem?.toString() ?: "NEKO_BRAND"
+        val isCustom = selectedStyle == "CUSTOM"
+
+        customNamingField.isEnabled = isCustom
+        customCommentField.isEnabled = isCustom
+        customGenerateField.isEnabled = isCustom
+
+        // 当切换到预设风格时，自动填充对应的预设文本
+        if (!isCustom) {
+            val style = try {
+                com.cw2.nekoama.domain.settings.model.MenuDisplayNameStyle.valueOf(selectedStyle)
+            } catch (e: IllegalArgumentException) {
+                com.cw2.nekoama.domain.settings.model.MenuDisplayNameStyle.NEKO_BRAND
+            }
+
+            // 使用空字符串作为 customText 参数，获取预设风格的默认文本
+            customNamingField.text = MenuTextProvider.getNamingText(style, "")
+            customCommentField.text = MenuTextProvider.getCommentText(style, "")
+            customGenerateField.text = MenuTextProvider.getGenerateText(style, "")
+        }
+    }
+
+    /**
      * 获取API KEY值，如果缓存未加载则同步读取
      */
     private fun getApiKey(): String {
@@ -350,7 +430,12 @@ class NekoamaConfigurable : Configurable {
             (timeoutSpinner.value as Number).toInt() != settings.requestTimeoutMs ||
             langPrefCombo.selectedItem?.toString() != settings.languagePreference ||
             namingStyleCombo.selectedItem?.toString() != settings.namingStyle ||
-            commentFormatCombo.selectedItem?.toString() != settings.commentFormat
+            commentFormatCombo.selectedItem?.toString() != settings.commentFormat ||
+            // 菜单外观设置检查
+            menuStyleCombo.selectedItem?.toString() != settings.menuDisplayNameStyle.name ||
+            customNamingField.text != settings.customNamingMenuText ||
+            customCommentField.text != settings.customCommentMenuText ||
+            customGenerateField.text != settings.customGenerateMenuText
     }
 
     override fun apply() {
@@ -382,6 +467,13 @@ class NekoamaConfigurable : Configurable {
         settings.languagePreference = langPrefCombo.selectedItem?.toString() ?: settings.languagePreference
         settings.namingStyle = namingStyleCombo.selectedItem?.toString() ?: settings.namingStyle
         settings.commentFormat = commentFormatCombo.selectedItem?.toString() ?: settings.commentFormat
+
+        // 菜单外观设置
+        val selectedStyle = menuStyleCombo.selectedItem?.toString() ?: "NEKO_BRAND"
+        settings.menuDisplayNameStyle = com.cw2.nekoama.domain.settings.model.MenuDisplayNameStyle.valueOf(selectedStyle)
+        settings.customNamingMenuText = customNamingField.text.trim()
+        settings.customCommentMenuText = customCommentField.text.trim()
+        settings.customGenerateMenuText = customGenerateField.text.trim()
     }
 
     override fun reset() {
@@ -414,5 +506,13 @@ class NekoamaConfigurable : Configurable {
         langPrefCombo.selectedItem = settings.languagePreference
         namingStyleCombo.selectedItem = settings.namingStyle
         commentFormatCombo.selectedItem = settings.commentFormat
+
+        // 菜单外观设置
+        menuStyleCombo.selectedItem = settings.menuDisplayNameStyle.name
+        customNamingField.text = settings.customNamingMenuText
+        customCommentField.text = settings.customCommentMenuText
+        customGenerateField.text = settings.customGenerateMenuText
+        // 更新自定义文本输入框状态
+        updateCustomFieldsState()
     }
 }
