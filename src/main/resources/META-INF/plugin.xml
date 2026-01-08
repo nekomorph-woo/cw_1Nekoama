@@ -45,6 +45,12 @@
 
         <!-- 通知分组注册（使用稳定的分组ID，不随本地化变化） -->
         <notificationGroup id="Nekoama.Notifications" displayType="BALLOON" isLogByDefault="true"/>
+
+        <!-- Tool Window 注册 -->
+        <toolWindow id="Nekoama.Main"
+                    factoryClass="com.cw2.nekoama.interfaces.intellij.toolwindow.NekoamaToolWindowFactory"
+                    anchor="right"
+                    icon="AllIcons.General.Information"/>
     </extensions>
 
     <extensions defaultExtensionNs="org.jetbrains.kotlin">
