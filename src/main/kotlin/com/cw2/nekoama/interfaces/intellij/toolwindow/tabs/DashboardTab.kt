@@ -13,6 +13,7 @@ import com.intellij.icons.AllIcons
 import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.components.service
 import com.intellij.openapi.options.ShowSettingsUtil
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project as IjProject
 import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBLabel
@@ -28,7 +29,6 @@ import kotlinx.coroutines.withContext
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
-import com.intellij.util.concurrency.EdtExecutor
 import java.awt.BorderLayout
 import java.awt.CardLayout
 import java.awt.Component
@@ -369,7 +369,7 @@ class DashboardTab(
                 refreshUsageStats()
             } catch (e: Exception) {
                 NekoamaLogger.error("DashboardTab", "Failed to refresh data", mapOf("error" to (e.message ?: "unknown")))
-                EdtExecutor.getInstance().executeLater {
+                ApplicationManager.getApplication().invokeLater {
                     networkStatusLabel.text = NekoamaBundle.message("dashboard.error.with.detail", e.message ?: "")
                     tokenStatsLabel.text = NekoamaBundle.message("dashboard.error.with.detail", e.message ?: "")
                     usageStatsLabel.text = NekoamaBundle.message("dashboard.error.with.detail", e.message ?: "")
@@ -381,7 +381,7 @@ class DashboardTab(
     private suspend fun refreshNetworkStatus() {
         val service = networkTestService
         if (service == null) {
-            EdtExecutor.getInstance().executeLater {
+            ApplicationManager.getApplication().invokeLater {
                 networkStatusLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
             }
             return
@@ -392,7 +392,7 @@ class DashboardTab(
             val status = kotlinx.coroutines.withTimeout(15_000) {
                 service.testConnectivity(null)
             }
-            EdtExecutor.getInstance().executeLater {
+            ApplicationManager.getApplication().invokeLater {
                 if (status.isConnected) {
                     val timeStr = if (status.responseTime > 0) {
                         " (${status.responseTime}ms)"
@@ -407,12 +407,12 @@ class DashboardTab(
                 }
             }
         } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
-            EdtExecutor.getInstance().executeLater {
+            ApplicationManager.getApplication().invokeLater {
                 networkStatusLabel.text = NekoamaBundle.message("dashboard.error.timeout")
                 networkStatusLabel.foreground = JBColor.RED
             }
         } catch (e: Exception) {
-            EdtExecutor.getInstance().executeLater {
+            ApplicationManager.getApplication().invokeLater {
                 networkStatusLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
                 networkStatusLabel.foreground = JBColor.RED
             }
@@ -422,7 +422,7 @@ class DashboardTab(
     private suspend fun refreshTokenStats() {
         val service = statisticsService
         if (service == null) {
-            EdtExecutor.getInstance().executeLater {
+            ApplicationManager.getApplication().invokeLater {
                 tokenStatsLabel.text = NekoamaBundle.message("dashboard.error.service.unavailable")
             }
             return
@@ -432,7 +432,7 @@ class DashboardTab(
             val stats = withContext(Dispatchers.IO) {
                 service.getTokenStatistics()
             }
-            EdtExecutor.getInstance().executeLater {
+            ApplicationManager.getApplication().invokeLater {
                 val totalFormatted = stats.formatTokenCount(stats.totalTokens)
                 val currentFormatted = stats.formatTokenCount(stats.currentMonthData.totalTokens)
 
@@ -461,7 +461,7 @@ class DashboardTab(
                 """.trimIndent()
             }
         } catch (e: Exception) {
-            EdtExecutor.getInstance().executeLater {
+            ApplicationManager.getApplication().invokeLater {
                 tokenStatsLabel.text = NekoamaBundle.message("dashboard.error.with.detail", e.message ?: "")
             }
         }
@@ -470,7 +470,7 @@ class DashboardTab(
     private suspend fun refreshUsageStats() {
         val service = statisticsService
         if (service == null) {
-            EdtExecutor.getInstance().executeLater {
+            ApplicationManager.getApplication().invokeLater {
                 usageStatsLabel.text = NekoamaBundle.message("dashboard.error.service.unavailable")
             }
             return
@@ -480,7 +480,7 @@ class DashboardTab(
             val stats = withContext(Dispatchers.IO) {
                 service.getUsageStatistics()
             }
-            EdtExecutor.getInstance().executeLater {
+            ApplicationManager.getApplication().invokeLater {
                 val namingPercent = stats.getPercentage(com.cw2.nekoama.domain.statistics.model.ActionType.NAMING)
                 val commentPercent = stats.getPercentage(com.cw2.nekoama.domain.statistics.model.ActionType.COMMENT)
                 val customPercent = stats.getPercentage(com.cw2.nekoama.domain.statistics.model.ActionType.CUSTOM_GENERATE)
@@ -497,7 +497,7 @@ class DashboardTab(
                 """.trimIndent()
             }
         } catch (e: Exception) {
-            EdtExecutor.getInstance().executeLater {
+            ApplicationManager.getApplication().invokeLater {
                 usageStatsLabel.text = NekoamaBundle.message("dashboard.error.with.detail", e.message ?: "")
             }
         }
@@ -506,7 +506,7 @@ class DashboardTab(
     override fun onActivated() {
         state = loadState(DashboardTabState::class)
         // 延迟刷新，确保组件完全加载
-        EdtExecutor.getInstance().executeLater {
+        ApplicationManager.getApplication().invokeLater {
             refreshData()
         }
     }
