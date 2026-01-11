@@ -156,27 +156,27 @@ class DashboardTab(
 
             // 设置按钮
             val settingsButton = createQuickActionButton(
-                "Settings",
+                NekoamaBundle.message("dashboard.button.settings"),
                 AllIcons.General.Settings,
-                "Open Nekoama Settings"
+                NekoamaBundle.message("dashboard.button.settings.tooltip")
             ) {
                 openSettings()
             }
 
             // 使用指南按钮
             val guideButton = createQuickActionButton(
-                "Guide",
+                NekoamaBundle.message("dashboard.button.guide"),
                 AllIcons.Actions.Help,
-                "Open User Guide"
+                NekoamaBundle.message("dashboard.button.guide.tooltip")
             ) {
                 openUserGuide()
             }
 
             // 测试连接按钮
             val testConnectionButton = createQuickActionButton(
-                "Test Connection",
+                NekoamaBundle.message("dashboard.button.test.connection"),
                 AllIcons.General.Web,
-                "Test API Connection"
+                NekoamaBundle.message("dashboard.button.test.connection.tooltip")
             ) {
                 testConnection()
             }
