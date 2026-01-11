@@ -14,7 +14,6 @@ import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.components.service
 import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.Project as IjProject
-import com.intellij.openapi.util.IconLoader
 import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBScrollPane
@@ -75,7 +74,7 @@ class DashboardTab(
     override val metadata = TabMetadata(
         id = TabMetadata.TabId("dashboard"),
         displayName = NekoamaBundle.message("dashboard.tab.title"),
-        icon = IconLoader.getIcon("/icons/NekoamaToolWindow.svg", DashboardTab::class.java)
+        icon = AllIcons.General.Web
     )
 
     override val stateType = DashboardTabState::class
