@@ -209,6 +209,10 @@ class DashboardTab(
     /**
      * 刷新所有面板数据
      */
+    fun performRefresh() {
+        refreshData()
+    }
+
     private fun refreshData() {
         NekoamaLogger.info("DashboardTab", "Refreshing data...")
 
@@ -252,7 +256,7 @@ class DashboardTab(
                     } else {
                         ""
                     }
-                    networkStatusLabel.text = NekoamaBundle.message("dashboard.status.connected") + timeStr
+                    networkStatusLabel.text = NekoamaBundle.message("dashboard.status.connected", timeStr)
                     networkStatusLabel.foreground = JBColor.GREEN
                 } else {
                     networkStatusLabel.text = status.message

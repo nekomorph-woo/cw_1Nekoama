@@ -50,7 +50,12 @@
         <toolWindow id="Nekoama.Main"
                     factoryClass="com.cw2.nekoama.interfaces.intellij.toolwindow.NekoamaToolWindowFactory"
                     anchor="right"
-                    icon="AllIcons.General.Information"/>
+                    icon="/icons/NekoamaToolWindow.svg"/>
+
+        <!-- 项目服务注册 -->
+        <projectService serviceImplementation="com.cw2.nekoama.infrastructure.statistics.PropertiesStatisticsRepository"/>
+        <projectService serviceImplementation="com.cw2.nekoama.domain.statistics.service.StatisticsServiceImpl"/>
+        <projectService serviceImplementation="com.cw2.nekoama.domain.statistics.service.NetworkTestServiceImpl"/>
     </extensions>
 
     <extensions defaultExtensionNs="org.jetbrains.kotlin">
@@ -70,6 +75,13 @@
         <action id="Nekoama.GenerateComment.Popup" class="com.cw2.nekoama.interfaces.intellij.actions.GenerateCommentAction"
                 text="Comment for Me" icon="AllIcons.Actions.Lightning">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
+        </action>
+
+        <!-- Dashboard 刷新快捷键 -->
+        <action id="Nekoama.Dashboard.Refresh" class="com.cw2.nekoama.interfaces.intellij.actions.DashboardRefreshAction"
+                text="Refresh Dashboard" icon="AllIcons.Actions.Refresh">
+            <keyboard-shortcut keymap="$default" first-keystroke="control shift R"/>
+            <add-to-group group-id="Nekoama.Main" anchor="last"/>
         </action>
     </actions>
 </idea-plugin>
