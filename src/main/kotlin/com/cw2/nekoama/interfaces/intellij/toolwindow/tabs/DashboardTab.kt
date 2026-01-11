@@ -11,10 +11,16 @@ import com.cw2.nekoama.shared.i18n.NekoamaBundle
 import com.cw2.nekoama.shared.logging.NekoamaLogger
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.components.service
+import com.intellij.openapi.project.Project as IjProject
+import com.intellij.openapi.util.IconLoader
 import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.util.ui.UIUtil
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.awt.BorderLayout
 import java.awt.CardLayout
 import java.awt.Component
@@ -25,6 +31,7 @@ import javax.swing.BoxLayout
 import javax.swing.JButton
 import javax.swing.JLabel
 import javax.swing.JPanel
+import javax.swing.SwingUtilities
 import javax.swing.Timer
 
 /**
@@ -36,20 +43,31 @@ import javax.swing.Timer
  * - 功能使用统计
  */
 class DashboardTab(
-    project: com.intellij.openapi.project.Project,
+    project: IjProject,
     coordinatorService: TabCoordinatorService
 ) : BaseTab(project, coordinatorService) {
 
-    // 通过服务定位器模式获取依赖
-    private val statisticsService: StatisticsService
-        get() = project.service()
-    private val networkTestService: NetworkTestService
-        get() = project.service()
+    // 延迟初始化服务（避免在组件加载时访问）
+    private val statisticsService: StatisticsService?
+        get() = try {
+            project.service()
+        } catch (e: Exception) {
+            NekoamaLogger.warn("DashboardTab", "StatisticsService not available: ${e.message}")
+            null
+        }
+
+    private val networkTestService: NetworkTestService?
+        get() = try {
+            project.service()
+        } catch (e: Exception) {
+            NekoamaLogger.warn("DashboardTab", "NetworkTestService not available: ${e.message}")
+            null
+        }
 
     override val metadata = TabMetadata(
         id = TabMetadata.TabId("dashboard"),
         displayName = NekoamaBundle.message("dashboard.tab.title"),
-        icon = AllIcons.General.Web
+        icon = IconLoader.getIcon("/icons/NekoamaToolWindow.svg", DashboardTab::class.java)
     )
 
     override val stateType = DashboardTabState::class
@@ -60,8 +78,11 @@ class DashboardTab(
     // UI 组件引用
     private lateinit var mainPanel: JPanel
     private lateinit var networkStatusPanel: JPanel
+    private lateinit var networkStatusLabel: JBLabel
     private lateinit var tokenStatsPanel: JPanel
+    private lateinit var tokenStatsLabel: JBLabel
     private lateinit var usageStatsPanel: JPanel
+    private lateinit var usageStatsLabel: JBLabel
 
     override fun createComponentImpl(): JPanel {
         mainPanel = JPanel().apply {
@@ -106,7 +127,9 @@ class DashboardTab(
             add(javax.swing.Box.createHorizontalGlue())
 
             val refreshButton = JButton(NekoamaBundle.message("dashboard.button.refresh")).apply {
-                addActionListener { refreshData() }
+                addActionListener {
+                    refreshData()
+                }
             }
             add(refreshButton)
         }
@@ -126,10 +149,10 @@ class DashboardTab(
             }
             add(titleLabel, BorderLayout.NORTH)
 
-            val contentLabel = JBLabel(NekoamaBundle.message("dashboard.status.loading")).apply {
+            networkStatusLabel = JBLabel(NekoamaBundle.message("dashboard.status.loading")).apply {
                 foreground = JBColor.GRAY
             }
-            add(contentLabel, BorderLayout.CENTER)
+            add(networkStatusLabel, BorderLayout.CENTER)
         }
     }
 
@@ -147,10 +170,10 @@ class DashboardTab(
             }
             add(titleLabel, BorderLayout.NORTH)
 
-            val contentLabel = JBLabel(NekoamaBundle.message("dashboard.status.loading")).apply {
+            tokenStatsLabel = JBLabel(NekoamaBundle.message("dashboard.status.loading")).apply {
                 foreground = JBColor.GRAY
             }
-            add(contentLabel, BorderLayout.CENTER)
+            add(tokenStatsLabel, BorderLayout.CENTER)
         }
     }
 
@@ -168,10 +191,10 @@ class DashboardTab(
             }
             add(titleLabel, BorderLayout.NORTH)
 
-            val contentLabel = JBLabel(NekoamaBundle.message("dashboard.status.loading")).apply {
+            usageStatsLabel = JBLabel(NekoamaBundle.message("dashboard.status.loading")).apply {
                 foreground = JBColor.GRAY
             }
-            add(contentLabel, BorderLayout.CENTER)
+            add(usageStatsLabel, BorderLayout.CENTER)
         }
     }
 
@@ -183,14 +206,151 @@ class DashboardTab(
         }
     }
 
+    /**
+     * 刷新所有面板数据
+     */
     private fun refreshData() {
-        // TODO: 实现数据刷新逻辑
         NekoamaLogger.info("DashboardTab", "Refreshing data...")
+
+        // 使用协程在后台执行
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // 1. 刷新网络状态
+                refreshNetworkStatus()
+
+                // 2. 刷新 Token 统计
+                refreshTokenStats()
+
+                // 3. 刷新使用统计
+                refreshUsageStats()
+            } catch (e: Exception) {
+                NekoamaLogger.error("DashboardTab", "Failed to refresh data", mapOf("error" to (e.message ?: "unknown")))
+                SwingUtilities.invokeLater {
+                    networkStatusLabel.text = "Error: ${e.message}"
+                    tokenStatsLabel.text = "Error: ${e.message}"
+                    usageStatsLabel.text = "Error: ${e.message}"
+                }
+            }
+        }
+    }
+
+    private suspend fun refreshNetworkStatus() {
+        val service = networkTestService
+        if (service == null) {
+            SwingUtilities.invokeLater {
+                networkStatusLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
+            }
+            return
+        }
+
+        try {
+            val status = service.testConnectivity(null)
+            SwingUtilities.invokeLater {
+                if (status.isConnected) {
+                    val timeStr = if (status.responseTime > 0) {
+                        " (${status.responseTime}ms)"
+                    } else {
+                        ""
+                    }
+                    networkStatusLabel.text = NekoamaBundle.message("dashboard.status.connected") + timeStr
+                    networkStatusLabel.foreground = JBColor.GREEN
+                } else {
+                    networkStatusLabel.text = status.message
+                    networkStatusLabel.foreground = JBColor.RED
+                }
+            }
+        } catch (e: Exception) {
+            SwingUtilities.invokeLater {
+                networkStatusLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
+                networkStatusLabel.foreground = JBColor.RED
+            }
+        }
+    }
+
+    private suspend fun refreshTokenStats() {
+        val service = statisticsService
+        if (service == null) {
+            SwingUtilities.invokeLater {
+                tokenStatsLabel.text = "Service not available"
+            }
+            return
+        }
+
+        try {
+            val stats = withContext(Dispatchers.IO) {
+                service.getTokenStatistics()
+            }
+            SwingUtilities.invokeLater {
+                val totalFormatted = stats.formatTokenCount(stats.totalTokens)
+                val currentFormatted = stats.formatTokenCount(stats.currentMonthData.totalTokens)
+
+                val growth = stats.getMonthOverMonthGrowth()
+                val growthStr = if (growth != null && growth >= 0) "+%.1f%%".format(growth)
+                                 else if (growth != null) "%.1f%%".format(growth)
+                                 else "N/A"
+                val growthColor = if (growth != null && growth >= 0) "#00AA00" else "#CC0000"
+
+                tokenStatsLabel.text = """
+                    <html>
+                    <div style='padding: 8px;'>
+                        <div><b>${NekoamaBundle.message("dashboard.tokens.total")}</b> $totalFormatted</div>
+                        <div style='margin-top: 4px;'><b>${NekoamaBundle.message("dashboard.tokens.current")}</b> $currentFormatted</div>
+                        <div style='margin-top: 4px; color: $growthColor;'>
+                            <b>${NekoamaBundle.message("dashboard.tokens.growth")}</b> $growthStr
+                        </div>
+                    </div>
+                    </html>
+                """.trimIndent()
+            }
+        } catch (e: Exception) {
+            SwingUtilities.invokeLater {
+                tokenStatsLabel.text = "Error: ${e.message}"
+            }
+        }
+    }
+
+    private suspend fun refreshUsageStats() {
+        val service = statisticsService
+        if (service == null) {
+            SwingUtilities.invokeLater {
+                usageStatsLabel.text = "Service not available"
+            }
+            return
+        }
+
+        try {
+            val stats = withContext(Dispatchers.IO) {
+                service.getUsageStatistics()
+            }
+            SwingUtilities.invokeLater {
+                val namingPercent = stats.getPercentage(com.cw2.nekoama.domain.statistics.model.ActionType.NAMING)
+                val commentPercent = stats.getPercentage(com.cw2.nekoama.domain.statistics.model.ActionType.COMMENT)
+                val customPercent = stats.getPercentage(com.cw2.nekoama.domain.statistics.model.ActionType.CUSTOM_GENERATE)
+
+                usageStatsLabel.text = """
+                    <html>
+                    <div style='padding: 8px;'>
+                        <div><b>${NekoamaBundle.message("dashboard.usage.naming")}</b>: ${stats.namingCount} (${"%.1f".format(namingPercent)}%)</div>
+                        <div style='margin-top: 4px;'><b>${NekoamaBundle.message("dashboard.usage.comment")}</b>: ${stats.commentCount} (${"%.1f".format(commentPercent)}%)</div>
+                        <div style='margin-top: 4px;'><b>${NekoamaBundle.message("dashboard.usage.custom")}</b>: ${stats.customGenerateCount} (${"%.1f".format(customPercent)}%)</div>
+                        <div style='margin-top: 8px; color: #888888;'>Total: ${stats.totalCount}</div>
+                    </div>
+                    </html>
+                """.trimIndent()
+            }
+        } catch (e: Exception) {
+            SwingUtilities.invokeLater {
+                usageStatsLabel.text = "Error: ${e.message}"
+            }
+        }
     }
 
     override fun onActivated() {
         state = loadState(DashboardTabState::class)
-        refreshData()
+        // 延迟刷新，确保组件完全加载
+        SwingUtilities.invokeLater {
+            refreshData()
+        }
     }
 
     override fun onDeactivated() {
