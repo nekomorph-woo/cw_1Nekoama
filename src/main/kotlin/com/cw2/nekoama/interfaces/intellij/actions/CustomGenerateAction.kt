@@ -3,6 +3,8 @@ package com.cw2.nekoama.interfaces.intellij.actions
 import com.cw2.nekoama.application.usecase.CustomGenerateUseCase
 import com.cw2.nekoama.application.usecase.GeneratorFactory
 import com.cw2.nekoama.domain.settings.model.NekoamaSettings
+import com.cw2.nekoama.domain.statistics.model.ActionType
+import com.cw2.nekoama.domain.statistics.service.StatisticsService
 import com.cw2.nekoama.shared.i18n.NekoamaBundle
 import com.cw2.nekoama.shared.util.NekoamaNotifier
 import com.cw2.nekoama.shared.logging.NekoamaLogger
@@ -10,11 +12,15 @@ import com.cw2.nekoama.shared.exception.NekoamaError
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.components.service
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 /**
@@ -89,6 +95,13 @@ internal class CustomGenerateAction : BaseAction() {
                                     document.insertString(insertionOffset, "$lineComment\n\n")
                                 })
                             NekoamaNotifier.info(NekoamaBundle.message("action.comment.generatedOk"))
+
+                            // 记录使用统计
+                            project.service<StatisticsService>()?.let { service ->
+                                CoroutineScope(Dispatchers.IO).launch {
+                                    service.recordUsage(ActionType.CUSTOM_GENERATE)
+                                }
+                            }
                         } else {
                             val error = result.errorOrNull()
                             val errMsg = error?.message ?: NekoamaBundle.message("common.unknownError")
