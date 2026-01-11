@@ -238,31 +238,23 @@ class DashboardTab(
             true  // 可取消
         ) {
             private var testResult: com.cw2.nekoama.domain.statistics.model.ConnectivityStatus? = null
-            private var testError: Throwable? = null
 
             override fun run(indicator: ProgressIndicator) {
                 indicator.isIndeterminate = true
                 indicator.text = NekoamaBundle.message("dashboard.progress.testing.connection")
 
-                try {
-                    // 使用 runBlocking 在后台线程中执行挂起函数
-                    testResult = kotlinx.coroutines.runBlocking {
-                        kotlinx.coroutines.withTimeout(15_000) {  // 15 秒超时
-                            service.testConnectivity(null)
-                        }
+                // 使用 runBlocking 在后台线程中执行挂起函数
+                // 不捕获异常，让 Task.Backgroundable 框架处理，会调用 onThrowable()
+                testResult = kotlinx.coroutines.runBlocking {
+                    kotlinx.coroutines.withTimeout(15_000) {  // 15 秒超时
+                        service.testConnectivity(null)
                     }
-                } catch (e: Exception) {
-                    testError = e
                 }
             }
 
             override fun onSuccess() {
-                // onSuccess 自动在 EDT 上执行
-                if (testError != null) {
-                    networkStatusLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
-                    networkStatusLabel.foreground = JBColor.RED
-                    NekoamaLogger.error("DashboardTab", "Test connection failed", mapOf("error" to (testError?.message ?: "unknown")))
-                } else if (testResult != null) {
+                // onSuccess 自动在 EDT 上执行，只处理成功情况
+                if (testResult != null) {
                     val status = testResult!!
                     if (status.isConnected) {
                         val timeStr = if (status.responseTime > 0) {
@@ -280,7 +272,7 @@ class DashboardTab(
             }
 
             override fun onThrowable(error: Throwable) {
-                // 错误处理（在 EDT 上）
+                // 错误处理（在 EDT 上），处理所有错误（包括超时）
                 networkStatusLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
                 networkStatusLabel.foreground = JBColor.RED
                 NekoamaLogger.error("DashboardTab", "Test connection error", mapOf("error" to (error.message ?: "unknown")))
