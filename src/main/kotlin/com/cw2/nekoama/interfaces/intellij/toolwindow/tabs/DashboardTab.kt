@@ -10,7 +10,9 @@ import com.cw2.nekoama.interfaces.intellij.toolwindow.BaseTab
 import com.cw2.nekoama.shared.i18n.NekoamaBundle
 import com.cw2.nekoama.shared.logging.NekoamaLogger
 import com.intellij.icons.AllIcons
+import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.components.service
+import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.Project as IjProject
 import com.intellij.openapi.util.IconLoader
 import com.intellij.ui.JBColor
@@ -38,6 +40,7 @@ import javax.swing.Timer
  * Dashboard Tab
  *
  * 显示：
+ * - 快捷操作按钮
  * - 网络连通性状态
  * - Token 使用统计
  * - 功能使用统计
@@ -73,10 +76,10 @@ class DashboardTab(
     override val stateType = DashboardTabState::class
 
     private var state: DashboardTabState? = null
-    private var refreshTimer: Timer? = null
 
     // UI 组件引用
     private lateinit var mainPanel: JPanel
+    private lateinit var quickActionsPanel: JPanel
     private lateinit var networkStatusPanel: JPanel
     private lateinit var networkStatusLabel: JBLabel
     private lateinit var tokenStatsPanel: JPanel
@@ -93,6 +96,11 @@ class DashboardTab(
 
         // 标题
         mainPanel.add(createHeaderPanel())
+        mainPanel.add(createSpacer(16))
+
+        // 快捷操作按钮
+        quickActionsPanel = createQuickActionsPanel()
+        mainPanel.add(quickActionsPanel)
         mainPanel.add(createSpacer(16))
 
         // 网络状态面板
@@ -127,11 +135,86 @@ class DashboardTab(
             add(javax.swing.Box.createHorizontalGlue())
 
             val refreshButton = JButton(NekoamaBundle.message("dashboard.button.refresh")).apply {
-                addActionListener {
-                    refreshData()
-                }
+                addActionListener { refreshData() }
             }
             add(refreshButton)
+        }
+    }
+
+    /**
+     * 创建快捷操作按钮面板
+     */
+    private fun createQuickActionsPanel(): JPanel {
+        return JPanel().apply {
+            layout = BoxLayout(this, BoxLayout.X_AXIS)
+            background = TabThemeManager.getTabBackgroundColor()
+            alignmentX = Component.LEFT_ALIGNMENT
+            border = BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(TabThemeManager.getBorderColor()),
+                BorderFactory.createEmptyBorder(8, 12, 8, 12)
+            )
+
+            // 设置按钮
+            val settingsButton = createQuickActionButton(
+                "Settings",
+                AllIcons.General.Settings,
+                "Open Nekoama Settings"
+            ) {
+                openSettings()
+            }
+
+            // 使用指南按钮
+            val guideButton = createQuickActionButton(
+                "Guide",
+                AllIcons.Actions.Help,
+                "Open User Guide"
+            ) {
+                openUserGuide()
+            }
+
+            // 测试连接按钮
+            val testConnectionButton = createQuickActionButton(
+                "Test Connection",
+                AllIcons.General.Web,
+                "Test API Connection"
+            ) {
+                testConnection()
+            }
+
+            add(settingsButton)
+            add(javax.swing.Box.createHorizontalStrut(8))
+            add(guideButton)
+            add(javax.swing.Box.createHorizontalStrut(8))
+            add(testConnectionButton)
+            add(javax.swing.Box.createHorizontalGlue())
+        }
+    }
+
+    private fun createQuickActionButton(
+        text: String,
+        icon: javax.swing.Icon,
+        tooltip: String,
+        onClick: () -> Unit
+    ): JButton {
+        return JButton(text, icon).apply {
+            toolTipText = tooltip
+            addActionListener { onClick() }
+        }
+    }
+
+    private fun openSettings() {
+        ShowSettingsUtil.getInstance().showSettingsDialog(project, "Nekoama.settings")
+    }
+
+    private fun openUserGuide() {
+        // 打开 GitHub README
+        BrowserUtil.browse("https://github.com/nekomorph-woo/cw_1Nekoama/blob/master/README.md")
+    }
+
+    private fun testConnection() {
+        // 刷新网络状态（需要在后台协程中执行）
+        CoroutineScope(Dispatchers.IO).launch {
+            refreshNetworkStatus()
         }
     }
 
@@ -209,10 +292,6 @@ class DashboardTab(
     /**
      * 刷新所有面板数据
      */
-    fun performRefresh() {
-        refreshData()
-    }
-
     private fun refreshData() {
         NekoamaLogger.info("DashboardTab", "Refreshing data...")
 
@@ -363,8 +442,7 @@ class DashboardTab(
     }
 
     override fun onDestroy() {
-        refreshTimer?.stop()
-        refreshTimer = null
+        // 清理资源
     }
 }
 

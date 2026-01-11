@@ -76,12 +76,5 @@
                 text="Comment for Me" icon="AllIcons.Actions.Lightning">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
         </action>
-
-        <!-- Dashboard 刷新快捷键 -->
-        <action id="Nekoama.Dashboard.Refresh" class="com.cw2.nekoama.interfaces.intellij.actions.DashboardRefreshAction"
-                text="Refresh Dashboard" icon="AllIcons.Actions.Refresh">
-            <keyboard-shortcut keymap="$default" first-keystroke="control shift R"/>
-            <add-to-group group-id="Nekoama.Main" anchor="last"/>
-        </action>
     </actions>
 </idea-plugin>
