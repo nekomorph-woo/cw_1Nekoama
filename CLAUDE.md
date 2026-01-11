@@ -234,7 +234,7 @@ Before submitting your final task, perform a quick self-check:
 
 ## 9. 📌 Generate Commit Message
 - Keep the message as short as possible.
-- Answer in **Chinese**.
+- Commit message MUST use **Simple Chinese**, including skills action.
 - Use the Conventional Commit format starting with emoji of meaning.
 - Use bullet points for multiple changes.
 - Avoid overly verbose descriptions or unnecessary details, but MUST describe import every change, DO NOT missing them.
