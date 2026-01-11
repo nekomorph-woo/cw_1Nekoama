@@ -113,6 +113,7 @@ src/main/kotlin/com/cw2/nekoama/
 |------|-------------|
 | `agent_docs/tech_guidance/ddd-packaging-rules.md` | DDD 分层架构规则 |
 | `agent_docs/tech_guidance/edt-threading-rules.md` | EDT 线程安全规则 |
+| `agent_docs/tech_guidance/i18n-internationalization-rules.md` | i18n 国际化规则 |
 | `agent_docs/tech_guidance/intellij-psi-usage-rules.md` | PSI API 使用规则 |
 | `agent_docs/tech_guidance/intellij-swing-ui-rules.md` | Swing UI 开发规则 |
 | `agent_docs/tech_guidance/intellij-theme-adaptation-rules.md` | 主题适配规则 |
