@@ -388,7 +388,10 @@ class DashboardTab(
         }
 
         try {
-            val status = service.testConnectivity(null)
+            // 添加 15 秒超时控制
+            val status = kotlinx.coroutines.withTimeout(15_000) {
+                service.testConnectivity(null)
+            }
             EdtExecutor.getInstance().executeLater {
                 if (status.isConnected) {
                     val timeStr = if (status.responseTime > 0) {
@@ -402,6 +405,11 @@ class DashboardTab(
                     networkStatusLabel.text = status.message
                     networkStatusLabel.foreground = JBColor.RED
                 }
+            }
+        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            EdtExecutor.getInstance().executeLater {
+                networkStatusLabel.text = NekoamaBundle.message("dashboard.error.timeout")
+                networkStatusLabel.foreground = JBColor.RED
             }
         } catch (e: Exception) {
             EdtExecutor.getInstance().executeLater {
