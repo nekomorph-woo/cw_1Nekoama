@@ -61,4 +61,13 @@ data class TokenStatistics(
             else -> count.toString()
         }
     }
+
+    /**
+     * 获取用于显示的基准 Token 数
+     *
+     * Edge Case 处理：无历史数据时返回默认基准 100 万
+     */
+    fun getBaselineTokens(): Int {
+        return lastMonthData?.totalTokens ?: DEFAULT_BASELINE_TOKENS
+    }
 }
