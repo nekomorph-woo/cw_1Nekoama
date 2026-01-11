@@ -40,7 +40,7 @@
 - **国际化：** NekoamaBundle（遵循 `i18n-internationalization-rules.md`）
 
 **Data/Storage:**
-- **状态管理：** PropertiesComponent（IntelliJ 持久化 API）
+- **状态管理：** PersistentStateComponent（IntelliJ 持久化 API）
 - **序列化：** JSON（用于 Token 历史数据）
 
 **Testing:**

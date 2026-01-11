@@ -1,7 +1,9 @@
 package com.cw2.nekoama.interfaces.intellij.toolwindow.tabs
 
 import com.cw2.nekoama.domain.statistics.service.NetworkTestService
+import com.cw2.nekoama.domain.statistics.service.NetworkTestServiceImpl
 import com.cw2.nekoama.domain.statistics.service.StatisticsService
+import com.cw2.nekoama.domain.statistics.service.StatisticsServiceImpl
 import com.cw2.nekoama.domain.toolwindow.model.TabMetadata
 import com.cw2.nekoama.domain.toolwindow.model.TabState
 import com.cw2.nekoama.domain.toolwindow.service.TabCoordinatorService
@@ -56,7 +58,7 @@ class DashboardTab(
 ) : BaseTab(project, coordinatorService) {
 
     // 延迟初始化服务（避免在组件加载时访问）
-    private val statisticsService: StatisticsService?
+    private val statisticsService: StatisticsServiceImpl?
         get() = try {
             project.service()
         } catch (e: Exception) {
@@ -64,7 +66,7 @@ class DashboardTab(
             null
         }
 
-    private val networkTestService: NetworkTestService?
+    private val networkTestService: NetworkTestServiceImpl?
         get() = try {
             project.service()
         } catch (e: Exception) {

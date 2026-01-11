@@ -5,6 +5,7 @@ import com.cw2.nekoama.domain.statistics.model.MonthlyTokenData
 import com.cw2.nekoama.domain.statistics.model.TokenStatistics
 import com.cw2.nekoama.domain.statistics.model.UsageStatistics
 import com.cw2.nekoama.domain.statistics.repository.StatisticsRepository
+import com.cw2.nekoama.infrastructure.statistics.PropertiesStatisticsRepository
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
@@ -27,7 +28,7 @@ class StatisticsServiceImpl(
     private val currentMonth = MonthlyTokenData.currentYearMonth()
 
     // 通过服务定位器获取 repository
-    private val repository: StatisticsRepository
+    private val repository: PropertiesStatisticsRepository
         get() = project.service()
 
     // ========== 使用次数统计 ==========
