@@ -21,6 +21,8 @@ import com.intellij.ui.components.JBScrollPane
 import com.intellij.util.ui.UIUtil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.awt.BorderLayout
@@ -66,6 +68,9 @@ class DashboardTab(
             NekoamaLogger.warn("DashboardTab", "NetworkTestService not available: ${e.message}")
             null
         }
+
+    // 生命周期感知的协程 Scope
+    private val tabScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override val metadata = TabMetadata(
         id = TabMetadata.TabId("dashboard"),
@@ -212,8 +217,8 @@ class DashboardTab(
     }
 
     private fun testConnection() {
-        // 刷新网络状态（需要在后台协程中执行）
-        CoroutineScope(Dispatchers.IO).launch {
+        // 使用 tabScope 在后台协程中执行
+        tabScope.launch {
             refreshNetworkStatus()
         }
     }
@@ -295,8 +300,8 @@ class DashboardTab(
     private fun refreshData() {
         NekoamaLogger.info("DashboardTab", "Refreshing data...")
 
-        // 使用协程在后台执行
-        CoroutineScope(Dispatchers.IO).launch {
+        // 使用 tabScope 在后台协程中执行
+        tabScope.launch {
             try {
                 // 1. 刷新网络状态
                 refreshNetworkStatus()
@@ -448,7 +453,8 @@ class DashboardTab(
     }
 
     override fun onDestroy() {
-        // 清理资源
+        // 取消所有协程
+        tabScope.cancel()
     }
 }
 
