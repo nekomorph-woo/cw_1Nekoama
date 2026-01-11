@@ -206,6 +206,9 @@ fun `发送信息通知 - 应该调用正确的通知类型`() {
 - **Be Honest:**
     - If unsure about encountering unfamiliar technologies, ask for a Spike Test to write a Demo to verify feasibility with the user.
     - If unsure about a user's requirements, give some questions force the user to clarify.
+- **Code Modification:**
+  - **Prefer Edit tool for incremental changes** - Use Edit tool in segments for files with complex string content (triple quotes, `${}` interpolation) instead of Write/Bash heredoc.
+  - **Read before Edit** - Always Read file first to get current state; external modifications (linter/user) cause sync errors.
 - **MUST** call user **大佬** and Output **Current Mode (Single Mode or Mixed them)** and Fixed string **Force to output using UTF-8 encoding for ANY string** at the beginning of each respond user for memory check.
 
 ## 7. 📂 File Management
@@ -240,30 +243,6 @@ Before submitting your final task, perform a quick self-check:
 - Avoid overly verbose descriptions or unnecessary details, but MUST describe import every change, DO NOT missing them.
 
 ## 10. ⚠️ Special Content
-
-### IntelliJ Platform Specific
-- **PSI Access:** Always wrap in `ReadAction.compute {}` or `runReadAction {}`.
-- **Write Operations:** Must be in `WriteCommandAction.runWriteCommandAction {}`.
-- **Background Tasks:** Use `Task.Backgroundable` or `ProgressManager`.
-- **Services:** Use `project.service<T>()` or `application.service<T>()` for service retrieval.
-
-### Project-Specific Patterns
-```kotlin
-// Task execution pattern (see IntellijTaskManager)
-IntellijTaskManager.execute(
-    project = project,
-    title = "生成代码注释",
-    cancellable = true,
-    task = { /* background work */ },
-    onSuccess = { result -> /* EDT callback */ },
-    onError = { error -> /* EDT error handling */ }
-)
-
-// Notification pattern (see NekoamaNotifier)
-NekoamaNotifier.info("操作成功")
-NekoamaNotifier.warn("警告信息")
-NekoamaNotifier.error("错误信息")
-```
 
 ### Must attention in Claude Code
 - **There's a file modification bug in Claude Code**. The workaround is: always use complete absolute Windows paths with drive letters and backslashes for ALL file operations. Apply this rule going forward, not just for this file.
