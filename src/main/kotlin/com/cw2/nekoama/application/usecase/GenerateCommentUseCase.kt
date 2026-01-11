@@ -4,7 +4,7 @@ import com.cw2.nekoama.domain.code_suggestion_gen.model.*
 import com.cw2.nekoama.domain.code_suggestion_gen.service.code_analysis.CodeAnalysisService
 import com.cw2.nekoama.shared.logging.NekoamaLogger
 import com.cw2.nekoama.shared.exception.NekoamaError
-import com.cw2.nekoama.shared.model.Result
+import com.cw2.nekoama.shared.model.NekoamaResult
 import com.intellij.openapi.application.ReadAction
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
@@ -38,19 +38,19 @@ class GenerateCommentUseCase(
      * @param element 目标 PSI 元素
      * @return 生成结果，成功时返回注释内容，失败时返回错误信息
      */
-    suspend fun generateComment(element: PsiElement): Result<String> {
+    suspend fun generateComment(element: PsiElement): NekoamaResult<String> {
         // 创建生成器
         val generator = generatorFactory.createGenerator(maxTokens = 300)
-            ?: return Result.error(NekoamaError.AuthenticationError.ApiKeyNotConfigured("API 未配置"))
+            ?: return NekoamaResult.error(NekoamaError.AuthenticationError.ApiKeyNotConfigured("API 未配置"))
 
         // 检测是否已存在注释
         if (hasExistingDoc(element)) {
-            return Result.error(NekoamaError.ParseError.InvalidConfiguration("注释已存在"))
+            return NekoamaResult.error(NekoamaError.ParseError.InvalidConfiguration("注释已存在"))
         }
 
         // 构建代码上下文
         val codeContext = buildCodeContext(element)
-            ?: return Result.error(NekoamaError.ParseError.InvalidConfiguration("无法构建代码上下文"))
+            ?: return NekoamaResult.error(NekoamaError.ParseError.InvalidConfiguration("无法构建代码上下文"))
 
         // 调用 AI 生成注释
         val result = generator.generateComment(codeContext)

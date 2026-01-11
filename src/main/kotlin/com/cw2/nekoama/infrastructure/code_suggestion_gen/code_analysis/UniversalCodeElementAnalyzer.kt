@@ -1,7 +1,7 @@
 package com.cw2.nekoama.infrastructure.code_suggestion_gen.code_analysis
 
 import com.intellij.psi.*
-import com.cw2.nekoama.shared.model.Result
+import com.cw2.nekoama.shared.model.NekoamaResult
 import com.cw2.nekoama.shared.exception.NekoamaError
 import com.cw2.nekoama.shared.logging.NekoamaLogger
 import com.cw2.nekoama.domain.code_suggestion_gen.model.*
@@ -27,87 +27,87 @@ class UniversalCodeElementAnalyzer(
     private val javaAnalyzer = JavaCodeAnalyzer(project)
     private val kotlinAnalyzer = KotlinCodeAnalyzer(project)
 
-    override fun analyzeMethod(method: PsiElement): Result<MethodContext> {
+    override fun analyzeMethod(method: PsiElement): NekoamaResult<MethodContext> {
         return try {
             when (val language = detectLanguage(method)) {
                 ProgrammingLanguage.JAVA -> {
                     if (method is PsiMethod) {
                         javaAnalyzer.analyzeJavaMethod(method)
                     } else {
-                        Result.error(NekoamaError.PlatformError.EditorUnavailable("元素不是有效的 Java 方法"))
+                        NekoamaResult.error(NekoamaError.PlatformError.EditorUnavailable("元素不是有效的 Java 方法"))
                     }
                 }
                 ProgrammingLanguage.KOTLIN -> {
                     if (method is KtFunction) {
                         kotlinAnalyzer.analyzeKotlinFunction(method)
                     } else {
-                        Result.error(NekoamaError.PlatformError.EditorUnavailable("元素不是有效的 Kotlin 函数"))
+                        NekoamaResult.error(NekoamaError.PlatformError.EditorUnavailable("元素不是有效的 Kotlin 函数"))
                     }
                 }
                 else -> {
-                    Result.error(NekoamaError.PlatformError.EditorUnavailable("不支持的编程语言: $language"))
+                    NekoamaResult.error(NekoamaError.PlatformError.EditorUnavailable("不支持的编程语言: $language"))
                 }
             }
         } catch (e: Exception) {
             NekoamaLogger.logError("analyzeMethod", NekoamaError.Unknown("方法分析失败: ${e.message}"))
-            Result.error(NekoamaError.Unknown("方法分析失败: ${e.message}"))
+            NekoamaResult.error(NekoamaError.Unknown("方法分析失败: ${e.message}"))
         }
     }
 
-    override fun analyzeClass(clazz: PsiElement): Result<ClassContext> {
+    override fun analyzeClass(clazz: PsiElement): NekoamaResult<ClassContext> {
         return try {
             when (val language = detectLanguage(clazz)) {
                 ProgrammingLanguage.JAVA -> {
                     if (clazz is PsiClass) {
                         javaAnalyzer.analyzeJavaClass(clazz)
                     } else {
-                        Result.error(NekoamaError.PlatformError.EditorUnavailable("元素不是有效的 Java 类"))
+                        NekoamaResult.error(NekoamaError.PlatformError.EditorUnavailable("元素不是有效的 Java 类"))
                     }
                 }
                 ProgrammingLanguage.KOTLIN -> {
                     if (clazz is KtClass) {
                         kotlinAnalyzer.analyzeKotlinClass(clazz)
                     } else {
-                        Result.error(NekoamaError.PlatformError.EditorUnavailable("元素不是有效的 Kotlin 类"))
+                        NekoamaResult.error(NekoamaError.PlatformError.EditorUnavailable("元素不是有效的 Kotlin 类"))
                     }
                 }
                 else -> {
-                    Result.error(NekoamaError.PlatformError.EditorUnavailable("不支持的编程语言: $language"))
+                    NekoamaResult.error(NekoamaError.PlatformError.EditorUnavailable("不支持的编程语言: $language"))
                 }
             }
         } catch (e: Exception) {
             NekoamaLogger.logError("analyzeClass", NekoamaError.Unknown("类分析失败: ${e.message}"))
-            Result.error(NekoamaError.Unknown("类分析失败: ${e.message}"))
+            NekoamaResult.error(NekoamaError.Unknown("类分析失败: ${e.message}"))
         }
     }
 
-    override fun analyzeVariable(variable: PsiElement): Result<VariableContext> {
+    override fun analyzeVariable(variable: PsiElement): NekoamaResult<VariableContext> {
         return try {
             when (val language = detectLanguage(variable)) {
                 ProgrammingLanguage.JAVA -> {
                     when (variable) {
                         is PsiVariable -> javaAnalyzer.analyzeJavaVariable(variable)
-                        else -> Result.error(NekoamaError.PlatformError.EditorUnavailable("元素不是有效的 Java 变量"))
+                        else -> NekoamaResult.error(NekoamaError.PlatformError.EditorUnavailable("元素不是有效的 Java 变量"))
                     }
                 }
                 ProgrammingLanguage.KOTLIN -> {
                     when (variable) {
                         is KtProperty -> kotlinAnalyzer.analyzeKotlinProperty(variable)
                         is KtParameter -> kotlinAnalyzer.analyzeKotlinParameter(variable)
-                        else -> Result.error(NekoamaError.PlatformError.EditorUnavailable("元素不是有效的 Kotlin 变量"))
+                        else -> NekoamaResult.error(NekoamaError.PlatformError.EditorUnavailable("元素不是有效的 Kotlin 变量"))
                     }
                 }
                 else -> {
-                    Result.error(NekoamaError.PlatformError.EditorUnavailable("不支持的编程语言: $language"))
+                    NekoamaResult.error(NekoamaError.PlatformError.EditorUnavailable("不支持的编程语言: $language"))
                 }
             }
         } catch (e: Exception) {
             NekoamaLogger.logError("analyzeVariable", NekoamaError.Unknown("变量分析失败: ${e.message}"))
-            Result.error(NekoamaError.Unknown("变量分析失败: ${e.message}"))
+            NekoamaResult.error(NekoamaError.Unknown("变量分析失败: ${e.message}"))
         }
     }
 
-    override fun extractSurroundingContext(element: PsiElement, radius: Int): Result<SurroundingContext> {
+    override fun extractSurroundingContext(element: PsiElement, radius: Int): NekoamaResult<SurroundingContext> {
         return try {
             // 使用 runReadAction 显式包装 PSI 访问，确保线程安全
             val surroundingContext = com.intellij.openapi.application.ApplicationManager
@@ -118,11 +118,11 @@ class UniversalCodeElementAnalyzer(
                     SurroundingContext(namingPatterns = namingPatterns)
                 }
 
-            Result.success(surroundingContext)
+            NekoamaResult.success(surroundingContext)
 
         } catch (e: Exception) {
             NekoamaLogger.logError("extractSurroundingContext", NekoamaError.Unknown("上下文提取失败: ${e.message}"))
-            Result.error(NekoamaError.Unknown("上下文提取失败: ${e.message}"))
+            NekoamaResult.error(NekoamaError.Unknown("上下文提取失败: ${e.message}"))
         }
     }
 

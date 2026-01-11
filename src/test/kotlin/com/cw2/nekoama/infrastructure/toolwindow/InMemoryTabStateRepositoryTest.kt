@@ -2,7 +2,7 @@ package com.cw2.nekoama.infrastructure.toolwindow
 
 import com.cw2.nekoama.domain.toolwindow.model.TabState
 import com.cw2.nekoama.shared.exception.NekoamaError
-import com.cw2.nekoama.shared.model.Result
+import com.cw2.nekoama.shared.model.NekoamaResult
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.BeforeEach
@@ -16,9 +16,9 @@ class InMemoryTabStateRepositoryTest {
 
     // 测试用状态类型
     data class TestState(val value: String) : TabState {
-        override fun validate(): Result<Unit> {
-            return if (value.isNotEmpty()) Result.success(Unit)
-            else Result.error(NekoamaError.Unknown("Value cannot be empty"))
+        override fun validate(): NekoamaResult<Unit> {
+            return if (value.isNotEmpty()) NekoamaResult.success(Unit)
+            else NekoamaResult.error(NekoamaError.Unknown("Value cannot be empty"))
         }
     }
 
@@ -76,7 +76,7 @@ class InMemoryTabStateRepositoryTest {
 
         // Act - 尝试用错误的类型加载
         data class WrongState(val value: Int) : TabState {
-            override fun validate(): Result<Unit> = Result.success(Unit)
+            override fun validate(): NekoamaResult<Unit> = NekoamaResult.success(Unit)
         }
         val loaded = repository.loadState(tabId, WrongState::class)
 

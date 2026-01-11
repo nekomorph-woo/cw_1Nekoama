@@ -1,6 +1,6 @@
 package com.cw2.nekoama.infrastructure.code_suggestion_gen.client.openai
 
-import com.cw2.nekoama.shared.model.Result
+import com.cw2.nekoama.shared.model.NekoamaResult
 import com.cw2.nekoama.shared.exception.NekoamaError
 import com.cw2.nekoama.shared.logging.NekoamaLogger
 import com.cw2.nekoama.domain.code_suggestion_gen.model.CommentFormat
@@ -33,10 +33,10 @@ object OpenAIResponseParser {
     /**
      * 解析命名建议响应
      */
-    fun parseNamingResponse(response: OpenAIResponse, context: CodeContext): Result<List<NamingSuggestion>> {
+    fun parseNamingResponse(response: OpenAIResponse, context: CodeContext): NekoamaResult<List<NamingSuggestion>> {
         return try {
             val content = response.choices.firstOrNull()?.message?.content
-                ?: return Result.error(NekoamaError.ParseError.InvalidResponse("响应内容为空"))
+                ?: return NekoamaResult.error(NekoamaError.ParseError.InvalidResponse("响应内容为空"))
             
             NekoamaLogger.debug("parseNamingResponse", "解析响应内容: $content")
             
@@ -46,10 +46,10 @@ object OpenAIResponseParser {
                 // 如果 JSON 解析失败，尝试解析纯文本响应
                 return parseNamingFromPlainText(content, context)
             }
-            val jsonElement = jsonResponse.getOrNull() ?: return Result.error(NekoamaError.ParseError.JsonParse("JSON解析失败"))
+            val jsonElement = jsonResponse.getOrNull() ?: return NekoamaResult.error(NekoamaError.ParseError.JsonParse("JSON解析失败"))
             
             val suggestionsJson = jsonElement.jsonObject["suggestions"]?.jsonArray
-                ?: return Result.error(NekoamaError.ParseError.InvalidResponse("响应中缺suggestions 字段"))
+                ?: return NekoamaResult.error(NekoamaError.ParseError.InvalidResponse("响应中缺suggestions 字段"))
             
             val suggestions = suggestionsJson.mapNotNull { suggestionJson ->
                 try {
@@ -61,7 +61,7 @@ object OpenAIResponseParser {
             }
             
             if (suggestions.isEmpty()) {
-                return Result.error(NekoamaError.ParseError.InvalidResponse("未能解析出有效的命名建议"))
+                return NekoamaResult.error(NekoamaError.ParseError.InvalidResponse("未能解析出有效的命名建议"))
             }
             
             // 添加元数据
@@ -74,22 +74,22 @@ object OpenAIResponseParser {
                 )
             }
             
-            Result.success(enrichedSuggestions)
+            NekoamaResult.success(enrichedSuggestions)
             
         } catch (e: Exception) {
             NekoamaLogger.logError("parseNamingResponse", NekoamaError.ParseError.JsonParse(),
                 context = mapOf("error" to e.message, "response" to response.toString()))
-            Result.error(NekoamaError.ParseError.JsonParse("解析命名建议响应失败: ${e.message}"))
+            NekoamaResult.error(NekoamaError.ParseError.JsonParse("解析命名建议响应失败: ${e.message}"))
         }
     }
     
     /**
      * 解析注释建议响应
      */
-    fun parseCommentResponse(response: OpenAIResponse, context: CodeContext): Result<CommentSuggestion> {
+    fun parseCommentResponse(response: OpenAIResponse, context: CodeContext): NekoamaResult<CommentSuggestion> {
         return try {
             val content = response.choices.firstOrNull()?.message?.content
-                ?: return Result.error(NekoamaError.ParseError.InvalidResponse("响应内容为空"))
+                ?: return NekoamaResult.error(NekoamaError.ParseError.InvalidResponse("响应内容为空"))
 
             NekoamaLogger.debug("parseCommentResponse", "解析响应内容: $content")
 
@@ -99,10 +99,10 @@ object OpenAIResponseParser {
                 // 如果 JSON 解析失败，使用纯文本作为注释内容
                 return parseCommentFromPlainText(content, context)
             }
-            val jsonElement = jsonResponse.getOrNull() ?: return Result.error(NekoamaError.ParseError.JsonParse("JSON解析失败"))
+            val jsonElement = jsonResponse.getOrNull() ?: return NekoamaResult.error(NekoamaError.ParseError.JsonParse("JSON解析失败"))
 
             val commentContent = jsonElement.jsonObject["content"]?.jsonPrimitive?.content
-                ?: return Result.error(NekoamaError.ParseError.InvalidResponse("响应中缺少 content 字段"))
+                ?: return NekoamaResult.error(NekoamaError.ParseError.InvalidResponse("响应中缺少 content 字段"))
 
             // 解析结构化信息
             val structure = parseCommentStructure(jsonElement.jsonObject)
@@ -118,50 +118,50 @@ object OpenAIResponseParser {
                 )
             )
 
-            Result.success(commentSuggestion)
+            NekoamaResult.success(commentSuggestion)
 
         } catch (e: Exception) {
             NekoamaLogger.logError("parseCommentResponse", NekoamaError.ParseError.JsonParse(),
                 context = mapOf("error" to e.message))
-            Result.error(NekoamaError.ParseError.JsonParse("解析注释建议响应失败: ${e.message}"))
+            NekoamaResult.error(NekoamaError.ParseError.JsonParse("解析注释建议响应失败: ${e.message}"))
         }
     }
     
     /**
      * 解析自定义生成响应
      */
-    fun parseCustomResponse(response: OpenAIResponse): Result<String> {
+    fun parseCustomResponse(response: OpenAIResponse): NekoamaResult<String> {
         return try {
             val content = response.choices.firstOrNull()?.message?.content
-                ?: return Result.error(NekoamaError.ParseError.InvalidResponse("响应内容为空"))
+                ?: return NekoamaResult.error(NekoamaError.ParseError.InvalidResponse("响应内容为空"))
             
-            Result.success(content.trim())
+            NekoamaResult.success(content.trim())
             
         } catch (e: Exception) {
             NekoamaLogger.logError("parseCustomResponse", NekoamaError.ParseError.JsonParse(),
                 context = mapOf("error" to e.message))
-            Result.error(NekoamaError.ParseError.JsonParse("解析自定义响应失 ${e.message}"))
+            NekoamaResult.error(NekoamaError.ParseError.JsonParse("解析自定义响应失 ${e.message}"))
         }
     }
     
     /**
      * 解析 JSON 内容
      */
-    private fun parseJsonContent(content: String): Result<JsonElement> {
+    private fun parseJsonContent(content: String): NekoamaResult<JsonElement> {
         return try {
             val cleanContent = content.trim()
             val jsonStart = cleanContent.indexOf('{')
             val jsonEnd = cleanContent.lastIndexOf('}')
             
             if (jsonStart == -1 || jsonEnd == -1) {
-                return Result.error(NekoamaError.ParseError.JsonParse("未找到有效的 JSON 内容"))
+                return NekoamaResult.error(NekoamaError.ParseError.JsonParse("未找到有效的 JSON 内容"))
             }
             
             val jsonContent = cleanContent.substring(jsonStart, jsonEnd + 1)
-            Result.success(Json.parseToJsonElement(jsonContent))
+            NekoamaResult.success(Json.parseToJsonElement(jsonContent))
             
         } catch (e: Exception) {
-            Result.error(NekoamaError.ParseError.JsonParse("JSON 解析失败: ${e.message}"))
+            NekoamaResult.error(NekoamaError.ParseError.JsonParse("JSON 解析失败: ${e.message}"))
         }
     }
     
@@ -190,7 +190,7 @@ object OpenAIResponseParser {
     /**
      * 从纯文本解析命名建议
      */
-    private fun parseNamingFromPlainText(content: String, context: CodeContext): Result<List<NamingSuggestion>> {
+    private fun parseNamingFromPlainText(content: String, context: CodeContext): NekoamaResult<List<NamingSuggestion>> {
         return try {
             val suggestions = mutableListOf<NamingSuggestion>()
             val lines = content.lines().filter { it.isNotBlank() }
@@ -218,20 +218,20 @@ object OpenAIResponseParser {
             }
             
             if (suggestions.isEmpty()) {
-                return Result.error(NekoamaError.ParseError.InvalidResponse("无法从纯文本中解析出命名建议"))
+                return NekoamaResult.error(NekoamaError.ParseError.InvalidResponse("无法从纯文本中解析出命名建议"))
             }
             
-            Result.success(suggestions)
+            NekoamaResult.success(suggestions)
             
         } catch (e: Exception) {
-            Result.error(NekoamaError.ParseError.InvalidResponse("纯文本解析失 ${e.message}"))
+            NekoamaResult.error(NekoamaError.ParseError.InvalidResponse("纯文本解析失 ${e.message}"))
         }
     }
     
     /**
      * 从纯文本解析注释建议
      */
-    private fun parseCommentFromPlainText(content: String, context: CodeContext): Result<CommentSuggestion> {
+    private fun parseCommentFromPlainText(content: String, context: CodeContext): NekoamaResult<CommentSuggestion> {
         return try {
             val commentSuggestion = CommentSuggestion(
                 content = content.trim(),
@@ -242,10 +242,10 @@ object OpenAIResponseParser {
                 )
             )
 
-            Result.success(commentSuggestion)
+            NekoamaResult.success(commentSuggestion)
 
         } catch (e: Exception) {
-            Result.error(NekoamaError.ParseError.InvalidResponse("纯文本注释解析失败: ${e.message}"))
+            NekoamaResult.error(NekoamaError.ParseError.InvalidResponse("纯文本注释解析失败: ${e.message}"))
         }
     }
     

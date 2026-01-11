@@ -4,7 +4,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.application.ReadAction
 import com.intellij.psi.util.PsiTreeUtil
 import org.jetbrains.kotlin.psi.*
-import com.cw2.nekoama.shared.model.Result
+import com.cw2.nekoama.shared.model.NekoamaResult
 import com.cw2.nekoama.shared.exception.NekoamaError
 import com.cw2.nekoama.domain.code_suggestion_gen.model.AnnotationMetadata
 import com.cw2.nekoama.domain.code_suggestion_gen.model.ClassContext
@@ -34,9 +34,9 @@ class KotlinCodeAnalyzer(private val project: Project) {
      * @param function 要分析的 Kotlin PSI 函数对象
      * @return 包含函数上下文信息的 Result 对象，成功时返回 MethodContext，失败时返回错误信息
      */
-    fun analyzeKotlinFunction(function: KtFunction): Result<MethodContext> {
+    fun analyzeKotlinFunction(function: KtFunction): NekoamaResult<MethodContext> {
         return try {
-            ReadAction.compute<Result<MethodContext>, Throwable> {
+            ReadAction.compute<NekoamaResult<MethodContext>, Throwable> {
                 // 提取函数参数信息：遍历值参数列表，构建参数元数据
                 val parameters = function.valueParameters.map { param ->
                     ParameterMetadata(
@@ -92,10 +92,10 @@ class KotlinCodeAnalyzer(private val project: Project) {
                     isAbstract = function.hasModifier(KtTokens.ABSTRACT_KEYWORD)
                 )
 
-                Result.success(methodContext)
+                NekoamaResult.success(methodContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("Kotlin 函数分析失败: ${e.message}"))
+            NekoamaResult.error(NekoamaError.Unknown("Kotlin 函数分析失败: ${e.message}"))
         }
     }
 
@@ -105,9 +105,9 @@ class KotlinCodeAnalyzer(private val project: Project) {
      * @param clazz 要分析的 Kotlin PSI 类对象
      * @return 包含类上下文信息的 Result 对象，成功时返回 ClassContext，失败时返回错误信息
      */
-    fun analyzeKotlinClass(clazz: KtClass): Result<ClassContext> {
+    fun analyzeKotlinClass(clazz: KtClass): NekoamaResult<ClassContext> {
         return try {
-            ReadAction.compute<Result<ClassContext>, Throwable> {
+            ReadAction.compute<NekoamaResult<ClassContext>, Throwable> {
                 // 提取父类信息：从超类型列表中过滤出 KtSuperTypeCallEntry 并获取第一个
                 // Kotlin 中使用冒号语法声明继承，如 "class Child : Parent()"
                 val superClass = clazz.superTypeListEntries
@@ -155,10 +155,10 @@ class KotlinCodeAnalyzer(private val project: Project) {
                     classComment = classComment
                 )
 
-                Result.success(classContext)
+                NekoamaResult.success(classContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("Kotlin 类分析失败: ${e.message}"))
+            NekoamaResult.error(NekoamaError.Unknown("Kotlin 类分析失败: ${e.message}"))
         }
     }
 
@@ -168,9 +168,9 @@ class KotlinCodeAnalyzer(private val project: Project) {
      * @param property 要分析的 Kotlin PSI 属性对象
      * @return 包含属性上下文信息的 Result 对象，成功时返回 VariableContext，失败时返回错误信息
      */
-    fun analyzeKotlinProperty(property: KtProperty): Result<VariableContext> {
+    fun analyzeKotlinProperty(property: KtProperty): NekoamaResult<VariableContext> {
         return try {
-            ReadAction.compute<Result<VariableContext>, Throwable> {
+            ReadAction.compute<NekoamaResult<VariableContext>, Throwable> {
                 // 提取属性类型信息，若无显式声明则默认为 "Any"
                 val propertyType = TypeMetadata(
                     typeName = property.typeReference?.text ?: "Any"
@@ -237,10 +237,10 @@ class KotlinCodeAnalyzer(private val project: Project) {
                     usageExamples = usageExamples
                 )
 
-                Result.success(variableContext)
+                NekoamaResult.success(variableContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("Kotlin 属性分析失败: ${e.message}"))
+            NekoamaResult.error(NekoamaError.Unknown("Kotlin 属性分析失败: ${e.message}"))
         }
     }
 
@@ -250,9 +250,9 @@ class KotlinCodeAnalyzer(private val project: Project) {
      * @param parameter 要分析的 Kotlin PSI 参数对象
      * @return 包含参数上下文信息的 Result 对象，成功时返回 VariableContext，失败时返回错误信息
      */
-    fun analyzeKotlinParameter(parameter: KtParameter): Result<VariableContext> {
+    fun analyzeKotlinParameter(parameter: KtParameter): NekoamaResult<VariableContext> {
         return try {
-            ReadAction.compute<Result<VariableContext>, Throwable> {
+            ReadAction.compute<NekoamaResult<VariableContext>, Throwable> {
                 // 提取参数类型信息，若无显式声明则默认为 "Any"
                 val parameterType = TypeMetadata(
                     typeName = parameter.typeReference?.text ?: "Any"
@@ -299,10 +299,10 @@ class KotlinCodeAnalyzer(private val project: Project) {
                     usageExamples = emptyList()
                 )
 
-                Result.success(variableContext)
+                NekoamaResult.success(variableContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("Kotlin 参数分析失败: ${e.message}"))
+            NekoamaResult.error(NekoamaError.Unknown("Kotlin 参数分析失败: ${e.message}"))
         }
     }
 }

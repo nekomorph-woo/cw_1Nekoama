@@ -4,21 +4,21 @@ import com.cw2.nekoama.shared.exception.NekoamaError
 
 /**
  * 通用结果类型系统 - Generic Result type system
- * 
+ *
  * 提供函数式错误处理能力，避免异常抛出，使错误处理更加明确和类型安全
  * Provides functional error handling capabilities, avoiding exception throwing for more explicit and type-safe error handling
  */
-sealed class Result<out T> {
+sealed class NekoamaResult<out T> {
     
     /**
      * 成功结果 - Success result
      */
-    data class Success<T>(val data: T) : Result<T>()
-    
+    data class Success<T>(val data: T) : NekoamaResult<T>()
+
     /**
      * 错误结果 - Error result
      */
-    data class Error(val error: NekoamaError) : Result<Nothing>()
+    data class Error(val error: NekoamaError) : NekoamaResult<Nothing>()
     
     /**
      * 判断是否为成功结果 - Check if result is success
@@ -54,27 +54,27 @@ sealed class Result<out T> {
      * 如果当前结果是成功，则对数据应用转换函数；如果是错误，则保持错误不变
      * If current result is success, apply transformation function to data; if error, keep error unchanged
      */
-    inline fun <R> map(transform: (T) -> R): Result<R> = when (this) {
+    inline fun <R> map(transform: (T) -> R): NekoamaResult<R> = when (this) {
         is Success -> Success(transform(data))
         is Error -> this
     }
-    
+
     /**
      * 映射错误值 - Map error value
      * 如果当前结果是错误，则对错误应用转换函数；如果是成功，则保持成功不变
      * If current result is error, apply transformation function to error; if success, keep success unchanged
      */
-    inline fun mapError(transform: (NekoamaError) -> NekoamaError): Result<T> = when (this) {
+    inline fun mapError(transform: (NekoamaError) -> NekoamaError): NekoamaResult<T> = when (this) {
         is Success -> this
         is Error -> Error(transform(error))
     }
-    
+
     /**
      * 平铺映射成功值 - Flat map success value
-     * 如果当前结果是成功，则对数据应用转换函数（该函数返回 Result）；如果是错误，则保持错误不变
-     * If current result is success, apply transformation function to data (function returns Result); if error, keep error unchanged
+     * 如果当前结果是成功，则对数据应用转换函数（该函数返回 NekoamaResult）；如果是错误，则保持错误不变
+     * If current result is success, apply transformation function to data (function returns NekoamaResult); if error, keep error unchanged
      */
-    inline fun <R> flatMap(transform: (T) -> Result<R>): Result<R> = when (this) {
+    inline fun <R> flatMap(transform: (T) -> NekoamaResult<R>): NekoamaResult<R> = when (this) {
         is Success -> transform(data)
         is Error -> this
     }
@@ -97,19 +97,19 @@ sealed class Result<out T> {
      * 不改变结果值，但在成功时执行指定操作
      * Does not change result value, but executes specified operation on success
      */
-    inline fun onSuccess(action: (T) -> Unit): Result<T> {
+    inline fun onSuccess(action: (T) -> Unit): NekoamaResult<T> {
         if (this is Success) {
             action(data)
         }
         return this
     }
-    
+
     /**
      * 在错误时执行副作用操作 - Execute side effect on error
      * 不改变结果值，但在错误时执行指定操作
      * Does not change result value, but executes specified operation on error
      */
-    inline fun onError(action: (NekoamaError) -> Unit): Result<T> {
+    inline fun onError(action: (NekoamaError) -> Unit): NekoamaResult<T> {
         if (this is Error) {
             action(error)
         }
@@ -124,7 +124,7 @@ sealed class Result<out T> {
      * 如果成功值不满足条件，则转换为指定错误
      * If success value does not meet condition, convert to specified error
      */
-    inline fun filter(predicate: (T) -> Boolean, error: NekoamaError): Result<T> = when (this) {
+    inline fun filter(predicate: (T) -> Boolean, error: NekoamaError): NekoamaResult<T> = when (this) {
         is Success -> if (predicate(data)) this else Error(error)
         is Error -> this
     }
@@ -140,36 +140,36 @@ sealed class Result<out T> {
         /**
          * 创建成功结果 - Create success result
          */
-        fun <T> success(data: T): Result<T> = Success(data)
-        
+        fun <T> success(data: T): NekoamaResult<T> = Success(data)
+
         /**
          * 创建错误结果 - Create error result
          */
-        fun <T> error(error: NekoamaError): Result<T> = Error(error)
-        
+        fun <T> error(error: NekoamaError): NekoamaResult<T> = Error(error)
+
         /**
          * 从可能抛出异常的代码块创建结果 - Create result from code block that might throw exception
          * 将异常转换为 NekoamaError.Unknown
          * Convert exception to NekoamaError.Unknown
          */
-        inline fun <T> catching(block: () -> T): Result<T> = try {
+        inline fun <T> catching(block: () -> T): NekoamaResult<T> = try {
             Success(block())
         } catch (e: Exception) {
             Error(NekoamaError.Unknown("执行过程中发生未知错误", e))
         }
-        
+
         /**
          * 从可空值创建结果 - Create result from nullable value
          */
-        fun <T> fromNullable(value: T?, error: NekoamaError): Result<T> =
+        fun <T> fromNullable(value: T?, error: NekoamaError): NekoamaResult<T> =
             value?.let { Success(it) } ?: Error(error)
-        
+
         /**
          * 组合多个结果 - Combine multiple results
          * 只有当所有结果都成功时才返回成功，否则返回第一个错误
          * Return success only when all results are successful, otherwise return first error
          */
-        fun <T> combine(results: List<Result<T>>): Result<List<T>> {
+        fun <T> combine(results: List<NekoamaResult<T>>): NekoamaResult<List<T>> {
             val data = mutableListOf<T>()
             for (result in results) {
                 when (result) {
@@ -179,31 +179,31 @@ sealed class Result<out T> {
             }
             return Success(data)
         }
-        
+
         /**
          * 组合两个结果 - Combine two results
          */
         inline fun <T1, T2, R> combine(
-            result1: Result<T1>,
-            result2: Result<T2>,
+            result1: NekoamaResult<T1>,
+            result2: NekoamaResult<T2>,
             transform: (T1, T2) -> R
-        ): Result<R> = when {
+        ): NekoamaResult<R> = when {
             result1 is Success && result2 is Success -> Success(transform(result1.data, result2.data))
             result1 is Error -> result1
             result2 is Error -> result2
             else -> Error(NekoamaError.Unknown("组合结果时发生未知错误"))
         }
-        
+
         /**
          * 组合三个结果 - Combine three results
          */
         inline fun <T1, T2, T3, R> combine(
-            result1: Result<T1>,
-            result2: Result<T2>,
-            result3: Result<T3>,
+            result1: NekoamaResult<T1>,
+            result2: NekoamaResult<T2>,
+            result3: NekoamaResult<T3>,
             transform: (T1, T2, T3) -> R
-        ): Result<R> = when {
-            result1 is Success && result2 is Success && result3 is Success -> 
+        ): NekoamaResult<R> = when {
+            result1 is Success && result2 is Success && result3 is Success ->
                 Success(transform(result1.data, result2.data, result3.data))
             result1 is Error -> result1
             result2 is Error -> result2
@@ -214,24 +214,24 @@ sealed class Result<out T> {
 }
 
 /**
- * 扩展函数：将可空值转换为 Result - Extension function: convert nullable to Result
+ * 扩展函数：将可空值转换为 NekoamaResult - Extension function: convert nullable to NekoamaResult
  */
-fun <T> T?.toResult(error: NekoamaError): Result<T> = Result.fromNullable(this, error)
+fun <T> T?.toResult(error: NekoamaError): NekoamaResult<T> = NekoamaResult.fromNullable(this, error)
 
 /**
  * 扩展函数：安全执行代码块 - Extension function: safely execute code block
  */
-inline fun <T> safeCall(block: () -> T): Result<T> = Result.catching(block)
+inline fun <T> safeCall(block: () -> T): NekoamaResult<T> = NekoamaResult.catching(block)
 
 /**
- * 扩展函数：序列操作的 Result 版本 - Extension function: Result version of sequence operations
+ * 扩展函数：序列操作的 NekoamaResult 版本 - Extension function: NekoamaResult version of sequence operations
  */
-fun <T> Sequence<Result<T>>.combineToResult(): Result<List<T>> {
+fun <T> Sequence<NekoamaResult<T>>.combineToResult(): NekoamaResult<List<T>> {
     val results = this.toList()
-    return Result.combine(results)
+    return NekoamaResult.combine(results)
 }
 
 /**
- * 扩展函数：列表操作的 Result 版本 - Extension function: Result version of list operations
+ * 扩展函数：列表操作的 NekoamaResult 版本 - Extension function: NekoamaResult version of list operations
  */
-fun <T> List<Result<T>>.combineToResult(): Result<List<T>> = Result.combine(this)
+fun <T> List<NekoamaResult<T>>.combineToResult(): NekoamaResult<List<T>> = NekoamaResult.combine(this)

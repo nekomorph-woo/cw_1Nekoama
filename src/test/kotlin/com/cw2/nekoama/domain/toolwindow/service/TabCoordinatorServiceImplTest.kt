@@ -4,7 +4,7 @@ import com.cw2.nekoama.domain.toolwindow.model.TabEvent
 import com.cw2.nekoama.domain.toolwindow.model.TabMetadata
 import com.cw2.nekoama.domain.toolwindow.model.TabState
 import com.cw2.nekoama.domain.toolwindow.repository.TabStateRepository
-import com.cw2.nekoama.shared.model.Result
+import com.cw2.nekoama.shared.model.NekoamaResult
 import com.cw2.nekoama.shared.exception.NekoamaError
 import io.mockk.every
 import io.mockk.mockk
@@ -148,6 +148,6 @@ class TabCoordinatorServiceImplTest {
     data class TestTabState(
         override val version: Int = 1
     ) : TabState {
-        override fun validate(): Result<Unit> = Result.success(Unit)
+        override fun validate(): NekoamaResult<Unit> = NekoamaResult.success(Unit)
     }
 }

@@ -1,7 +1,7 @@
 package com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config
 
 import com.cw2.nekoama.shared.exception.NekoamaError
-import com.cw2.nekoama.shared.model.Result
+import com.cw2.nekoama.shared.model.NekoamaResult
 import kotlinx.serialization.Serializable
 
 /**
@@ -61,36 +61,36 @@ data class CustomGeneratorConfig(
 
 ) : GeneratorConfig {
 
-    override fun validate(): Result<Unit> {
+    override fun validate(): NekoamaResult<Unit> {
         return when {
-            generatorName.isBlank() -> Result.error(
+            generatorName.isBlank() -> NekoamaResult.error(
                 NekoamaError.ParseError.InvalidConfiguration("生成器名称不能为空")
             )
-            apiUrl.isBlank() -> Result.error(
+            apiUrl.isBlank() -> NekoamaResult.error(
                 NekoamaError.ParseError.InvalidConfiguration("API URL 不能为空")
             )
-            !apiUrl.startsWith("http") -> Result.error(
+            !apiUrl.startsWith("http") -> NekoamaResult.error(
                 NekoamaError.ParseError.InvalidConfiguration("无效的API URL")
             )
-            apiKey.isBlank() -> Result.error(
+            apiKey.isBlank() -> NekoamaResult.error(
                 NekoamaError.AuthenticationError.ApiKeyNotConfigured()
             )
-            model.isBlank() -> Result.error(
+            model.isBlank() -> NekoamaResult.error(
                 NekoamaError.ParseError.InvalidConfiguration("模型名称不能为空")
             )
-            maxTokens <= 0 -> Result.error(
+            maxTokens <= 0 -> NekoamaResult.error(
                 NekoamaError.ParseError.InvalidConfiguration("maxTokens必须大于0")
             )
-            temperature !in 0.0..2.0 -> Result.error(
+            temperature !in 0.0..2.0 -> NekoamaResult.error(
                 NekoamaError.ParseError.InvalidConfiguration("temperature必须在0.0-2.0之间")
             )
-            timeoutMs <= 0 -> Result.error(
+            timeoutMs <= 0 -> NekoamaResult.error(
                 NekoamaError.ParseError.InvalidConfiguration("超时时间必须大于0")
             )
-            maxRetries < 0 -> Result.error(
+            maxRetries < 0 -> NekoamaResult.error(
                 NekoamaError.ParseError.InvalidConfiguration("重试次数不能为负数")
             )
-            else -> Result.success(Unit)
+            else -> NekoamaResult.success(Unit)
         }
     }
 

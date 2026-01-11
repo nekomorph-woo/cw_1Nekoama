@@ -1,6 +1,6 @@
 package com.cw2.nekoama.domain.toolwindow.model
 
-import com.cw2.nekoama.shared.model.Result
+import com.cw2.nekoama.shared.model.NekoamaResult
 
 /**
  * Tab状态数据接口
@@ -34,5 +34,5 @@ interface TabState {
     /**
      * 验证状态是否有效
      */
-    fun validate(): Result<Unit>
+    fun validate(): NekoamaResult<Unit>
 }

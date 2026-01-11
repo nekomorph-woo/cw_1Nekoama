@@ -1,7 +1,7 @@
 package com.cw2.nekoama.domain.code_suggestion_gen.service.code_analysis
 
 import com.cw2.nekoama.domain.code_suggestion_gen.model.*
-import com.cw2.nekoama.shared.model.Result
+import com.cw2.nekoama.shared.model.NekoamaResult
 import com.intellij.psi.PsiElement
 import com.intellij.openapi.project.Project
 
@@ -18,28 +18,28 @@ class CodeAnalysisService(
     /**
      * 分析方法信息
      */
-    fun analyzeMethod(method: PsiElement): Result<MethodContext> {
+    fun analyzeMethod(method: PsiElement): NekoamaResult<MethodContext> {
         return analyzer.analyzeMethod(method)
     }
 
     /**
      * 分析类信息
      */
-    fun analyzeClass(clazz: PsiElement): Result<ClassContext> {
+    fun analyzeClass(clazz: PsiElement): NekoamaResult<ClassContext> {
         return analyzer.analyzeClass(clazz)
     }
 
     /**
      * 分析变量信息
      */
-    fun analyzeVariable(variable: PsiElement): Result<VariableContext> {
+    fun analyzeVariable(variable: PsiElement): NekoamaResult<VariableContext> {
         return analyzer.analyzeVariable(variable)
     }
 
     /**
      * 提取周围代码上下文
      */
-    fun extractSurroundingContext(element: PsiElement, radius: Int = 5): Result<SurroundingContext> {
+    fun extractSurroundingContext(element: PsiElement, radius: Int = 5): NekoamaResult<SurroundingContext> {
         return analyzer.extractSurroundingContext(element, radius)
     }
 

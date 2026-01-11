@@ -114,11 +114,11 @@ class WelcomeTab(
 data class WelcomeTabState(
     val lastVisited: Long = System.currentTimeMillis()
 ) : TabState {
-    override fun validate(): com.cw2.nekoama.shared.model.Result<Unit> {
+    override fun validate(): com.cw2.nekoama.shared.model.NekoamaResult<Unit> {
         return if (lastVisited > 0) {
-            com.cw2.nekoama.shared.model.Result.success(Unit)
+            com.cw2.nekoama.shared.model.NekoamaResult.success(Unit)
         } else {
-            com.cw2.nekoama.shared.model.Result.error(
+            com.cw2.nekoama.shared.model.NekoamaResult.error(
                 com.cw2.nekoama.shared.exception.NekoamaError.Unknown("lastVisited must be positive")
             )
         }

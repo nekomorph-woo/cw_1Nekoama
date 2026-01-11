@@ -4,7 +4,7 @@ import com.cw2.nekoama.domain.code_suggestion_gen.model.*
 import com.cw2.nekoama.domain.code_suggestion_gen.service.code_analysis.CodeAnalysisService
 import com.cw2.nekoama.shared.logging.NekoamaLogger
 import com.cw2.nekoama.shared.exception.NekoamaError
-import com.cw2.nekoama.shared.model.Result
+import com.cw2.nekoama.shared.model.NekoamaResult
 import com.intellij.openapi.application.ReadAction
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
@@ -41,14 +41,14 @@ class GenerateNamingUseCase(
     suspend fun generateNaming(
         element: PsiElement,
         selectionText: String?
-    ): Result<List<NamingSuggestion>> {
+    ): NekoamaResult<List<NamingSuggestion>> {
         // 创建生成器
         val generator = generatorFactory.createGenerator(maxTokens = 150)
-            ?: return Result.error(NekoamaError.AuthenticationError.ApiKeyNotConfigured("API 未配置"))
+            ?: return NekoamaResult.error(NekoamaError.AuthenticationError.ApiKeyNotConfigured("API 未配置"))
 
         // 构建代码上下文
         val codeContext = buildCodeContext(element, selectionText)
-            ?: return Result.error(NekoamaError.ParseError.InvalidConfiguration("无法构建代码上下文"))
+            ?: return NekoamaResult.error(NekoamaError.ParseError.InvalidConfiguration("无法构建代码上下文"))
 
         // 调用 AI 生成命名建议
         return generator.generateNaming(codeContext)

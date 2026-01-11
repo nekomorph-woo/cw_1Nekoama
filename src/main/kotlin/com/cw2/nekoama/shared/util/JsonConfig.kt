@@ -10,7 +10,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import com.cw2.nekoama.shared.exception.NekoamaError
 import com.cw2.nekoama.shared.i18n.NekoamaBundle
-import com.cw2.nekoama.shared.model.Result
+import com.cw2.nekoama.shared.model.NekoamaResult
 
 /**
  * JSON 序列化配置 - JSON serialization configuration
@@ -141,43 +141,44 @@ object LocalDateTimeSerializer : KSerializer<LocalDateTime> {
 }
 
 /**
- * Result 序列化器 - Result serializer
- * 将 Result 类型序列化为 JSON 对象，包含成功数据或错误信息
- * Serialize Result type to JSON object containing success data or error information
+ * NekoamaResult 序列化器 - NekoamaResult serializer
+ * 将 NekoamaResult 类型序列化为 JSON 对象，包含成功数据或错误信息
+ * Serialize NekoamaResult type to JSON object containing success data or error information
  */
-class ResultSerializer<T>(private val dataSerializer: KSerializer<T>) : KSerializer<Result<T>> {
-    
-    override val descriptor: SerialDescriptor = buildClassSerialDescriptor("Result") {
+class NekoamaResultSerializer<T>(private val dataSerializer: KSerializer<T>) : KSerializer<NekoamaResult<T>> {
+
+    override val descriptor: SerialDescriptor = buildClassSerialDescriptor("NekoamaResult") {
         element<Boolean>("success")
         element("data", dataSerializer.descriptor, isOptional = true)
         element<String>("error", isOptional = true)
         element<String>("errorType", isOptional = true)
     }
-    
-    override fun serialize(encoder: Encoder, value: Result<T>) {
+
+    override fun serialize(encoder: Encoder, value: NekoamaResult<T>) {
         val compositeOutput = encoder.beginStructure(descriptor)
         when (value) {
-            is Result.Success -> {
+            is NekoamaResult.Success -> {
                 compositeOutput.encodeBooleanElement(descriptor, 0, true)
                 compositeOutput.encodeSerializableElement(descriptor, 1, dataSerializer, value.data)
             }
-            is Result.Error -> {
+            is NekoamaResult.Error -> {
                 compositeOutput.encodeBooleanElement(descriptor, 0, false)
-                compositeOutput.encodeStringElement(descriptor, 2, value.error.message)
-                compositeOutput.encodeStringElement(descriptor, 3, value.error::class.simpleName ?: "Unknown")
+                val errorValue = value.component1()
+                compositeOutput.encodeStringElement(descriptor, 2, errorValue.message)
+                compositeOutput.encodeStringElement(descriptor, 3, errorValue::class.simpleName ?: "Unknown")
             }
         }
         compositeOutput.endStructure(descriptor)
     }
-    
-    override fun deserialize(decoder: Decoder): Result<T> {
+
+    override fun deserialize(decoder: Decoder): NekoamaResult<T> {
         val compositeInput = decoder.beginStructure(descriptor)
-        
+
         var success: Boolean? = null
         var data: T? = null
         var errorMessage: String? = null
         var errorType: String? = null
-        
+
         while (true) {
             when (val index = compositeInput.decodeElementIndex(descriptor)) {
                 0 -> success = compositeInput.decodeBooleanElement(descriptor, index)
@@ -189,9 +190,9 @@ class ResultSerializer<T>(private val dataSerializer: KSerializer<T>) : KSeriali
             }
         }
         compositeInput.endStructure(descriptor)
-        
+
         return when (success) {
-            true -> data?.let { Result.Success(it) }
+            true -> data?.let { NekoamaResult.Success(it) }
                 ?: throw SerializationException(NekoamaBundle.message("error.json.missing.data.field"))
             false -> {
                 val error = when (errorType) {
@@ -200,7 +201,7 @@ class ResultSerializer<T>(private val dataSerializer: KSerializer<T>) : KSeriali
                     )
                     else -> NekoamaError.Unknown(errorMessage ?: NekoamaBundle.message("error.json.unknown.error"))
                 }
-                Result.Error(error)
+                NekoamaResult.Error(error)
             }
             null -> throw SerializationException(NekoamaBundle.message("error.json.missing.success.field"))
         }
@@ -217,25 +218,25 @@ object JsonUtils {
     /**
      * 将对象序列化为 JSON 字符串 - Serialize object to JSON string
      */
-    inline fun <reified T> toJson(value: T, config: Json = JsonConfig.json): Result<String> = try {
-        Result.Success(config.encodeToString(value))
+    inline fun <reified T> toJson(value: T, config: Json = JsonConfig.json): NekoamaResult<String> = try {
+        NekoamaResult.Success(config.encodeToString(value))
     } catch (e: SerializationException) {
-        Result.Error(createSerializationError(e))
+        NekoamaResult.Error(createSerializationError(e))
     } catch (e: Exception) {
-        Result.Error(createUnknownSerializationError(e))
+        NekoamaResult.Error(createUnknownSerializationError(e))
     }
-    
+
     /**
      * 从 JSON 字符串反序列化对象 - Deserialize object from JSON string
      */
-    inline fun <reified T> fromJson(json: String, config: Json = JsonConfig.json): Result<T> = try {
-        Result.Success(config.decodeFromString<T>(json))
+    inline fun <reified T> fromJson(json: String, config: Json = JsonConfig.json): NekoamaResult<T> = try {
+        NekoamaResult.Success(config.decodeFromString<T>(json))
     } catch (e: SerializationException) {
-        Result.Error(createDeserializationError(e))
+        NekoamaResult.Error(createDeserializationError(e))
     } catch (e: IllegalArgumentException) {
-        Result.Error(createInvalidFormatError(e))
+        NekoamaResult.Error(createInvalidFormatError(e))
     } catch (e: Exception) {
-        Result.Error(createUnknownDeserializationError(e))
+        NekoamaResult.Error(createUnknownDeserializationError(e))
     }
     
     /**
@@ -253,57 +254,57 @@ object JsonUtils {
     /**
      * 格式化 JSON 字符串 - Format JSON string
      */
-    fun formatJson(json: String): Result<String> = try {
+    fun formatJson(json: String): NekoamaResult<String> = try {
         val element = JsonConfig.json.parseToJsonElement(json)
-        Result.Success(JsonConfig.debugJson.encodeToString(JsonElement.serializer(), element))
+        NekoamaResult.Success(JsonConfig.debugJson.encodeToString(JsonElement.serializer(), element))
     } catch (e: Exception) {
-        Result.Error(NekoamaError.ParseError.JsonParse("JSON 格式化失败: ${e.message}", e))
+        NekoamaResult.Error(NekoamaError.ParseError.JsonParse("JSON 格式化失败: ${e.message}", e))
     }
-    
+
     /**
      * 压缩 JSON 字符串 - Compress JSON string
      */
-    fun compactJson(json: String): Result<String> = try {
+    fun compactJson(json: String): NekoamaResult<String> = try {
         val element = JsonConfig.json.parseToJsonElement(json)
-        Result.Success(JsonConfig.compactJson.encodeToString(JsonElement.serializer(), element))
+        NekoamaResult.Success(JsonConfig.compactJson.encodeToString(JsonElement.serializer(), element))
     } catch (e: Exception) {
-        Result.Error(NekoamaError.ParseError.JsonParse("JSON 压缩失败: ${e.message}", e))
+        NekoamaResult.Error(NekoamaError.ParseError.JsonParse("JSON 压缩失败: ${e.message}", e))
     }
-    
+
     /**
      * 验证 JSON 字符串格式 - Validate JSON string format
      */
-    fun validateJson(json: String): Result<JsonElement> = try {
+    fun validateJson(json: String): NekoamaResult<JsonElement> = try {
         val element = JsonConfig.json.parseToJsonElement(json)
-        Result.Success(element)
+        NekoamaResult.Success(element)
     } catch (e: Exception) {
-        Result.Error(NekoamaError.ParseError.JsonParse("JSON 验证失败: ${e.message}", e))
+        NekoamaResult.Error(NekoamaError.ParseError.JsonParse("JSON 验证失败: ${e.message}", e))
     }
-    
+
     /**
      * 合并两个 JSON 对象 - Merge two JSON objects
      */
-    fun mergeJsonObjects(json1: String, json2: String): Result<String> = try {
+    fun mergeJsonObjects(json1: String, json2: String): NekoamaResult<String> = try {
         val obj1 = JsonConfig.json.parseToJsonElement(json1).jsonObject
         val obj2 = JsonConfig.json.parseToJsonElement(json2).jsonObject
-        
+
         val merged = buildJsonObject {
             obj1.forEach { (key, value) -> put(key, value) }
             obj2.forEach { (key, value) -> put(key, value) }
         }
-        
-        Result.Success(JsonConfig.json.encodeToString(JsonElement.serializer(), merged))
+
+        NekoamaResult.Success(JsonConfig.json.encodeToString(JsonElement.serializer(), merged))
     } catch (e: Exception) {
-        Result.Error(NekoamaError.ParseError.JsonParse("JSON 合并失败: ${e.message}", e))
+        NekoamaResult.Error(NekoamaError.ParseError.JsonParse("JSON 合并失败: ${e.message}", e))
     }
-    
+
     /**
      * 从 JSON 对象中提取指定路径的值 - Extract value from JSON object by path
      */
-    fun extractJsonPath(json: String, path: String): Result<JsonElement> = try {
+    fun extractJsonPath(json: String, path: String): NekoamaResult<JsonElement> = try {
         var current = JsonConfig.json.parseToJsonElement(json)
         val parts = path.split(".")
-        
+
         for (part in parts) {
             current = when {
                 current is JsonObject && current.containsKey(part) -> current[part]!!
@@ -315,13 +316,12 @@ object JsonUtils {
                 else -> throw IllegalArgumentException("路径不存在: $part")
             }
         }
-        
-        Result.Success(current)
-    } catch (e: Exception) {
-        Result.Error(NekoamaError.ParseError.JsonParse(NekoamaBundle.message("error.json.path.extraction.failed", e.message ?: ""), e))
-    }
 
+        NekoamaResult.Success(current)
+    } catch (e: Exception) {
+        NekoamaResult.Error(NekoamaError.ParseError.JsonParse(NekoamaBundle.message("error.json.path.extraction.failed", e.message ?: ""), e))
     }
+}
 
 // 包级私有辅助函数，用于处理国际化错误消息
 public fun createSerializationError(e: SerializationException): NekoamaError {
@@ -347,13 +347,13 @@ public fun createUnknownDeserializationError(e: Exception): NekoamaError {
 /**
  * 扩展函数：为任意对象添加 JSON 序列化功能 - Extension function: add JSON serialization to any object
  */
-inline fun <reified T> T.toJson(config: Json = JsonConfig.json): Result<String> =
+inline fun <reified T> T.toJson(config: Json = JsonConfig.json): NekoamaResult<String> =
     JsonUtils.toJson(this, config)
 
 /**
  * 扩展函数：为字符串添加 JSON 反序列化功能 - Extension function: add JSON deserialization to String
  */
-inline fun <reified T> String.fromJson(config: Json = JsonConfig.json): Result<T> =
+inline fun <reified T> String.fromJson(config: Json = JsonConfig.json): NekoamaResult<T> =
     JsonUtils.fromJson(this, config)
 
 /**

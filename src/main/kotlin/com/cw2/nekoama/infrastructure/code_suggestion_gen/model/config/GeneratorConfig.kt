@@ -1,12 +1,12 @@
 package com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config
 
-import com.cw2.nekoama.shared.model.Result
+import com.cw2.nekoama.shared.model.NekoamaResult
 
 /**
- * 代码建议生成器配置接口
+ * 代码建议生成器配置接�?
  *
- * 定义了代码建议生成器的通用配置选项。
- * 具体实现可能使用 AI 服务、规则引擎或其他方式。
+ * 定义了代码建议生成器的通用配置选项�?
+ * 具体实现可能使用 AI 服务、规则引擎或其他方式�?
  */
 interface GeneratorConfig {
 
@@ -21,17 +21,17 @@ interface GeneratorConfig {
     val apiKey: String
 
     /**
-     * 使用的模型名称
+     * 使用的模型名�?
      */
     val model: String
 
     /**
-     * 最大 Token 数量
+     * 最�?Token 数量
      */
     val maxTokens: Int
 
     /**
-     * 生成温度，控制输出的随机性
+     * 生成温度，控制输出的随机�?
      */
     val temperature: Double
 
@@ -41,12 +41,12 @@ interface GeneratorConfig {
     val timeoutMs: Long
 
     /**
-     * 最大重试次数
+     * 最大重试次�?
      */
     val maxRetries: Int
 
     /**
      * 验证配置是否有效
      */
-    fun validate(): Result<Unit>
+    fun validate(): NekoamaResult<Unit>
 }
