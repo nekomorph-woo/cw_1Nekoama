@@ -24,6 +24,11 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+import com.intellij.openapi.progress.ProgressIndicator
+import com.intellij.openapi.progress.ProgressManager
+import com.intellij.openapi.progress.Task
+import com.intellij.util.concurrency.EdtExecutor
 import java.awt.BorderLayout
 import java.awt.CardLayout
 import java.awt.Component
@@ -216,10 +221,71 @@ class DashboardTab(
     }
 
     private fun testConnection() {
-        // 使用 tabScope 在后台协程中执行
-        tabScope.launch {
-            refreshNetworkStatus()
+        val service = networkTestService ?: run {
+            // Service 不可用时直接更新 UI（已在 EDT 中）
+            networkStatusLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
+            networkStatusLabel.foreground = JBColor.RED
+            return
         }
+
+        // 更新为测试中状态
+        networkStatusLabel.text = NekoamaBundle.message("dashboard.status.testing")
+        networkStatusLabel.foreground = JBColor.GRAY
+
+        ProgressManager.getInstance().run(object : Task.Backgroundable(
+            project,
+            NekoamaBundle.message("dashboard.progress.testing.connection"),
+            true  // 可取消
+        ) {
+            private var testResult: com.cw2.nekoama.domain.statistics.model.ConnectivityStatus? = null
+            private var testError: Throwable? = null
+
+            override fun run(indicator: ProgressIndicator) {
+                indicator.isIndeterminate = true
+                indicator.text = NekoamaBundle.message("dashboard.progress.testing.connection")
+
+                try {
+                    // 使用 runBlocking 在后台线程中执行挂起函数
+                    testResult = kotlinx.coroutines.runBlocking {
+                        kotlinx.coroutines.withTimeout(15_000) {  // 15 秒超时
+                            service.testConnectivity(null)
+                        }
+                    }
+                } catch (e: Exception) {
+                    testError = e
+                }
+            }
+
+            override fun onSuccess() {
+                // onSuccess 自动在 EDT 上执行
+                if (testError != null) {
+                    networkStatusLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
+                    networkStatusLabel.foreground = JBColor.RED
+                    NekoamaLogger.error("DashboardTab", "Test connection failed", mapOf("error" to (testError?.message ?: "unknown")))
+                } else if (testResult != null) {
+                    val status = testResult!!
+                    if (status.isConnected) {
+                        val timeStr = if (status.responseTime > 0) {
+                            " (${status.responseTime}ms)"
+                        } else {
+                            ""
+                        }
+                        networkStatusLabel.text = NekoamaBundle.message("dashboard.status.connected", timeStr)
+                        networkStatusLabel.foreground = JBColor.GREEN
+                    } else {
+                        networkStatusLabel.text = status.message
+                        networkStatusLabel.foreground = JBColor.RED
+                    }
+                }
+            }
+
+            override fun onThrowable(error: Throwable) {
+                // 错误处理（在 EDT 上）
+                networkStatusLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
+                networkStatusLabel.foreground = JBColor.RED
+                NekoamaLogger.error("DashboardTab", "Test connection error", mapOf("error" to (error.message ?: "unknown")))
+            }
+        })
     }
 
     private fun createNetworkStatusPanel(): JPanel {
