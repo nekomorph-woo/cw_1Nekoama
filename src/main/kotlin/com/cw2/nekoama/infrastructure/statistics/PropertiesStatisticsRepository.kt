@@ -53,15 +53,6 @@ class PropertiesStatisticsRepository(
         encodeDefaults = false
     }
 
-    companion object {
-        private const val KEY_NAMING_COUNT = "nekoama.stats.usage.naming"
-        private const val KEY_COMMENT_COUNT = "nekoama.stats.usage.comment"
-        private const val KEY_CUSTOM_COUNT = "nekoama.stats.usage.custom"
-        private const val KEY_USAGE_LAST_UPDATED = "nekoama.stats.usage.lastUpdated"
-        private const val KEY_TOKEN_HISTORY = "nekoama.stats.token.history"
-        private const val KEY_TOTAL_TOKENS = "nekoama.stats.token.total"
-    }
-
     // ========== 使用次数统计 ==========
 
     override fun saveUsageStatistics(statistics: UsageStatistics) {
