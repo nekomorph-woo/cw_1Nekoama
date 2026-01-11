@@ -5,6 +5,8 @@ import com.cw2.nekoama.domain.settings.model.NekoamaSettings
 import com.cw2.nekoama.infrastructure.network.proxy.ProxyConfig
 import com.cw2.nekoama.infrastructure.network.proxy.ProxyConnectionTester
 import com.cw2.nekoama.infrastructure.network.proxy.ProxyDetector
+import com.intellij.openapi.components.Service
+import com.intellij.openapi.project.Project
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -16,8 +18,9 @@ import kotlinx.coroutines.withContext
  * - 返回详细的连接状态和响应时间
  * - 生成排查指南（失败时）
  */
+@Service(Service.Level.PROJECT)
 class NetworkTestServiceImpl(
-    private val project: com.intellij.openapi.project.Project
+    private val project: Project
 ) : NetworkTestService {
 
     override suspend fun testConnectivity(endpoint: String?): ConnectivityStatus {
