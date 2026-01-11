@@ -309,9 +309,9 @@ class DashboardTab(
             } catch (e: Exception) {
                 NekoamaLogger.error("DashboardTab", "Failed to refresh data", mapOf("error" to (e.message ?: "unknown")))
                 SwingUtilities.invokeLater {
-                    networkStatusLabel.text = "Error: ${e.message}"
-                    tokenStatsLabel.text = "Error: ${e.message}"
-                    usageStatsLabel.text = "Error: ${e.message}"
+                    networkStatusLabel.text = NekoamaBundle.message("dashboard.error.with.detail", e.message ?: "")
+                    tokenStatsLabel.text = NekoamaBundle.message("dashboard.error.with.detail", e.message ?: "")
+                    usageStatsLabel.text = NekoamaBundle.message("dashboard.error.with.detail", e.message ?: "")
                 }
             }
         }
@@ -354,7 +354,7 @@ class DashboardTab(
         val service = statisticsService
         if (service == null) {
             SwingUtilities.invokeLater {
-                tokenStatsLabel.text = "Service not available"
+                tokenStatsLabel.text = NekoamaBundle.message("dashboard.error.service.unavailable")
             }
             return
         }
@@ -387,7 +387,7 @@ class DashboardTab(
             }
         } catch (e: Exception) {
             SwingUtilities.invokeLater {
-                tokenStatsLabel.text = "Error: ${e.message}"
+                tokenStatsLabel.text = NekoamaBundle.message("dashboard.error.with.detail", e.message ?: "")
             }
         }
     }
@@ -396,7 +396,7 @@ class DashboardTab(
         val service = statisticsService
         if (service == null) {
             SwingUtilities.invokeLater {
-                usageStatsLabel.text = "Service not available"
+                usageStatsLabel.text = NekoamaBundle.message("dashboard.error.service.unavailable")
             }
             return
         }
@@ -423,7 +423,7 @@ class DashboardTab(
             }
         } catch (e: Exception) {
             SwingUtilities.invokeLater {
-                usageStatsLabel.text = "Error: ${e.message}"
+                usageStatsLabel.text = NekoamaBundle.message("dashboard.error.with.detail", e.message ?: "")
             }
         }
     }
