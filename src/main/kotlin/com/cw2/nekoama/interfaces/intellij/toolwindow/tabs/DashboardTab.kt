@@ -207,8 +207,8 @@ class DashboardTab(
     }
 
     private fun openUserGuide() {
-        // 打开 GitHub README
-        BrowserUtil.browse("https://github.com/nekomorph-woo/cw_1Nekoama/blob/master/README.md")
+        val url = NekoamaBundle.message("dashboard.guide.url")
+        BrowserUtil.browse(url)
     }
 
     private fun testConnection() {
