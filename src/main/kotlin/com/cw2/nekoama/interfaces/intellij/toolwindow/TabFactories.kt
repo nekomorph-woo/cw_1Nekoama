@@ -1,5 +1,6 @@
 package com.cw2.nekoama.interfaces.intellij.toolwindow
 
+import com.cw2.nekoama.interfaces.intellij.toolwindow.tabs.DashboardTab
 import com.cw2.nekoama.interfaces.intellij.toolwindow.tabs.WelcomeTab
 
 /**
@@ -20,6 +21,11 @@ object TabFactories {
      * 3. 添加到此列表
      */
     val all: List<TabFactory> = listOf(
+        // DashboardTab（统计面板）
+        TabFactory { project, coordinator ->
+            DashboardTab(project, coordinator)
+        },
+
         // WelcomeTab（示例Tab）
         TabFactory { project, coordinator ->
             WelcomeTab(project, coordinator)
