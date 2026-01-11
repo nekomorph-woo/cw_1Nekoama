@@ -371,14 +371,20 @@ class DashboardTab(
                 val growthStr = if (growth != null && growth >= 0) "+%.1f%%".format(growth)
                                  else if (growth != null) "%.1f%%".format(growth)
                                  else "N/A"
-                val growthColor = if (growth != null && growth >= 0) "#00AA00" else "#CC0000"
+
+                // 使用 JBColor 以支持主题切换
+                val growthColor = if (growth != null && growth >= 0) {
+                    JBColor(0x00AA00, 0x50C878)  // Light: 深绿, Dark: 亮绿
+                } else {
+                    JBColor(0xCC0000, 0xFF6B6B)  // Light: 深红, Dark: 亮红
+                }
 
                 tokenStatsLabel.text = """
                     <html>
                     <div style='padding: 8px;'>
                         <div><b>${NekoamaBundle.message("dashboard.tokens.total")}</b> $totalFormatted</div>
                         <div style='margin-top: 4px;'><b>${NekoamaBundle.message("dashboard.tokens.current")}</b> $currentFormatted</div>
-                        <div style='margin-top: 4px; color: $growthColor;'>
+                        <div style='margin-top: 4px; color: ${String.format("#%06X", 0xFFFFFF and growthColor.rgb)};'>
                             <b>${NekoamaBundle.message("dashboard.tokens.growth")}</b> $growthStr
                         </div>
                     </div>
