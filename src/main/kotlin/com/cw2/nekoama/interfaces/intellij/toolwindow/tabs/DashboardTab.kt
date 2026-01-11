@@ -381,6 +381,7 @@ class DashboardTab(
     private suspend fun refreshNetworkStatus() {
         val service = networkTestService
         if (service == null) {
+            NekoamaLogger.error("DashboardTab", "NetworkTestService is not available")
             ApplicationManager.getApplication().invokeLater {
                 networkStatusLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
             }
@@ -407,13 +408,23 @@ class DashboardTab(
                 }
             }
         } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            NekoamaLogger.error("DashboardTab", "Network test timeout after 15 seconds")
             ApplicationManager.getApplication().invokeLater {
                 networkStatusLabel.text = NekoamaBundle.message("dashboard.error.timeout")
                 networkStatusLabel.foreground = JBColor.RED
             }
         } catch (e: Exception) {
+            // Log detailed error information in English to avoid console encoding issues
+            NekoamaLogger.error("DashboardTab", "Network status refresh failed",
+                mapOf(
+                    "error_class" to e.javaClass.simpleName,
+                    "error_message" to (e.message ?: "null"),
+                    "stack_trace" to (e.stackTraceToString().take(500))
+                )
+            )
             ApplicationManager.getApplication().invokeLater {
-                networkStatusLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
+                // Show error details to user for debugging
+                networkStatusLabel.text = "Error: ${e.javaClass.simpleName} - ${e.message ?: "Unknown error"}"
                 networkStatusLabel.foreground = JBColor.RED
             }
         }
