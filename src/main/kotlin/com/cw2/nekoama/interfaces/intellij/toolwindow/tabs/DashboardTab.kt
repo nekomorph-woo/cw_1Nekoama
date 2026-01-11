@@ -39,7 +39,6 @@ import javax.swing.BoxLayout
 import javax.swing.JButton
 import javax.swing.JLabel
 import javax.swing.JPanel
-import javax.swing.SwingUtilities
 import javax.swing.Timer
 
 /**
@@ -370,7 +369,7 @@ class DashboardTab(
                 refreshUsageStats()
             } catch (e: Exception) {
                 NekoamaLogger.error("DashboardTab", "Failed to refresh data", mapOf("error" to (e.message ?: "unknown")))
-                SwingUtilities.invokeLater {
+                EdtExecutor.getInstance().executeLater {
                     networkStatusLabel.text = NekoamaBundle.message("dashboard.error.with.detail", e.message ?: "")
                     tokenStatsLabel.text = NekoamaBundle.message("dashboard.error.with.detail", e.message ?: "")
                     usageStatsLabel.text = NekoamaBundle.message("dashboard.error.with.detail", e.message ?: "")
@@ -382,7 +381,7 @@ class DashboardTab(
     private suspend fun refreshNetworkStatus() {
         val service = networkTestService
         if (service == null) {
-            SwingUtilities.invokeLater {
+            EdtExecutor.getInstance().executeLater {
                 networkStatusLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
             }
             return
@@ -390,7 +389,7 @@ class DashboardTab(
 
         try {
             val status = service.testConnectivity(null)
-            SwingUtilities.invokeLater {
+            EdtExecutor.getInstance().executeLater {
                 if (status.isConnected) {
                     val timeStr = if (status.responseTime > 0) {
                         " (${status.responseTime}ms)"
@@ -405,7 +404,7 @@ class DashboardTab(
                 }
             }
         } catch (e: Exception) {
-            SwingUtilities.invokeLater {
+            EdtExecutor.getInstance().executeLater {
                 networkStatusLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
                 networkStatusLabel.foreground = JBColor.RED
             }
@@ -415,7 +414,7 @@ class DashboardTab(
     private suspend fun refreshTokenStats() {
         val service = statisticsService
         if (service == null) {
-            SwingUtilities.invokeLater {
+            EdtExecutor.getInstance().executeLater {
                 tokenStatsLabel.text = NekoamaBundle.message("dashboard.error.service.unavailable")
             }
             return
@@ -425,7 +424,7 @@ class DashboardTab(
             val stats = withContext(Dispatchers.IO) {
                 service.getTokenStatistics()
             }
-            SwingUtilities.invokeLater {
+            EdtExecutor.getInstance().executeLater {
                 val totalFormatted = stats.formatTokenCount(stats.totalTokens)
                 val currentFormatted = stats.formatTokenCount(stats.currentMonthData.totalTokens)
 
@@ -454,7 +453,7 @@ class DashboardTab(
                 """.trimIndent()
             }
         } catch (e: Exception) {
-            SwingUtilities.invokeLater {
+            EdtExecutor.getInstance().executeLater {
                 tokenStatsLabel.text = NekoamaBundle.message("dashboard.error.with.detail", e.message ?: "")
             }
         }
@@ -463,7 +462,7 @@ class DashboardTab(
     private suspend fun refreshUsageStats() {
         val service = statisticsService
         if (service == null) {
-            SwingUtilities.invokeLater {
+            EdtExecutor.getInstance().executeLater {
                 usageStatsLabel.text = NekoamaBundle.message("dashboard.error.service.unavailable")
             }
             return
@@ -473,7 +472,7 @@ class DashboardTab(
             val stats = withContext(Dispatchers.IO) {
                 service.getUsageStatistics()
             }
-            SwingUtilities.invokeLater {
+            EdtExecutor.getInstance().executeLater {
                 val namingPercent = stats.getPercentage(com.cw2.nekoama.domain.statistics.model.ActionType.NAMING)
                 val commentPercent = stats.getPercentage(com.cw2.nekoama.domain.statistics.model.ActionType.COMMENT)
                 val customPercent = stats.getPercentage(com.cw2.nekoama.domain.statistics.model.ActionType.CUSTOM_GENERATE)
@@ -490,7 +489,7 @@ class DashboardTab(
                 """.trimIndent()
             }
         } catch (e: Exception) {
-            SwingUtilities.invokeLater {
+            EdtExecutor.getInstance().executeLater {
                 usageStatsLabel.text = NekoamaBundle.message("dashboard.error.with.detail", e.message ?: "")
             }
         }
@@ -499,7 +498,7 @@ class DashboardTab(
     override fun onActivated() {
         state = loadState(DashboardTabState::class)
         // 延迟刷新，确保组件完全加载
-        SwingUtilities.invokeLater {
+        EdtExecutor.getInstance().executeLater {
             refreshData()
         }
     }
