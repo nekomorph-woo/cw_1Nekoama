@@ -16,6 +16,7 @@ import kotlinx.serialization.encodeToString
 /**
  * 统计数据状态（用于持久化）
  */
+@Service(Service.Level.PROJECT)
 @State(name = "StatisticsData", storages = [Storage("nekoama_statistics.xml")])
 class StatisticsData : PersistentStateComponent<StatisticsData> {
     var namingCount: Int = 0
