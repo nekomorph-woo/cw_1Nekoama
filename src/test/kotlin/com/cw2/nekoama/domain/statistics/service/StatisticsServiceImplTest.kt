@@ -13,10 +13,31 @@ import org.junit.jupiter.api.Test
 import org.assertj.core.api.Assertions.assertThat
 
 /**
- * StatisticsServiceImpl 集成测试
+ * StatisticsServiceImpl 测试
  *
- * 注意：由于 StatisticsServiceImpl 使用服务定位器模式获取 repository，
- * 测试使用 mock project 并通过 service() 扩展函数行为来间接测试。
+ * ## 当前测试策略
+ * 由于 StatisticsServiceImpl 使用服务定位器模式获取 repository
+ *（`project.service<StatisticsRepository>()`），而非构造函数注入，
+ * 当前测试采用 relaxed mock 验证基本行为。
+ *
+ * ## 未来改进方向
+ * 1. **重构构造函数**: 将 StatisticsRepository 通过构造函数注入，
+ *    便于单元测试时注入 mock repository
+ * 2. **添加交互验证**: 验证 repository.save/load 方法的实际调用
+ * 3. **提高覆盖率**: 添加边界条件和异常场景的测试
+ *
+ * ## 架构改进示例
+ * ```kotlin
+ * // 改进前（服务定位器）
+ * class StatisticsServiceImpl(private val project: Project) : StatisticsService {
+ *     private val repository: StatisticsRepository get() = project.service()
+ * }
+ *
+ * // 改进后（依赖注入）
+ * class StatisticsServiceImpl(
+ *     private val repository: StatisticsRepository
+ * ) : StatisticsService
+ * ```
  */
 @DisplayName("StatisticsServiceImpl - 统计服务测试")
 class StatisticsServiceImplTest {
