@@ -4,6 +4,8 @@ import com.cw2.nekoama.application.usecase.GenerateCommentUseCase
 import com.cw2.nekoama.application.usecase.GeneratorFactory
 import com.cw2.nekoama.domain.code_suggestion_gen.service.code_analysis.CodeAnalysisService
 import com.cw2.nekoama.domain.settings.model.NekoamaSettings
+import com.cw2.nekoama.domain.statistics.model.ActionType
+import com.cw2.nekoama.domain.statistics.service.StatisticsService
 import com.cw2.nekoama.infrastructure.code_suggestion_gen.code_analysis.UniversalCodeElementAnalyzer
 import com.cw2.nekoama.shared.i18n.NekoamaBundle
 import com.cw2.nekoama.shared.util.NekoamaNotifier
@@ -13,6 +15,7 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.components.service
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
@@ -21,6 +24,9 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.*
 import com.intellij.psi.codeStyle.CodeStyleManager
 import com.intellij.psi.util.PsiTreeUtil
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.kotlin.psi.*
 
@@ -153,6 +159,13 @@ internal class GenerateCommentAction : BaseAction() {
                             }
                             NekoamaNotifier.info(NekoamaBundle.message("action.comment.generatedOk"))
                         })
+
+                        // 记录使用统计
+                        project.service<StatisticsService>()?.let { service ->
+                            CoroutineScope(Dispatchers.IO).launch {
+                                service.recordUsage(ActionType.COMMENT)
+                            }
+                        }
                     } else {
                         val error = result.errorOrNull()
                         val errMsg = error?.message ?: NekoamaBundle.message("common.unknownError")
