@@ -91,7 +91,15 @@ class DashboardTab(
     private lateinit var mainPanel: JPanel
     private lateinit var quickActionsPanel: JPanel
     private lateinit var networkStatusPanel: JPanel
-    private lateinit var networkStatusLabel: JBLabel
+
+    // 网络状态面板的各个子组件
+    private lateinit var proxyLabel: JBLabel
+    private lateinit var endpointLabel: JBLabel
+    private lateinit var modelLabel: JBLabel
+    private lateinit var connectionStatusLabel: JBLabel
+    private lateinit var troubleshootingPanel: JPanel
+    private lateinit var troubleshootingLabel: JBLabel
+
     private lateinit var tokenStatsPanel: JPanel
     private lateinit var tokenStatsLabel: JBLabel
     private lateinit var usageStatsPanel: JPanel
@@ -224,14 +232,18 @@ class DashboardTab(
     private fun testConnection() {
         val service = networkTestService ?: run {
             // Service 不可用时直接更新 UI（已在 EDT 中）
-            networkStatusLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
-            networkStatusLabel.foreground = JBColor.RED
+            proxyLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
+            endpointLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
+            modelLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
+            connectionStatusLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
+            connectionStatusLabel.foreground = JBColor.RED
+            troubleshootingPanel.isVisible = false
             return
         }
 
         // 更新为测试中状态
-        networkStatusLabel.text = NekoamaBundle.message("dashboard.status.testing")
-        networkStatusLabel.foreground = JBColor.GRAY
+        connectionStatusLabel.text = NekoamaBundle.message("dashboard.status.testing")
+        connectionStatusLabel.foreground = JBColor.GRAY
 
         ProgressManager.getInstance().run(object : Task.Backgroundable(
             project,
@@ -257,32 +269,53 @@ class DashboardTab(
                 // onSuccess 自动在 EDT 上执行，只处理成功情况
                 if (testResult != null) {
                     val status = testResult!!
+
+                    // 更新代理配置
+                    proxyLabel.text = NekoamaBundle.message("dashboard.network.proxy.label", formatProxyConfig(status.proxyConfig))
+
+                    // 更新端点
+                    endpointLabel.text = NekoamaBundle.message("dashboard.network.endpoint.label", status.endpoint)
+
+                    // 更新模型
+                    modelLabel.text = NekoamaBundle.message("dashboard.network.model.label", status.model)
+
+                    // 更新连接状态
                     if (status.isConnected) {
                         val timeStr = if (status.responseTime > 0) {
                             " (${status.responseTime}ms)"
                         } else {
                             ""
                         }
-                        networkStatusLabel.text = NekoamaBundle.message("dashboard.status.connected", timeStr)
-                        networkStatusLabel.foreground = JBColor.GREEN
+                        connectionStatusLabel.text = NekoamaBundle.message("dashboard.status.connected", timeStr)
+                        connectionStatusLabel.foreground = JBColor.GREEN
                     } else {
-                        networkStatusLabel.text = status.message
-                        networkStatusLabel.foreground = JBColor.RED
+                        connectionStatusLabel.text = status.message
+                        connectionStatusLabel.foreground = JBColor.RED
                     }
+
+                    // 更新排查指南
+                    updateTroubleshootingGuide(status.troubleshootingGuide)
                 }
             }
 
             override fun onThrowable(error: Throwable) {
                 // 错误处理（在 EDT 上），处理所有错误（包括超时）
-                networkStatusLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
-                networkStatusLabel.foreground = JBColor.RED
+                proxyLabel.text = NekoamaBundle.message("dashboard.status.loading")
+                endpointLabel.text = NekoamaBundle.message("dashboard.status.loading")
+                modelLabel.text = NekoamaBundle.message("dashboard.status.loading")
+                connectionStatusLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
+                connectionStatusLabel.foreground = JBColor.RED
+                troubleshootingPanel.isVisible = false
                 NekoamaLogger.error("DashboardTab", "Test connection error", mapOf("error" to (error.message ?: "unknown")))
             }
         })
     }
 
+    /**
+     * 创建网络状态面板
+     */
     private fun createNetworkStatusPanel(): JPanel {
-        return JPanel().apply {
+        val panel = JPanel().apply {
             layout = BorderLayout(8, 8)
             background = TabThemeManager.getTabBackgroundColor()
             border = BorderFactory.createCompoundBorder(
@@ -290,16 +323,61 @@ class DashboardTab(
                 BorderFactory.createEmptyBorder(12, 12, 12, 12)
             )
 
+            // 标题
             val titleLabel = JBLabel(NekoamaBundle.message("dashboard.section.network")).apply {
                 font = font.deriveFont(Font.BOLD, 14f)
             }
             add(titleLabel, BorderLayout.NORTH)
-
-            networkStatusLabel = JBLabel(NekoamaBundle.message("dashboard.status.loading")).apply {
-                foreground = JBColor.GRAY
-            }
-            add(networkStatusLabel, BorderLayout.CENTER)
         }
+
+        // 内容面板（垂直布局）
+        val contentPanel = JPanel().apply {
+            layout = BoxLayout(this, BoxLayout.Y_AXIS)
+            background = TabThemeManager.getTabBackgroundColor()
+            alignmentX = Component.LEFT_ALIGNMENT
+        }
+
+        // 代理配置标签
+        proxyLabel = JBLabel(NekoamaBundle.message("dashboard.status.loading")).apply {
+            foreground = JBColor.GRAY
+        }
+        contentPanel.add(proxyLabel)
+        contentPanel.add(createSpacer(4))
+
+        // 端点标签
+        endpointLabel = JBLabel(NekoamaBundle.message("dashboard.status.loading")).apply {
+            foreground = JBColor.GRAY
+        }
+        contentPanel.add(endpointLabel)
+        contentPanel.add(createSpacer(4))
+
+        // 模型标签
+        modelLabel = JBLabel(NekoamaBundle.message("dashboard.status.loading")).apply {
+            foreground = JBColor.GRAY
+        }
+        contentPanel.add(modelLabel)
+        contentPanel.add(createSpacer(4))
+
+        // 连接状态标签
+        connectionStatusLabel = JBLabel(NekoamaBundle.message("dashboard.status.loading")).apply {
+            foreground = JBColor.GRAY
+        }
+        contentPanel.add(connectionStatusLabel)
+
+        // 排查指南面板（CardLayout，默认隐藏）
+        troubleshootingPanel = JPanel(CardLayout()).apply {
+            background = TabThemeManager.getTabBackgroundColor()
+            isVisible = false
+        }
+        troubleshootingLabel = JBLabel().apply {
+            foreground = JBColor.GRAY
+        }
+        troubleshootingPanel.add(troubleshootingLabel, "guide")
+        contentPanel.add(createSpacer(8))
+        contentPanel.add(troubleshootingPanel)
+
+        panel.add(contentPanel, BorderLayout.CENTER)
+        return panel
     }
 
     private fun createTokenStatsPanel(): JPanel {
@@ -353,6 +431,56 @@ class DashboardTab(
     }
 
     /**
+     * 格式化代理配置为显示字符串
+     */
+    private fun formatProxyConfig(proxyConfig: com.cw2.nekoama.infrastructure.network.proxy.ProxyConfig?): String {
+        if (proxyConfig == null) {
+            return NekoamaBundle.message("dashboard.network.proxy.direct")
+        }
+
+        val type = when (proxyConfig.type) {
+            com.cw2.nekoama.infrastructure.network.proxy.ProxyType.HTTP -> "HTTP"
+            com.cw2.nekoama.infrastructure.network.proxy.ProxyType.HTTPS -> "HTTPS"
+            com.cw2.nekoama.infrastructure.network.proxy.ProxyType.SOCKS -> "SOCKS"
+            com.cw2.nekoama.infrastructure.network.proxy.ProxyType.DIRECT -> "Direct"
+        }
+
+        val host = proxyConfig.host ?: "unknown"
+        val port = proxyConfig.port ?: 0
+
+        return if (proxyConfig.type == com.cw2.nekoama.infrastructure.network.proxy.ProxyType.DIRECT) {
+            NekoamaBundle.message("dashboard.network.proxy.direct")
+        } else {
+            NekoamaBundle.message("dashboard.network.proxy", "$type $host:$port")
+        }
+    }
+
+    /**
+     * 更新排查指南面板
+     */
+    private fun updateTroubleshootingGuide(guide: List<String>?) {
+        if (guide.isNullOrEmpty()) {
+            troubleshootingPanel.isVisible = false
+            return
+        }
+
+        troubleshootingPanel.isVisible = true
+        val cardLayout = troubleshootingPanel.layout as CardLayout
+        cardLayout.show(troubleshootingPanel, "guide")
+
+        val html = buildString {
+            append("<html><div style='padding: 8px;'>")
+            append("<b>${NekoamaBundle.message("dashboard.network.troubleshooting.title")}</b><br>")
+            guide.forEach { step ->
+                append(step).append("<br>")
+            }
+            append("</div></html>")
+        }
+
+        troubleshootingLabel.text = html
+    }
+
+    /**
      * 刷新所有面板数据
      */
     private fun refreshData() {
@@ -372,7 +500,8 @@ class DashboardTab(
             } catch (e: Exception) {
                 NekoamaLogger.error("DashboardTab", "Failed to refresh data", mapOf("error" to (e.message ?: "unknown")))
                 ApplicationManager.getApplication().invokeLater {
-                    networkStatusLabel.text = NekoamaBundle.message("dashboard.error.with.detail", e.message ?: "")
+                    connectionStatusLabel.text = NekoamaBundle.message("dashboard.error.with.detail", e.message ?: "")
+                    connectionStatusLabel.foreground = JBColor.RED
                     tokenStatsLabel.text = NekoamaBundle.message("dashboard.error.with.detail", e.message ?: "")
                     usageStatsLabel.text = NekoamaBundle.message("dashboard.error.with.detail", e.message ?: "")
                 }
@@ -380,12 +509,20 @@ class DashboardTab(
         }
     }
 
+    /**
+     * 刷新网络状态
+     */
     private suspend fun refreshNetworkStatus() {
         val service = networkTestService
         if (service == null) {
             NekoamaLogger.error("DashboardTab", "NetworkTestService is not available")
             ApplicationManager.getApplication().invokeLater {
-                networkStatusLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
+                proxyLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
+                endpointLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
+                modelLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
+                connectionStatusLabel.text = NekoamaBundle.message("dashboard.status.disconnected")
+                connectionStatusLabel.foreground = JBColor.RED
+                troubleshootingPanel.isVisible = false
             }
             return
         }
@@ -396,24 +533,41 @@ class DashboardTab(
                 service.testConnectivity(null)
             }
             ApplicationManager.getApplication().invokeLater {
+                // 更新代理配置
+                proxyLabel.text = NekoamaBundle.message("dashboard.network.proxy.label", formatProxyConfig(status.proxyConfig))
+
+                // 更新端点
+                endpointLabel.text = NekoamaBundle.message("dashboard.network.endpoint.label", status.endpoint)
+
+                // 更新模型
+                modelLabel.text = NekoamaBundle.message("dashboard.network.model.label", status.model)
+
+                // 更新连接状态
                 if (status.isConnected) {
                     val timeStr = if (status.responseTime > 0) {
                         " (${status.responseTime}ms)"
                     } else {
                         ""
                     }
-                    networkStatusLabel.text = NekoamaBundle.message("dashboard.status.connected", timeStr)
-                    networkStatusLabel.foreground = JBColor.GREEN
+                    connectionStatusLabel.text = NekoamaBundle.message("dashboard.status.connected", timeStr)
+                    connectionStatusLabel.foreground = JBColor.GREEN
                 } else {
-                    networkStatusLabel.text = status.message
-                    networkStatusLabel.foreground = JBColor.RED
+                    connectionStatusLabel.text = status.message
+                    connectionStatusLabel.foreground = JBColor.RED
                 }
+
+                // 更新排查指南
+                updateTroubleshootingGuide(status.troubleshootingGuide)
             }
         } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
             NekoamaLogger.error("DashboardTab", "Network test timeout after 15 seconds")
             ApplicationManager.getApplication().invokeLater {
-                networkStatusLabel.text = NekoamaBundle.message("dashboard.error.timeout")
-                networkStatusLabel.foreground = JBColor.RED
+                proxyLabel.text = NekoamaBundle.message("dashboard.status.loading")
+                endpointLabel.text = NekoamaBundle.message("dashboard.status.loading")
+                modelLabel.text = NekoamaBundle.message("dashboard.status.loading")
+                connectionStatusLabel.text = NekoamaBundle.message("dashboard.error.timeout")
+                connectionStatusLabel.foreground = JBColor.RED
+                troubleshootingPanel.isVisible = false
             }
         } catch (e: Exception) {
             // Log detailed error information in English to avoid console encoding issues
@@ -426,8 +580,12 @@ class DashboardTab(
             )
             ApplicationManager.getApplication().invokeLater {
                 // Show error details to user for debugging
-                networkStatusLabel.text = "Error: ${e.javaClass.simpleName} - ${e.message ?: "Unknown error"}"
-                networkStatusLabel.foreground = JBColor.RED
+                proxyLabel.text = NekoamaBundle.message("dashboard.status.loading")
+                endpointLabel.text = NekoamaBundle.message("dashboard.status.loading")
+                modelLabel.text = NekoamaBundle.message("dashboard.status.loading")
+                connectionStatusLabel.text = "Error: ${e.javaClass.simpleName} - ${e.message ?: "Unknown error"}"
+                connectionStatusLabel.foreground = JBColor.RED
+                troubleshootingPanel.isVisible = false
             }
         }
     }
