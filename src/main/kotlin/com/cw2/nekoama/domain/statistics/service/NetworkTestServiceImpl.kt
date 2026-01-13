@@ -41,10 +41,15 @@ class NetworkTestServiceImpl(
                 null
             }
 
+            // 获取设置以填充 endpoint 和 model
+            val settings = NekoamaSettings.getInstance()
+
             ConnectivityStatus(
                 isConnected = testResult.success,
                 responseTime = testResult.responseTime,
                 message = testResult.message,
+                endpoint = testUrl,
+                model = settings.model,
                 proxyConfig = proxyConfig,
                 troubleshootingGuide = troubleshootingGuide
             )
