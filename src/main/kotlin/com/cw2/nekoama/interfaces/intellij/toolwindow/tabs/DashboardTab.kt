@@ -271,13 +271,13 @@ class DashboardTab(
                     val status = testResult!!
 
                     // 更新代理配置
-                    proxyLabel.text = NekoamaBundle.message("dashboard.network.proxy.label", formatProxyConfig(status.proxyConfig))
+                    proxyLabel.text = NekoamaBundle.message("dashboard.network.proxy", formatProxyConfig(status.proxyConfig))
 
                     // 更新端点
-                    endpointLabel.text = NekoamaBundle.message("dashboard.network.endpoint.label", status.endpoint)
+                    endpointLabel.text = NekoamaBundle.message("dashboard.network.endpoint", status.endpoint)
 
                     // 更新模型
-                    modelLabel.text = NekoamaBundle.message("dashboard.network.model.label", status.model)
+                    modelLabel.text = NekoamaBundle.message("dashboard.network.model", status.model)
 
                     // 更新连接状态
                     if (status.isConnected) {
@@ -534,13 +534,13 @@ class DashboardTab(
             }
             ApplicationManager.getApplication().invokeLater {
                 // 更新代理配置
-                proxyLabel.text = NekoamaBundle.message("dashboard.network.proxy.label", formatProxyConfig(status.proxyConfig))
+                proxyLabel.text = NekoamaBundle.message("dashboard.network.proxy", formatProxyConfig(status.proxyConfig))
 
                 // 更新端点
-                endpointLabel.text = NekoamaBundle.message("dashboard.network.endpoint.label", status.endpoint)
+                endpointLabel.text = NekoamaBundle.message("dashboard.network.endpoint", status.endpoint)
 
                 // 更新模型
-                modelLabel.text = NekoamaBundle.message("dashboard.network.model.label", status.model)
+                modelLabel.text = NekoamaBundle.message("dashboard.network.model", status.model)
 
                 // 更新连接状态
                 if (status.isConnected) {
