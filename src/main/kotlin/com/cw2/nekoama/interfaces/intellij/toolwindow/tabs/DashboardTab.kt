@@ -20,6 +20,7 @@ import com.intellij.openapi.project.Project as IjProject
 import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBScrollPane
+import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -34,13 +35,16 @@ import com.intellij.openapi.progress.Task
 import java.awt.BorderLayout
 import java.awt.CardLayout
 import java.awt.Component
+import java.awt.FlowLayout
 import java.awt.Font
 import java.awt.event.ActionEvent
 import javax.swing.BorderFactory
+import javax.swing.Box
 import javax.swing.BoxLayout
 import javax.swing.JButton
 import javax.swing.JLabel
 import javax.swing.JPanel
+import javax.swing.JSeparator
 import javax.swing.Timer
 
 /**
@@ -106,36 +110,62 @@ class DashboardTab(
     private lateinit var usageStatsLabel: JBLabel
 
     override fun createComponentImpl(): JPanel {
+        // 创建主容器面板（使用 BorderLayout 居中内容）
+        val containerPanel = JPanel(BorderLayout()).apply {
+            background = TabThemeManager.getTabBackgroundColor()
+            border = JBUI.Borders.empty(12)
+        }
+
+        // 创建内容面板（垂直布局，顶部对齐）
         mainPanel = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             background = TabThemeManager.getTabBackgroundColor()
-            border = BorderFactory.createEmptyBorder(16, 16, 16, 16)
+            alignmentX = Component.LEFT_ALIGNMENT
+            alignmentY = Component.TOP_ALIGNMENT
         }
 
-        // 标题
+        // 标题栏
         mainPanel.add(createHeaderPanel())
-        mainPanel.add(createSpacer(16))
+        mainPanel.add(Box.createVerticalStrut(12))
+
+        // 分隔线
+        mainPanel.add(JSeparator())
+        mainPanel.add(Box.createVerticalStrut(12))
 
         // 快捷操作按钮
         quickActionsPanel = createQuickActionsPanel()
         mainPanel.add(quickActionsPanel)
-        mainPanel.add(createSpacer(16))
+        mainPanel.add(Box.createVerticalStrut(12))
+
+        // 分隔线
+        mainPanel.add(JSeparator())
+        mainPanel.add(Box.createVerticalStrut(8))
 
         // 网络状态面板
         networkStatusPanel = createNetworkStatusPanel()
         mainPanel.add(networkStatusPanel)
-        mainPanel.add(createSpacer(12))
+        mainPanel.add(Box.createVerticalStrut(8))
 
         // Token 统计面板
         tokenStatsPanel = createTokenStatsPanel()
         mainPanel.add(tokenStatsPanel)
-        mainPanel.add(createSpacer(12))
+        mainPanel.add(Box.createVerticalStrut(8))
 
         // 使用统计面板
         usageStatsPanel = createUsageStatsPanel()
         mainPanel.add(usageStatsPanel)
 
-        return mainPanel
+        // 用 JScrollPane 包裹，支持滚动（内容少时不显示滚动条）
+        val scrollPane = JBScrollPane(mainPanel).apply {
+            border = null
+            horizontalScrollBarPolicy = JBScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+            verticalScrollBarPolicy = JBScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED
+            viewport.background = TabThemeManager.getTabBackgroundColor()
+        }
+
+        containerPanel.add(scrollPane, BorderLayout.NORTH)
+
+        return containerPanel
     }
 
     private fun createHeaderPanel(): JPanel {
@@ -143,16 +173,20 @@ class DashboardTab(
             layout = BoxLayout(this, BoxLayout.X_AXIS)
             background = TabThemeManager.getTabBackgroundColor()
             alignmentX = Component.LEFT_ALIGNMENT
+            alignmentY = Component.TOP_ALIGNMENT
+            border = JBUI.Borders.empty(0, 0, 4, 0)
 
             val titleLabel = JBLabel(NekoamaBundle.message("dashboard.tab.title")).apply {
-                font = font.deriveFont(Font.BOLD, 20f)
-                foreground = TabThemeManager.getTabTextColor()
+                font = font.deriveFont(Font.BOLD, 18f)
+                foreground = UIUtil.getLabelForeground()
             }
             add(titleLabel)
 
-            add(javax.swing.Box.createHorizontalGlue())
+            add(Box.createHorizontalGlue())
 
             val refreshButton = JButton(NekoamaBundle.message("dashboard.button.refresh")).apply {
+                font = font.deriveFont(12f)
+                isFocusPainted = false
                 addActionListener { refreshData() }
             }
             add(refreshButton)
@@ -160,17 +194,13 @@ class DashboardTab(
     }
 
     /**
-     * 创建快捷操作按钮面板
+     * 创建快捷操作按钮面板（极简风格）
      */
     private fun createQuickActionsPanel(): JPanel {
-        return JPanel().apply {
-            layout = BoxLayout(this, BoxLayout.X_AXIS)
+        return JPanel(FlowLayout(FlowLayout.LEFT, 8, 0)).apply {
             background = TabThemeManager.getTabBackgroundColor()
             alignmentX = Component.LEFT_ALIGNMENT
-            border = BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(TabThemeManager.getBorderColor()),
-                BorderFactory.createEmptyBorder(8, 12, 8, 12)
-            )
+            alignmentY = Component.TOP_ALIGNMENT
 
             // 设置按钮
             val settingsButton = createQuickActionButton(
@@ -200,11 +230,8 @@ class DashboardTab(
             }
 
             add(settingsButton)
-            add(javax.swing.Box.createHorizontalStrut(8))
             add(guideButton)
-            add(javax.swing.Box.createHorizontalStrut(8))
             add(testConnectionButton)
-            add(javax.swing.Box.createHorizontalGlue())
         }
     }
 
@@ -216,6 +243,9 @@ class DashboardTab(
     ): JButton {
         return JButton(text, icon).apply {
             toolTipText = tooltip
+            font = font.deriveFont(12f)
+            isFocusPainted = false
+            margin = JBUI.insets(4, 8, 4, 8)
             addActionListener { onClick() }
         }
     }
@@ -312,122 +342,151 @@ class DashboardTab(
     }
 
     /**
-     * 创建网络状态面板
+     * 创建网络状态面板（极简风格）
      */
     private fun createNetworkStatusPanel(): JPanel {
         val panel = JPanel().apply {
-            layout = BorderLayout(8, 8)
+            layout = BoxLayout(this, BoxLayout.Y_AXIS)
             background = TabThemeManager.getTabBackgroundColor()
-            border = BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(TabThemeManager.getBorderColor()),
-                BorderFactory.createEmptyBorder(12, 12, 12, 12)
-            )
-
-            // 标题
-            val titleLabel = JBLabel(NekoamaBundle.message("dashboard.section.network")).apply {
-                font = font.deriveFont(Font.BOLD, 14f)
-            }
-            add(titleLabel, BorderLayout.NORTH)
+            alignmentX = Component.LEFT_ALIGNMENT
+            alignmentY = Component.TOP_ALIGNMENT
+            border = JBUI.Borders.empty(8, 0)
         }
 
-        // 内容面板（垂直布局）
+        // 标题
+        val titleLabel = JBLabel(NekoamaBundle.message("dashboard.section.network")).apply {
+            font = font.deriveFont(Font.BOLD, 13f)
+            alignmentX = Component.LEFT_ALIGNMENT
+        }
+        panel.add(titleLabel)
+        panel.add(Box.createVerticalStrut(4))
+
+        // 分隔线
+        panel.add(JSeparator())
+        panel.add(Box.createVerticalStrut(8))
+
+        // 内容区域
         val contentPanel = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             background = TabThemeManager.getTabBackgroundColor()
             alignmentX = Component.LEFT_ALIGNMENT
+            alignmentY = Component.TOP_ALIGNMENT
         }
 
         // 代理配置标签
         proxyLabel = JBLabel(NekoamaBundle.message("dashboard.status.loading")).apply {
-            foreground = JBColor.GRAY
+            foreground = UIUtil.getLabelForeground().darker()
+            alignmentX = Component.LEFT_ALIGNMENT
         }
         contentPanel.add(proxyLabel)
-        contentPanel.add(createSpacer(4))
+        contentPanel.add(Box.createVerticalStrut(4))
 
         // 端点标签
         endpointLabel = JBLabel(NekoamaBundle.message("dashboard.status.loading")).apply {
-            foreground = JBColor.GRAY
+            foreground = UIUtil.getLabelForeground().darker()
+            alignmentX = Component.LEFT_ALIGNMENT
         }
         contentPanel.add(endpointLabel)
-        contentPanel.add(createSpacer(4))
+        contentPanel.add(Box.createVerticalStrut(4))
 
         // 模型标签
         modelLabel = JBLabel(NekoamaBundle.message("dashboard.status.loading")).apply {
-            foreground = JBColor.GRAY
+            foreground = UIUtil.getLabelForeground().darker()
+            alignmentX = Component.LEFT_ALIGNMENT
         }
         contentPanel.add(modelLabel)
-        contentPanel.add(createSpacer(4))
+        contentPanel.add(Box.createVerticalStrut(4))
 
         // 连接状态标签
         connectionStatusLabel = JBLabel(NekoamaBundle.message("dashboard.status.loading")).apply {
-            foreground = JBColor.GRAY
+            foreground = UIUtil.getLabelForeground().darker()
+            alignmentX = Component.LEFT_ALIGNMENT
         }
         contentPanel.add(connectionStatusLabel)
 
         // 排查指南面板（CardLayout，默认隐藏）
         troubleshootingPanel = JPanel(CardLayout()).apply {
             background = TabThemeManager.getTabBackgroundColor()
+            alignmentX = Component.LEFT_ALIGNMENT
             isVisible = false
         }
         troubleshootingLabel = JBLabel().apply {
-            foreground = JBColor.GRAY
+            foreground = UIUtil.getLabelForeground().darker()
         }
         troubleshootingPanel.add(troubleshootingLabel, "guide")
-        contentPanel.add(createSpacer(8))
+        contentPanel.add(Box.createVerticalStrut(8))
         contentPanel.add(troubleshootingPanel)
 
-        panel.add(contentPanel, BorderLayout.CENTER)
+        panel.add(contentPanel)
         return panel
     }
 
+    /**
+     * 创建 Token 统计面板（极简风格）
+     */
     private fun createTokenStatsPanel(): JPanel {
-        return JPanel().apply {
-            layout = BorderLayout(8, 8)
+        val panel = JPanel().apply {
+            layout = BoxLayout(this, BoxLayout.Y_AXIS)
             background = TabThemeManager.getTabBackgroundColor()
-            border = BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(TabThemeManager.getBorderColor()),
-                BorderFactory.createEmptyBorder(12, 12, 12, 12)
-            )
-
-            val titleLabel = JBLabel(NekoamaBundle.message("dashboard.section.tokens")).apply {
-                font = font.deriveFont(Font.BOLD, 14f)
-            }
-            add(titleLabel, BorderLayout.NORTH)
-
-            tokenStatsLabel = JBLabel(NekoamaBundle.message("dashboard.status.loading")).apply {
-                foreground = JBColor.GRAY
-            }
-            add(tokenStatsLabel, BorderLayout.CENTER)
+            alignmentX = Component.LEFT_ALIGNMENT
+            alignmentY = Component.TOP_ALIGNMENT
+            border = JBUI.Borders.empty(8, 0)
         }
+
+        // 标题
+        val titleLabel = JBLabel(NekoamaBundle.message("dashboard.section.tokens")).apply {
+            font = font.deriveFont(Font.BOLD, 13f)
+            alignmentX = Component.LEFT_ALIGNMENT
+        }
+        panel.add(titleLabel)
+        panel.add(Box.createVerticalStrut(4))
+
+        // 分隔线
+        panel.add(JSeparator())
+        panel.add(Box.createVerticalStrut(8))
+
+        // 内容
+        tokenStatsLabel = JBLabel(NekoamaBundle.message("dashboard.status.loading")).apply {
+            foreground = UIUtil.getLabelForeground().darker()
+            alignmentX = Component.LEFT_ALIGNMENT
+        }
+        panel.add(tokenStatsLabel)
+
+        return panel
     }
 
+    /**
+     * 创建使用统计面板（极简风格）
+     */
     private fun createUsageStatsPanel(): JPanel {
-        return JPanel().apply {
-            layout = BorderLayout(8, 8)
+        val panel = JPanel().apply {
+            layout = BoxLayout(this, BoxLayout.Y_AXIS)
             background = TabThemeManager.getTabBackgroundColor()
-            border = BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(TabThemeManager.getBorderColor()),
-                BorderFactory.createEmptyBorder(12, 12, 12, 12)
-            )
-
-            val titleLabel = JBLabel(NekoamaBundle.message("dashboard.section.usage")).apply {
-                font = font.deriveFont(Font.BOLD, 14f)
-            }
-            add(titleLabel, BorderLayout.NORTH)
-
-            usageStatsLabel = JBLabel(NekoamaBundle.message("dashboard.status.loading")).apply {
-                foreground = JBColor.GRAY
-            }
-            add(usageStatsLabel, BorderLayout.CENTER)
+            alignmentX = Component.LEFT_ALIGNMENT
+            alignmentY = Component.TOP_ALIGNMENT
+            border = JBUI.Borders.empty(8, 0)
         }
-    }
 
-    private fun createSpacer(height: Int): JPanel {
-        return JPanel().apply {
-            preferredSize = java.awt.Dimension(0, height)
-            maximumSize = java.awt.Dimension(Integer.MAX_VALUE, height)
-            background = TabThemeManager.getTabBackgroundColor()
+        // 标题
+        val titleLabel = JBLabel(NekoamaBundle.message("dashboard.section.usage")).apply {
+            font = font.deriveFont(Font.BOLD, 13f)
+            alignmentX = Component.LEFT_ALIGNMENT
         }
+        panel.add(titleLabel)
+        panel.add(Box.createVerticalStrut(4))
+
+        // 分隔线
+        panel.add(JSeparator())
+        panel.add(Box.createVerticalStrut(8))
+
+        // 内容
+        usageStatsLabel = JBLabel(NekoamaBundle.message("dashboard.status.loading")).apply {
+            foreground = UIUtil.getLabelForeground().darker()
+            alignmentX = Component.LEFT_ALIGNMENT
+        }
+        panel.add(usageStatsLabel)
+
+        return panel
     }
 
     /**

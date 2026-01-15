@@ -273,7 +273,7 @@ class OpenAIResponseParserTest {
             // 验证结果
             assertThat(result.isSuccess).isTrue()
             val content = result.getOrNull()!!
-            assertThat(content).contains("自定义的生成内容")
+            assertThat(content.content).contains("自定义的生成内容")
         }
     }
 
