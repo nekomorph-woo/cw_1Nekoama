@@ -4,8 +4,10 @@ import com.cw2.nekoama.application.usecase.GenerateCommentUseCase
 import com.cw2.nekoama.application.usecase.GeneratorFactory
 import com.cw2.nekoama.domain.code_suggestion_gen.service.code_analysis.CodeAnalysisService
 import com.cw2.nekoama.domain.settings.model.NekoamaSettings
+import com.cw2.nekoama.domain.code_suggestion_gen.model.CommentSuggestion
 import com.cw2.nekoama.domain.statistics.model.ActionType
 import com.cw2.nekoama.domain.statistics.service.StatisticsService
+import com.cw2.nekoama.domain.statistics.service.TokenUsageData
 import com.cw2.nekoama.infrastructure.code_suggestion_gen.code_analysis.UniversalCodeElementAnalyzer
 import com.cw2.nekoama.shared.i18n.NekoamaBundle
 import com.cw2.nekoama.shared.util.NekoamaNotifier
@@ -108,8 +110,13 @@ internal class GenerateCommentAction : BaseAction() {
 
                     // 处理结果并插入注释
                     if (result.isSuccess) {
-                        val commentContent = result.getOrNull()
-                            ?: NekoamaBundle.message("action.comment.generatedPlaceholder")
+                        val suggestion = result.getOrNull()
+                            ?: run {
+                                NekoamaNotifier.warn(NekoamaBundle.message("action.comment.generatedPlaceholder"))
+                                return
+                            }
+
+                        val commentContent = suggestion.content
 
                         // 写命令：将AI生成的注释（KDoc/JavaDoc）插入到代码
                         WriteCommandAction.runWriteCommandAction(project, title, null, Runnable {
@@ -163,7 +170,17 @@ internal class GenerateCommentAction : BaseAction() {
                         // 记录使用统计
                         project.service<StatisticsService>()?.let { service ->
                             CoroutineScope(Dispatchers.IO).launch {
+                                // 记录功能使用次数
                                 service.recordUsage(ActionType.COMMENT)
+
+                                // 记录 Token 使用量
+                                service.recordTokenUsage(
+                                    TokenUsageData(
+                                        promptTokens = suggestion.metadata.promptTokens,
+                                        completionTokens = suggestion.metadata.completionTokens,
+                                        totalTokens = suggestion.metadata.totalTokens
+                                    )
+                                )
                             }
                         }
                     } else {
