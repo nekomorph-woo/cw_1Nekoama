@@ -37,20 +37,20 @@ object OpenAIResponseParser {
         return try {
             val content = response.choices.firstOrNull()?.message?.content
                 ?: return NekoamaResult.error(NekoamaError.ParseError.InvalidResponse("响应内容为空"))
-            
+
             NekoamaLogger.debug("parseNamingResponse", "解析响应内容: $content")
-            
+
             // 尝试解析 JSON 响应
             val jsonResponse = parseJsonContent(content)
             if (jsonResponse.errorOrNull() != null) {
                 // 如果 JSON 解析失败，尝试解析纯文本响应
-                return parseNamingFromPlainText(content, context)
+                return parseNamingFromPlainText(content, context, response.usage)
             }
             val jsonElement = jsonResponse.getOrNull() ?: return NekoamaResult.error(NekoamaError.ParseError.JsonParse("JSON解析失败"))
-            
+
             val suggestionsJson = jsonElement.jsonObject["suggestions"]?.jsonArray
                 ?: return NekoamaResult.error(NekoamaError.ParseError.InvalidResponse("响应中缺suggestions 字段"))
-            
+
             val suggestions = suggestionsJson.mapNotNull { suggestionJson ->
                 try {
                     parseSingleNamingSuggestion(suggestionJson.jsonObject, context)
@@ -59,23 +59,28 @@ object OpenAIResponseParser {
                     null
                 }
             }
-            
+
             if (suggestions.isEmpty()) {
                 return NekoamaResult.error(NekoamaError.ParseError.InvalidResponse("未能解析出有效的命名建议"))
             }
-            
+
+            // 从 API 响应中提取 Token 数据
+            val usage = response.usage
             // 添加元数据
             val enrichedSuggestions = suggestions.map { suggestion ->
                 suggestion.copy(
                     metadata = suggestion.metadata.copy(
                         source = "OpenAI",
-                        model = response.model
+                        model = response.model,
+                        promptTokens = usage?.promptTokens ?: 0,
+                        completionTokens = usage?.completionTokens ?: 0,
+                        totalTokens = usage?.totalTokens ?: 0
                     )
                 )
             }
-            
+
             NekoamaResult.success(enrichedSuggestions)
-            
+
         } catch (e: Exception) {
             NekoamaLogger.logError("parseNamingResponse", NekoamaError.ParseError.JsonParse(),
                 context = mapOf("error" to e.message, "response" to response.toString()))
@@ -97,7 +102,7 @@ object OpenAIResponseParser {
             val jsonResponse = parseJsonContent(content)
             if (jsonResponse.errorOrNull() != null) {
                 // 如果 JSON 解析失败，使用纯文本作为注释内容
-                return parseCommentFromPlainText(content, context)
+                return parseCommentFromPlainText(content, context, response.usage)
             }
             val jsonElement = jsonResponse.getOrNull() ?: return NekoamaResult.error(NekoamaError.ParseError.JsonParse("JSON解析失败"))
 
@@ -107,6 +112,8 @@ object OpenAIResponseParser {
             // 解析结构化信息
             val structure = parseCommentStructure(jsonElement.jsonObject)
 
+            // 从 API 响应中提取 Token 数据
+            val usage = response.usage
             val commentSuggestion = CommentSuggestion(
                 content = commentContent,
                 format = determineCommentFormat(context),
@@ -114,7 +121,10 @@ object OpenAIResponseParser {
                 language = determineCommentLanguage(),
                 metadata = SuggestionMetadata(
                     source = "OpenAI",
-                    model = response.model
+                    model = response.model,
+                    promptTokens = usage?.promptTokens ?: 0,
+                    completionTokens = usage?.completionTokens ?: 0,
+                    totalTokens = usage?.totalTokens ?: 0
                 )
             )
 
@@ -190,18 +200,18 @@ object OpenAIResponseParser {
     /**
      * 从纯文本解析命名建议
      */
-    private fun parseNamingFromPlainText(content: String, context: CodeContext): NekoamaResult<List<NamingSuggestion>> {
+    private fun parseNamingFromPlainText(content: String, context: CodeContext, usage: com.cw2.nekoama.infrastructure.code_suggestion_gen.model.openai.OpenAIUsage? = null): NekoamaResult<List<NamingSuggestion>> {
         return try {
             val suggestions = mutableListOf<NamingSuggestion>()
             val lines = content.lines().filter { it.isNotBlank() }
-            
+
             lines.forEach { line ->
                 // 尝试解析 "名称 - 描述" 格式
                 val parts = line.split(" - ", limit = 2)
                 if (parts.size == 2) {
                     val name = parts[0].trim().removePrefix("•").removePrefix("-").removePrefix("*").trim()
                     val description = parts[1].trim()
-                    
+
                     if (name.isNotBlank() && description.isNotBlank()) {
                         suggestions.add(
                             NamingSuggestion(
@@ -210,19 +220,25 @@ object OpenAIResponseParser {
                                 score = 0.7,
                                 namingConvention = determineNamingConvention(name, context),
                                 applicableFor = listOf(context.elementType),
-                                confidence = 0.75
+                                confidence = 0.75,
+                                metadata = SuggestionMetadata(
+                                    source = "OpenAI",
+                                    promptTokens = usage?.promptTokens ?: 0,
+                                    completionTokens = usage?.completionTokens ?: 0,
+                                    totalTokens = usage?.totalTokens ?: 0
+                                )
                             )
                         )
                     }
                 }
             }
-            
+
             if (suggestions.isEmpty()) {
                 return NekoamaResult.error(NekoamaError.ParseError.InvalidResponse("无法从纯文本中解析出命名建议"))
             }
-            
+
             NekoamaResult.success(suggestions)
-            
+
         } catch (e: Exception) {
             NekoamaResult.error(NekoamaError.ParseError.InvalidResponse("纯文本解析失 ${e.message}"))
         }
@@ -231,14 +247,17 @@ object OpenAIResponseParser {
     /**
      * 从纯文本解析注释建议
      */
-    private fun parseCommentFromPlainText(content: String, context: CodeContext): NekoamaResult<CommentSuggestion> {
+    private fun parseCommentFromPlainText(content: String, context: CodeContext, usage: com.cw2.nekoama.infrastructure.code_suggestion_gen.model.openai.OpenAIUsage? = null): NekoamaResult<CommentSuggestion> {
         return try {
             val commentSuggestion = CommentSuggestion(
                 content = content.trim(),
                 format = determineCommentFormat(context),
                 language = determineCommentLanguage(),
                 metadata = SuggestionMetadata(
-                    source = "OpenAI"
+                    source = "OpenAI",
+                    promptTokens = usage?.promptTokens ?: 0,
+                    completionTokens = usage?.completionTokens ?: 0,
+                    totalTokens = usage?.totalTokens ?: 0
                 )
             )
 
