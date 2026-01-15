@@ -44,9 +44,9 @@ interface CodeSuggestionGenerator {
      *
      * @param prompt 用户自定义的提示内容
      * @param context 可选的代码上下文信息，为null时仅使用prompt
-     * @return 包含生成内容的结果
+     * @return 包含生成内容及其元数据（如 Token 使用量）的结果
      */
-    suspend fun generateCustom(prompt: String, context: CodeContext? = null): NekoamaResult<String>
+    suspend fun generateCustom(prompt: String, context: CodeContext? = null): NekoamaResult<com.cw2.nekoama.domain.code_suggestion_gen.model.CustomSuggestion>
 
     /**
      * 检查服务是否可用

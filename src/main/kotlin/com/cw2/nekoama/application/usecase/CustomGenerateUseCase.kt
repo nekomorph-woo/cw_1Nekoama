@@ -22,9 +22,9 @@ class CustomGenerateUseCase(
      * 生成自定义内容
      *
      * @param selectionText 用户选中的文本
-     * @return 生成结果，成功时返回生成内容，失败时返回错误信息
+     * @return 生成结果，成功时返回生成内容及其元数据（如 Token 使用量），失败时返回错误信息
      */
-    suspend fun generateCustom(selectionText: String): NekoamaResult<String> {
+    suspend fun generateCustom(selectionText: String): NekoamaResult<com.cw2.nekoama.domain.code_suggestion_gen.model.CustomSuggestion> {
         // 创建生成器
         val generator = generatorFactory.createGenerator(maxTokens = 2000)
             ?: return NekoamaResult.error(NekoamaError.AuthenticationError.ApiKeyNotConfigured("API 未配置"))

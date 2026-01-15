@@ -140,13 +140,26 @@ object OpenAIResponseParser {
     /**
      * 解析自定义生成响应
      */
-    fun parseCustomResponse(response: OpenAIResponse): NekoamaResult<String> {
+    fun parseCustomResponse(response: OpenAIResponse): NekoamaResult<com.cw2.nekoama.domain.code_suggestion_gen.model.CustomSuggestion> {
         return try {
             val content = response.choices.firstOrNull()?.message?.content
                 ?: return NekoamaResult.error(NekoamaError.ParseError.InvalidResponse("响应内容为空"))
-            
-            NekoamaResult.success(content.trim())
-            
+
+            // 从 API 响应中提取 Token 数据
+            val usage = response.usage
+            val customSuggestion = com.cw2.nekoama.domain.code_suggestion_gen.model.CustomSuggestion(
+                content = content.trim(),
+                metadata = SuggestionMetadata(
+                    source = "OpenAI",
+                    model = response.model,
+                    promptTokens = usage?.promptTokens ?: 0,
+                    completionTokens = usage?.completionTokens ?: 0,
+                    totalTokens = usage?.totalTokens ?: 0
+                )
+            )
+
+            NekoamaResult.success(customSuggestion)
+
         } catch (e: Exception) {
             NekoamaLogger.logError("parseCustomResponse", NekoamaError.ParseError.JsonParse(),
                 context = mapOf("error" to e.message))
