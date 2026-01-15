@@ -14,25 +14,25 @@ import java.net.UnknownHostException
 import java.util.concurrent.TimeoutException
 
 /**
- * HTTP客户端基础�?
+ * HTTP客户端基础
  *
- * 提供统一的HTTP状态码处理和异常处理机�?
+ * 提供统一的HTTP状态码处理和异常处理机制
  * 子类只需实现具体的HTTP请求发送逻辑
  */
 abstract class BaseHttpClient {
 
     /**
-     * 子类需要实现的异步请求发送方�?
+     * 子类需要实现的异步请求发送方
      */
     protected abstract suspend fun sendHttpRequest(request: OpenAIRequest): HttpResponseData
 
     /**
-     * 子类需要实现的同步请求发送方�?
+     * 子类需要实现的同步请求发送方
      */
     protected abstract fun sendHttpRequestSync(request: OpenAIRequest): HttpResponseData
 
     /**
-     * 统一的异步请求处�?
+     * 统一的异步请求处理
      */
     suspend fun sendRequest(request: OpenAIRequest): NekoamaResult<OpenAIResponse> {
         return try {
@@ -59,7 +59,7 @@ abstract class BaseHttpClient {
     }
 
     /**
-     * 统一的同步请求处�?
+     * 统一的同步请求处�?
      */
     fun sendRequestSync(request: OpenAIRequest): NekoamaResult<OpenAIResponse> {
         return try {
@@ -93,7 +93,7 @@ abstract class BaseHttpClient {
             200 -> {
                 val response = parseSuccessResponse(httpResponse.body)
                 response.onSuccess {
-                    // 移除HttpClient层的日志调用，避免重复埋�?
+                    // 移除HttpClient层的日志调用，避免重复埋�?
                     // 日志记录由Provider层的logAICallWithActionType处理
                 }
                 response
@@ -114,13 +114,13 @@ abstract class BaseHttpClient {
                 NekoamaResult.error(error)
             }
             407 -> {
-                // 🔧 修复：添加HTTP 407代理认证错误的专门处�?
+                // 🔧 修复：添加HTTP 407代理认证错误的专门处�?
                 val error = NekoamaError.NetworkError.ProxyAuthenticationRequired(
                     "代理认证失败：请检查IDEA代理配置中的用户名和密码是否正确"
                 )
                 NekoamaLogger.logError(methodName, error, context = mapOf(
                     "statusCode" to 407,
-                    "suggestion" to "请检查IDEA的代理设置：File �?Settings �?HTTP Proxy",
+                    "suggestion" to "请检查IDEA的代理设置：File �?Settings �?HTTP Proxy",
                     "proxyConfigTip" to "确保代理服务器地址、端口、用户名和密码都正确配置"
                 ))
                 NekoamaResult.error(error)
@@ -132,7 +132,7 @@ abstract class BaseHttpClient {
                 NekoamaResult.error(error)
             }
             500, 502, 503, 504 -> {
-                val error = NekoamaError.APIError.ServerError("服务器错�? ${httpResponse.statusCode}")
+                val error = NekoamaError.APIError.ServerError("服务器错�? ${httpResponse.statusCode}")
                 NekoamaLogger.logError(methodName, error)
                 NekoamaResult.error(error)
             }
@@ -145,7 +145,7 @@ abstract class BaseHttpClient {
     }
 
     /**
-     * 统一的超时异常处�?
+     * 统一的超时异常处�?
      */
     private fun handleTimeoutException(
         methodName: String,
@@ -182,7 +182,7 @@ abstract class BaseHttpClient {
      * 主机异常处理
      */
     private fun handleHostException(methodName: String, e: UnknownHostException): NekoamaResult<OpenAIResponse> {
-        val error = NekoamaError.NetworkError.NetworkUnreachable("主机名解析失�? ${e.message}")
+        val error = NekoamaError.NetworkError.NetworkUnreachable("主机名解析失�? ${e.message}")
         NekoamaLogger.logError(methodName, error, context = mapOf(
             "exceptionType" to "UnknownHostException",
             "exceptionMessage" to e.message
@@ -245,7 +245,7 @@ abstract class BaseHttpClient {
     }
 
     /**
-     * HTTP响应数据�?
+     * HTTP响应数据�?
      */
     data class HttpResponseData(
         val statusCode: Int,

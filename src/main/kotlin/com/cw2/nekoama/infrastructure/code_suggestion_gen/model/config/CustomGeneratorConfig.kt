@@ -21,7 +21,7 @@ data class CustomGeneratorConfig(
     override val model: String,
     override val maxTokens: Int = 150,
     override val temperature: Double = 0.7,
-    override val timeoutMs: Long = 30000,
+    override val timeoutMs: Long = 120000,  // 2分钟，适配大模型响应时间
     override val maxRetries: Int = 3,
 
     /**

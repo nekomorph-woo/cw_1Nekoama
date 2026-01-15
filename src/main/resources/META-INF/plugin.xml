@@ -53,9 +53,10 @@
                     icon="/icons/NekoamaToolWindow.svg"/>
 
         <!-- 项目服务注册 -->
-        <projectService serviceImplementation="com.cw2.nekoama.infrastructure.statistics.PropertiesStatisticsRepository"/>
-        <projectService serviceImplementation="com.cw2.nekoama.domain.statistics.service.StatisticsServiceImpl"/>
-        <projectService serviceImplementation="com.cw2.nekoama.domain.statistics.service.NetworkTestServiceImpl"/>
+<!--        <projectService serviceImplementation="com.cw2.nekoama.infrastructure.statistics.PropertiesStatisticsRepository"/>-->
+        <projectService serviceInterface="com.cw2.nekoama.domain.statistics.service.StatisticsService"
+                        serviceImplementation="com.cw2.nekoama.domain.statistics.service.StatisticsServiceImpl"/>
+<!--        <projectService serviceImplementation="com.cw2.nekoama.domain.statistics.service.NetworkTestServiceImpl"/>-->
     </extensions>
 
     <extensions defaultExtensionNs="org.jetbrains.kotlin">
