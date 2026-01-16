@@ -3,6 +3,9 @@ package com.cw2.nekoama.interfaces.intellij.actions
 import com.cw2.nekoama.application.usecase.CustomGenerateUseCase
 import com.cw2.nekoama.application.usecase.GeneratorFactory
 import com.cw2.nekoama.domain.settings.model.NekoamaSettings
+import com.cw2.nekoama.domain.statistics.model.ActionType
+import com.cw2.nekoama.domain.statistics.service.StatisticsService
+import com.cw2.nekoama.domain.statistics.service.TokenUsageData
 import com.cw2.nekoama.shared.i18n.NekoamaBundle
 import com.cw2.nekoama.shared.util.NekoamaNotifier
 import com.cw2.nekoama.shared.logging.NekoamaLogger
@@ -10,11 +13,15 @@ import com.cw2.nekoama.shared.exception.NekoamaError
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.components.service
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 /**
@@ -71,8 +78,11 @@ internal class CustomGenerateAction : BaseAction() {
 
                         // 处理结果：将AI返回内容以行注释的方式插入到选中内容的上方
                         if (result.isSuccess) {
-                            val generatedContent = result.getOrNull()
-                                ?: NekoamaBundle.message("action.custom.emptyResult")
+                            val suggestion = result.getOrNull()
+                                ?: com.cw2.nekoama.domain.code_suggestion_gen.model.CustomSuggestion(
+                                    content = NekoamaBundle.message("action.custom.emptyResult")
+                                )
+                            val generatedContent = suggestion.content
                             val lineComment = generatedContent
                                 .lines()
                                 .joinToString(separator = "\n// ") { it.trimEnd() }
@@ -89,6 +99,23 @@ internal class CustomGenerateAction : BaseAction() {
                                     document.insertString(insertionOffset, "$lineComment\n\n")
                                 })
                             NekoamaNotifier.info(NekoamaBundle.message("action.comment.generatedOk"))
+
+                            // 记录使用统计
+                            project.service<StatisticsService>()?.let { service ->
+                                CoroutineScope(Dispatchers.IO).launch {
+                                    // 记录功能使用次数
+                                    service.recordUsage(ActionType.CUSTOM_GENERATE)
+
+                                    // 记录 Token 使用量
+                                    service.recordTokenUsage(
+                                        TokenUsageData(
+                                            promptTokens = suggestion.metadata.promptTokens,
+                                            completionTokens = suggestion.metadata.completionTokens,
+                                            totalTokens = suggestion.metadata.totalTokens
+                                        )
+                                    )
+                                }
+                            }
                         } else {
                             val error = result.errorOrNull()
                             val errMsg = error?.message ?: NekoamaBundle.message("common.unknownError")

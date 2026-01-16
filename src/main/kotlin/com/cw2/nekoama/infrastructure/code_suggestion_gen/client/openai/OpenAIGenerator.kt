@@ -9,12 +9,12 @@ import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomGen
 import com.cw2.nekoama.infrastructure.network.client.CustomAPIHttpClient
 import com.cw2.nekoama.shared.exception.NekoamaError
 import com.cw2.nekoama.shared.logging.NekoamaLogger
-import com.cw2.nekoama.shared.model.Result
+import com.cw2.nekoama.shared.model.NekoamaResult
 
 /**
- * OpenAI 代码建议生成器实现
+ * OpenAI 代码建议生成器实�?
  *
- * 实现了 CodeSuggestionGenerator 接口，提供基于 OpenAI 兼容 API 的代码建议生成功能。
+ * 实现�?CodeSuggestionGenerator 接口，提供基�?OpenAI 兼容 API 的代码建议生成功能�?
  */
 class OpenAIGenerator(
     override val config: CustomGeneratorConfig
@@ -22,18 +22,18 @@ class OpenAIGenerator(
 
     override val name = config.generatorName
 
-    // 复用 OpenAI 格的 HTTP 客户端和模板系统，但使用自定义配置
+    // 复用 OpenAI 格的 HTTP 客户端和模板系统，但使用自定义配�?
     private val httpClient by lazy {
         CustomAPIHttpClient(config)
     }
     private val promptTemplates by lazy {
-        PromptTemplateService() // 使用相同的提示模板
+        PromptTemplateService() // 使用相同的提示模�?
     }
 
     /**
      * 生成代码命名建议
      */
-    override suspend fun generateNaming(context: CodeContext): Result<List<NamingSuggestion>> {
+    override suspend fun generateNaming(context: CodeContext): NekoamaResult<List<NamingSuggestion>> {
         return try {
             val startTime = System.currentTimeMillis()
 
@@ -58,14 +58,14 @@ class OpenAIGenerator(
         } catch (e: Exception) {
             val error = NekoamaError.APIError.ServerError("命名生成失败: ${e.message}")
             NekoamaLogger.logError("generateNaming", error, mapOf("provider" to name, "exception" to e.message))
-            Result.error(error)
+            NekoamaResult.error(error)
         }
     }
 
     /**
      * 生成代码注释
      */
-    override suspend fun generateComment(context: CodeContext): Result<CommentSuggestion> {
+    override suspend fun generateComment(context: CodeContext): NekoamaResult<CommentSuggestion> {
         return try {
             val startTime = System.currentTimeMillis()
 
@@ -90,14 +90,14 @@ class OpenAIGenerator(
         } catch (e: Exception) {
             val error = NekoamaError.APIError.ServerError("注释生成失败: ${e.message}")
             NekoamaLogger.logError("generateComment", error, mapOf("provider" to name, "exception" to e.message))
-            Result.error(error)
+            NekoamaResult.error(error)
         }
     }
 
     /**
      * 自定义生成
      */
-    override suspend fun generateCustom(prompt: String, context: CodeContext?): Result<String> {
+    override suspend fun generateCustom(prompt: String, context: CodeContext?): NekoamaResult<com.cw2.nekoama.domain.code_suggestion_gen.model.CustomSuggestion> {
         return try {
             val startTime = System.currentTimeMillis()
 
@@ -120,18 +120,18 @@ class OpenAIGenerator(
             }
 
         } catch (e: Exception) {
-            val error = NekoamaError.APIError.ServerError("自定义生成失败: ${e.message}")
+            val error = NekoamaError.APIError.ServerError("自定义生成失�? ${e.message}")
             NekoamaLogger.logError("generateCustom", error, mapOf("provider" to name, "exception" to e.message))
-            Result.error(error)
+            NekoamaResult.error(error)
         }
     }
 
     /**
-     * 检查服务可用性
+     * 检查服务可用�?
      */
-    override suspend fun isAvailable(): Result<Boolean> {
+    override suspend fun isAvailable(): NekoamaResult<Boolean> {
         return try {
-            // 发送一个简单的测试请求检查服务可用性
+            // 发送一个简单的测试请求检查服务可用�?
             val testRequest = com.cw2.nekoama.infrastructure.code_suggestion_gen.model.openai.OpenAIRequest(
                 model = config.model,
                 messages = listOf(
@@ -148,14 +148,14 @@ class OpenAIGenerator(
         } catch (e: Exception) {
             NekoamaLogger.logError("isAvailable", NekoamaError.NetworkError.Generic(),
                 mapOf("provider" to name, "exception" to e.message))
-            Result.success(false)
+            NekoamaResult.success(false)
         }
     }
 
     /**
-     * 获取服务状态
+     * 获取服务状�?
      */
-    override suspend fun getStatus(): Result<GeneratorStatus> {
+    override suspend fun getStatus(): NekoamaResult<GeneratorStatus> {
         return try {
             val startTime = System.currentTimeMillis()
             val available = isAvailable()
@@ -170,9 +170,9 @@ class OpenAIGenerator(
             }
 
         } catch (e: Exception) {
-            val error = NekoamaError.APIError.ServerError("获取状态失败: ${e.message}")
+            val error = NekoamaError.APIError.ServerError("获取状态失�? ${e.message}")
             NekoamaLogger.logError("getStatus", error, mapOf("provider" to name, "exception" to e.message))
-            Result.error(error)
+            NekoamaResult.error(error)
         }
     }
 }

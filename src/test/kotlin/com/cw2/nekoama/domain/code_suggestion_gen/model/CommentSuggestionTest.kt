@@ -508,4 +508,58 @@ class CommentSuggestionTest {
             assertThat(stringRepresentation).contains("测试注释内容")
         }
     }
+
+    // ==================== Token 使用量测试 ====================
+
+    @Nested
+    @DisplayName("Token 使用量测试")
+    inner class TokenUsageTests {
+
+        @Test
+        @DisplayName("CommentSuggestion - 应该包含 Token 使用数据")
+        fun `CommentSuggestion - 应该包含 Token 使用数据`() {
+            // 准备测试数据
+            val suggestion = CommentSuggestion(
+                content = "这是注释内容",
+                format = CommentFormat.KDOC,
+                language = CommentLanguage.CHINESE,
+                metadata = SuggestionMetadata(
+                    source = "OpenAI",
+                    model = "gpt-4",
+                    promptTokens = 100,
+                    completionTokens = 50,
+                    totalTokens = 150
+                )
+            )
+
+            // 验证结果
+            assertThat(suggestion.metadata.promptTokens).isEqualTo(100)
+            assertThat(suggestion.metadata.completionTokens).isEqualTo(50)
+            assertThat(suggestion.metadata.totalTokens).isEqualTo(150)
+        }
+
+        @Test
+        @DisplayName("SuggestionMetadata - Token 使用量应该使用默认值 0")
+        fun `SuggestionMetadata - Token 使用量应该使用默认值 0`() {
+            // 执行测试
+            val metadata = SuggestionMetadata()
+
+            // 验证结果
+            assertThat(metadata.promptTokens).isEqualTo(0)
+            assertThat(metadata.completionTokens).isEqualTo(0)
+            assertThat(metadata.totalTokens).isEqualTo(0)
+        }
+
+        @Test
+        @DisplayName("SuggestionMetadata - 应该记录生成时间戳")
+        fun `SuggestionMetadata - 应该记录生成时间戳`() {
+            // 执行测试
+            val beforeTime = System.currentTimeMillis()
+            val metadata = SuggestionMetadata()
+            val afterTime = System.currentTimeMillis()
+
+            // 验证结果
+            assertThat(metadata.timestamp).isBetween(beforeTime, afterTime)
+        }
+    }
 }

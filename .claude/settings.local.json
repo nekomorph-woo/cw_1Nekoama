@@ -45,7 +45,9 @@
       "Bash(Select-Object -Last 10)",
       "mcp__web-reader__webReader",
       "mcp__web-search-prime__webSearchPrime",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(ls -la \"D:\\\\Coding\\\\neko-codebase\\\\cw_1Nekoama\\\\agent_docs\\\\code_review\"\" 2>&1 || mkdir -p \"D:Codingneko-codebasecw_1Nekoamaagent_docscode_review \")",
+      "Bash(if not exist \"D:\\\\Coding\\\\neko-codebase\\\\cw_1Nekoama\\\\agent_docs\\\\code_review\" mkdir \"D:\\\\Coding\\\\neko-codebase\\\\cw_1Nekoama\\\\agent_docs\\\\code_review\")"
     ],
     "deny": [],
     "ask": []

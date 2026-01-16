@@ -3,7 +3,7 @@ package com.cw2.nekoama.infrastructure.code_suggestion_gen.code_analysis
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.application.ReadAction
 import com.intellij.psi.*
-import com.cw2.nekoama.shared.model.Result
+import com.cw2.nekoama.shared.model.NekoamaResult
 import com.cw2.nekoama.shared.exception.NekoamaError
 import com.cw2.nekoama.domain.code_suggestion_gen.model.AnnotationMetadata
 import com.cw2.nekoama.domain.code_suggestion_gen.model.ClassContext
@@ -32,10 +32,10 @@ class JavaCodeAnalyzer(private val project: Project) {
      * @param method 要分析的 PSI 方法对象
      * @return 包含方法上下文信息的 Result 对象，成功时返回 MethodContext，失败时返回错误信息
      */
-    fun analyzeJavaMethod(method: PsiMethod): Result<MethodContext> {
+    fun analyzeJavaMethod(method: PsiMethod): NekoamaResult<MethodContext> {
         return try {
             // 在 ReadAction 中执行 PSI 访问，确保线程安全
-            ReadAction.compute<Result<MethodContext>, Throwable> {
+            ReadAction.compute<NekoamaResult<MethodContext>, Throwable> {
                 // 提取方法参数信息：遍历参数列表，构建参数元数据
                 val parameters = method.parameterList.parameters.map { param ->
                     ParameterMetadata(
@@ -90,10 +90,10 @@ class JavaCodeAnalyzer(private val project: Project) {
                     isAbstract = method.hasModifierProperty(PsiModifier.ABSTRACT)
                 )
 
-                Result.success(methodContext)
+                NekoamaResult.success(methodContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("Java 方法分析失败: ${e.message}"))
+            NekoamaResult.error(NekoamaError.Unknown("Java 方法分析失败: ${e.message}"))
         }
     }
 
@@ -103,10 +103,10 @@ class JavaCodeAnalyzer(private val project: Project) {
      * @param clazz 要分析的 PSI 类对象
      * @return 包含类上下文信息的 Result 对象，成功时返回 ClassContext，失败时返回错误信息
      */
-    fun analyzeJavaClass(clazz: PsiClass): Result<ClassContext> {
+    fun analyzeJavaClass(clazz: PsiClass): NekoamaResult<ClassContext> {
         return try {
             // 在 ReadAction 中执行 PSI 访问，确保线程安全
-            ReadAction.compute<Result<ClassContext>, Throwable> {
+            ReadAction.compute<NekoamaResult<ClassContext>, Throwable> {
                 // 提取父类信息（如果存在）
                 val superClass = clazz.superClass?.let { superCls ->
                     TypeMetadata(
@@ -151,10 +151,10 @@ class JavaCodeAnalyzer(private val project: Project) {
                     classComment = classComment
                 )
 
-                Result.success(classContext)
+                NekoamaResult.success(classContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("Java 类分析失败: ${e.message}"))
+            NekoamaResult.error(NekoamaError.Unknown("Java 类分析失败: ${e.message}"))
         }
     }
 
@@ -164,10 +164,10 @@ class JavaCodeAnalyzer(private val project: Project) {
      * @param variable 要分析的 PSI 变量对象（可能是字段、局部变量或参数）
      * @return 包含变量上下文信息的 Result 对象，成功时返回 VariableContext，失败时返回错误信息
      */
-    fun analyzeJavaVariable(variable: PsiVariable): Result<VariableContext> {
+    fun analyzeJavaVariable(variable: PsiVariable): NekoamaResult<VariableContext> {
         return try {
             // 在 ReadAction 中执行 PSI 访问，确保线程安全
-            ReadAction.compute<Result<VariableContext>, Throwable> {
+            ReadAction.compute<NekoamaResult<VariableContext>, Throwable> {
                 // 提取变量类型信息
                 val variableType = TypeMetadata(
                     typeName = variable.type.presentableText
@@ -229,10 +229,10 @@ class JavaCodeAnalyzer(private val project: Project) {
                     usageExamples = usageExamples
                 )
 
-                Result.success(variableContext)
+                NekoamaResult.success(variableContext)
             }
         } catch (e: Exception) {
-            Result.error(NekoamaError.Unknown("Java 变量分析失败: ${e.message}"))
+            NekoamaResult.error(NekoamaError.Unknown("Java 变量分析失败: ${e.message}"))
         }
     }
 }

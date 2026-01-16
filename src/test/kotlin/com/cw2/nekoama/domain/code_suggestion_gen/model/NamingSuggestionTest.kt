@@ -393,4 +393,75 @@ class NamingSuggestionTest {
             assertThat(stringRepresentation).contains("测试描述")
         }
     }
+
+    // ==================== Token 使用量测试 ====================
+
+    @Nested
+    @DisplayName("Token 使用量测试")
+    inner class TokenUsageTests {
+
+        @Test
+        @DisplayName("NamingSuggestion - 应该包含 Token 使用数据")
+        fun `NamingSuggestion - 应该包含 Token 使用数据`() {
+            // 准备测试数据
+            val suggestion = NamingSuggestion(
+                name = "calculateTotal",
+                description = "计算订单总金额",
+                score = 0.95,
+                namingConvention = NamingConvention.CAMEL_CASE,
+                applicableFor = listOf(CodeElementType.METHOD),
+                confidence = 0.90,
+                metadata = SuggestionMetadata(
+                    source = "OpenAI",
+                    model = "gpt-4",
+                    promptTokens = 120,
+                    completionTokens = 30,
+                    totalTokens = 150
+                )
+            )
+
+            // 验证结果
+            assertThat(suggestion.metadata.promptTokens).isEqualTo(120)
+            assertThat(suggestion.metadata.completionTokens).isEqualTo(30)
+            assertThat(suggestion.metadata.totalTokens).isEqualTo(150)
+        }
+
+        @Test
+        @DisplayName("SuggestionMetadata - Token 使用量应该使用默认值 0")
+        fun `SuggestionMetadata - Token 使用量应该使用默认值 0`() {
+            // 执行测试
+            val suggestion = NamingSuggestion(
+                name = "testName",
+                description = "测试描述",
+                score = 0.8,
+                namingConvention = NamingConvention.CAMEL_CASE,
+                applicableFor = listOf(CodeElementType.METHOD),
+                confidence = 0.75
+            )
+
+            // 验证结果
+            assertThat(suggestion.metadata.promptTokens).isEqualTo(0)
+            assertThat(suggestion.metadata.completionTokens).isEqualTo(0)
+            assertThat(suggestion.metadata.totalTokens).isEqualTo(0)
+        }
+
+        @Test
+        @DisplayName("SuggestionMetadata - 应该记录生成时间戳")
+        fun `SuggestionMetadata - 应该记录生成时间戳`() {
+            // 执行测试
+            val beforeTime = System.currentTimeMillis()
+            val suggestion = NamingSuggestion(
+                name = "processData",
+                description = "处理数据",
+                score = 0.85,
+                namingConvention = NamingConvention.CAMEL_CASE,
+                applicableFor = listOf(CodeElementType.METHOD),
+                confidence = 0.80
+            )
+            val afterTime = System.currentTimeMillis()
+
+            // 验证结果
+            assertThat(suggestion.metadata.timestamp).isBetween(beforeTime, afterTime)
+        }
+    }
 }

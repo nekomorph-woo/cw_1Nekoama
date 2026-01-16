@@ -45,6 +45,18 @@
 
         <!-- 通知分组注册（使用稳定的分组ID，不随本地化变化） -->
         <notificationGroup id="Nekoama.Notifications" displayType="BALLOON" isLogByDefault="true"/>
+
+        <!-- Tool Window 注册 -->
+        <toolWindow id="Nekoama.Main"
+                    factoryClass="com.cw2.nekoama.interfaces.intellij.toolwindow.NekoamaToolWindowFactory"
+                    anchor="right"
+                    icon="/icons/NekoamaToolWindow.svg"/>
+
+        <!-- 项目服务注册 -->
+<!--        <projectService serviceImplementation="com.cw2.nekoama.infrastructure.statistics.PropertiesStatisticsRepository"/>-->
+        <projectService serviceInterface="com.cw2.nekoama.domain.statistics.service.StatisticsService"
+                        serviceImplementation="com.cw2.nekoama.domain.statistics.service.StatisticsServiceImpl"/>
+<!--        <projectService serviceImplementation="com.cw2.nekoama.domain.statistics.service.NetworkTestServiceImpl"/>-->
     </extensions>
 
     <extensions defaultExtensionNs="org.jetbrains.kotlin">

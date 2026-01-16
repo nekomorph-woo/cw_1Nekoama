@@ -19,7 +19,27 @@ data class SuggestionMetadata(
     /**
      * 使用的AI模型
      */
-    val model: String? = null
+    val model: String? = null,
+
+    /**
+     * 提示词 Token 数量
+     */
+    val promptTokens: Int = 0,
+
+    /**
+     * 完成 Token 数量
+     */
+    val completionTokens: Int = 0,
+
+    /**
+     * 总计 Token 数量
+     */
+    val totalTokens: Int = 0,
+
+    /**
+     * 生成时间戳
+     */
+    val timestamp: Long = System.currentTimeMillis()
 )
 
 // ============================================================================

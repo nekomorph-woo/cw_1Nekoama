@@ -1,7 +1,7 @@
 package com.cw2.nekoama.domain.code_suggestion_gen.model
 
 import com.intellij.psi.PsiElement
-import com.cw2.nekoama.shared.model.Result
+import com.cw2.nekoama.shared.model.NekoamaResult
 
 /**
  * 代码元素分析器接口（防腐层接口）
@@ -14,22 +14,22 @@ interface CodeElementAnalyzer {
     /**
      * 分析方法信息
      */
-    fun analyzeMethod(method: PsiElement): Result<MethodContext>
+    fun analyzeMethod(method: PsiElement): NekoamaResult<MethodContext>
 
     /**
      * 分析类信息
      */
-    fun analyzeClass(clazz: PsiElement): Result<ClassContext>
+    fun analyzeClass(clazz: PsiElement): NekoamaResult<ClassContext>
 
     /**
      * 分析变量信息
      */
-    fun analyzeVariable(variable: PsiElement): Result<VariableContext>
+    fun analyzeVariable(variable: PsiElement): NekoamaResult<VariableContext>
 
     /**
      * 提取周围代码上下文
      */
-    fun extractSurroundingContext(element: PsiElement, radius: Int = 5): Result<SurroundingContext>
+    fun extractSurroundingContext(element: PsiElement, radius: Int = 5): NekoamaResult<SurroundingContext>
 
     /**
      * 检测编程语言

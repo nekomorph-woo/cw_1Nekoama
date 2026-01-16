@@ -40,3 +40,4 @@ bin/
 ### Mac OS ###
 .DS_Store
 /nul
+/agent_docs/code_review/

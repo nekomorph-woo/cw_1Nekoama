@@ -4,6 +4,7 @@ import com.cw2.nekoama.domain.code_suggestion_gen.model.*
 import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.openai.OpenAIResponse
 import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.openai.OpenAIChoice
 import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.openai.OpenAIMessage
+import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.openai.OpenAIUsage
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -171,6 +172,70 @@ class OpenAIResponseParserTest {
             assertThat(comment.content).isEqualTo("计算订单总金额")
             assertThat(comment.format).isEqualTo(CommentFormat.KDOC)
         }
+
+        @Test
+        @DisplayName("parseCommentResponse - 成功时应该包含 Token 数据")
+        fun `parseCommentResponse - 成功时应该包含 Token 数据`() {
+            val responseContent = """{"content": "测试注释"}"""
+
+            val response = OpenAIResponse(
+                id = "test-id",
+                `object` = "chat.completion",
+                created = 1234567890L,
+                model = "gpt-4",
+                choices = listOf(
+                    OpenAIChoice(
+                        index = 0,
+                        message = OpenAIMessage("assistant", responseContent),
+                        finishReason = "stop"
+                    )
+                ),
+                usage = OpenAIUsage(
+                    promptTokens = 100,
+                    completionTokens = 50,
+                    totalTokens = 150
+                )
+            )
+            val context = createTestMethodContext()
+
+            val result = OpenAIResponseParser.parseCommentResponse(response, context)
+
+            assertThat(result.isSuccess).isTrue()
+            val suggestion = result.getOrNull()!!
+            assertThat(suggestion.metadata.promptTokens).isEqualTo(100)
+            assertThat(suggestion.metadata.completionTokens).isEqualTo(50)
+            assertThat(suggestion.metadata.totalTokens).isEqualTo(150)
+        }
+
+        @Test
+        @DisplayName("parseCommentResponse - usage 为 null 时 Token 数据应该为 0")
+        fun `parseCommentResponse - usage 为 null 时 Token 数据应该为 0`() {
+            val responseContent = """{"content": "测试注释"}"""
+
+            val response = OpenAIResponse(
+                id = "test-id",
+                `object` = "chat.completion",
+                created = 1234567890L,
+                model = "gpt-4",
+                choices = listOf(
+                    OpenAIChoice(
+                        index = 0,
+                        message = OpenAIMessage("assistant", responseContent),
+                        finishReason = "stop"
+                    )
+                ),
+                usage = null
+            )
+            val context = createTestMethodContext()
+
+            val result = OpenAIResponseParser.parseCommentResponse(response, context)
+
+            assertThat(result.isSuccess).isTrue()
+            val suggestion = result.getOrNull()!!
+            assertThat(suggestion.metadata.promptTokens).isEqualTo(0)
+            assertThat(suggestion.metadata.completionTokens).isEqualTo(0)
+            assertThat(suggestion.metadata.totalTokens).isEqualTo(0)
+        }
     }
 
     // ==================== 自定义响应解析测试 ====================
@@ -208,7 +273,7 @@ class OpenAIResponseParserTest {
             // 验证结果
             assertThat(result.isSuccess).isTrue()
             val content = result.getOrNull()!!
-            assertThat(content).contains("自定义的生成内容")
+            assertThat(content.content).contains("自定义的生成内容")
         }
     }
 

@@ -1,7 +1,7 @@
 package com.cw2.nekoama.domain.code_suggestion_gen.model
 
 import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.GeneratorConfig
-import com.cw2.nekoama.shared.model.Result
+import com.cw2.nekoama.shared.model.NekoamaResult
 
 /**
  * 代码建议生成器抽象接口
@@ -29,7 +29,7 @@ interface CodeSuggestionGenerator {
      * @param context 代码上下文信息，包含待命名元素的详细信息
      * @return 包含多个命名建议的结果，每个建议都包含名称和描述
      */
-    suspend fun generateNaming(context: CodeContext): Result<List<NamingSuggestion>>
+    suspend fun generateNaming(context: CodeContext): NekoamaResult<List<NamingSuggestion>>
 
     /**
      * 生成代码注释
@@ -37,28 +37,28 @@ interface CodeSuggestionGenerator {
      * @param context 代码上下文信息，包含需要注释的代码元素信息
      * @return 包含生成注释内容的结果
      */
-    suspend fun generateComment(context: CodeContext): Result<CommentSuggestion>
+    suspend fun generateComment(context: CodeContext): NekoamaResult<CommentSuggestion>
 
     /**
      * 自定义生成
      *
      * @param prompt 用户自定义的提示内容
      * @param context 可选的代码上下文信息，为null时仅使用prompt
-     * @return 包含生成内容的结果
+     * @return 包含生成内容及其元数据（如 Token 使用量）的结果
      */
-    suspend fun generateCustom(prompt: String, context: CodeContext? = null): Result<String>
+    suspend fun generateCustom(prompt: String, context: CodeContext? = null): NekoamaResult<com.cw2.nekoama.domain.code_suggestion_gen.model.CustomSuggestion>
 
     /**
      * 检查服务是否可用
      *
      * @return 服务可用性检查结果
      */
-    suspend fun isAvailable(): Result<Boolean>
+    suspend fun isAvailable(): NekoamaResult<Boolean>
 
     /**
      * 获取服务状态信息
      *
      * @return 服务状态详情
      */
-    suspend fun getStatus(): Result<GeneratorStatus>
+    suspend fun getStatus(): NekoamaResult<GeneratorStatus>
 }

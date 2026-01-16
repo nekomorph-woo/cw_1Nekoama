@@ -7,7 +7,7 @@
 ## 2. Mapping Rules (规则映射)
 | Category | ❌ Forbidden (Strict Ban) | ✅ Required (Pattern) |
 | :--- | :--- | :--- |
-| UI Updates | `SwingUtilities.invokeLater()` | `EdtExecutor.getInstance().executeLater()` |
+| UI Updates | `SwingUtilities.invokeLater()` | `ApplicationManager.getApplication().invokeLater()` |
 | Long Operations | Any blocking call on EDT | `ProgressManager.getInstance().run()` |
 | Modal Dialogs | `JOptionPane.showXXX()` | `Messages.showXXXDialog()` |
 | Background Tasks | `Thread.sleep()` | `ProgressIndicator.checkCanceled()` |
@@ -16,18 +16,18 @@
 ## 3. Critical Snippets (核心代码范式)
 ```kotlin
 // UI Update Pattern
-EdtExecutor.getInstance().executeLater(Runnable {
+ApplicationManager.getApplication().invokeLater {
   myComponent.text = "Updated"
-})
+}
 
 // Background Task Pattern
 ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Task Name") {
   override fun run(indicator: ProgressIndicator) {
     indicator.text = "Processing..."
     val result = computeHeavyOperation()
-    EdtExecutor.getInstance().executeLater(Runnable {
+    ApplicationManager.getApplication().invokeLater {
       updateUI(result)
-    })
+    }
   }
 })
 

@@ -11,6 +11,8 @@ import com.cw2.nekoama.infrastructure.network.client.interceptor.RetryIntercepto
 import com.cw2.nekoama.infrastructure.network.proxy.ProxyAuthenticatorFactory
 import com.cw2.nekoama.infrastructure.network.proxy.ProxyConfig
 import com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config.CustomGeneratorConfig
+import com.cw2.nekoama.domain.statistics.service.StatisticsService
+import com.cw2.nekoama.infrastructure.statistics.TokenUsageInterceptor
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -29,9 +31,13 @@ import java.security.cert.X509Certificate
  *
  * 支持灵活的认证方式、自定义端点和可选的 SSL 验证。
  * 兼容 OpenAI API 格式，但允许使用不同的服务提供商。
+ *
+ * @param config API 配置
+ * @param statisticsService 可选的统计服务，用于记录 Token 使用
  */
 class CustomAPIHttpClient(
-    private val config: CustomGeneratorConfig
+    private val config: CustomGeneratorConfig,
+    private val statisticsService: StatisticsService? = null
 ) : BaseHttpClient() {
 
     private val httpClient = createOkHttpClient()
@@ -137,7 +143,12 @@ class CustomAPIHttpClient(
         builder.addInterceptor(LoggingInterceptor(LoggingInterceptor.LogLevel.BASIC)) // 基础日志
         builder.addInterceptor(HeadersInterceptor(config.getAuthHeaders())) // 请求头处理
 
-        NekoamaLogger.info("CustomAPIHttpClient", "OkHttp客户端配置完成（包含日志、重试拦截器）")
+        // 添加 Token 使用统计拦截器（如果提供了统计服务）
+        statisticsService?.let {
+            builder.addInterceptor(TokenUsageInterceptor(it))
+        }
+
+        NekoamaLogger.info("CustomAPIHttpClient", "OkHttp客户端配置完成（包含日志、重试拦截器${if (statisticsService != null) "、Token统计" else ""}）")
         return builder.build()
     }
 

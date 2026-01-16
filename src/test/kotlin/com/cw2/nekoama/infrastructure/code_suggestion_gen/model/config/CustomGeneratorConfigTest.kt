@@ -1,7 +1,7 @@
 package com.cw2.nekoama.infrastructure.code_suggestion_gen.model.config
 
 import com.cw2.nekoama.shared.exception.NekoamaError
-import com.cw2.nekoama.shared.model.Result
+import com.cw2.nekoama.shared.model.NekoamaResult
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested

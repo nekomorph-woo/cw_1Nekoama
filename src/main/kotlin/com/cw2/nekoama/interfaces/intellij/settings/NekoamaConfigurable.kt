@@ -99,7 +99,11 @@ class NekoamaConfigurable : Configurable {
     private var cachedApiKey: String = ""
 
     // API KEY 加载状态标记，确保数据已准备就绪
+    @Volatile
     private var isApiKeyLoaded: Boolean = false
+
+    // 用于同步等待 API Key 加载完成的锁
+    private val apiKeyLoadLock = Any()
 
     init {
         // 设置区域标题的字体为粗体，使其更加醒目
@@ -339,12 +343,16 @@ class NekoamaConfigurable : Configurable {
 
     /**
      * 初始化API KEY，确保首次打开时数据已准备就绪
+     * 在后台线程异步加载，避免阻塞 EDT
      */
     private fun initializeApiKey() {
-        // 在后台线程加载 API Key
         ApplicationManager.getApplication().executeOnPooledThread {
-            cachedApiKey = NekoamaSecureStorage.getApiKeySync()
-            isApiKeyLoaded = true
+            val key = NekoamaSecureStorage.getApiKeySync()
+            synchronized(apiKeyLoadLock) {
+                cachedApiKey = key
+                isApiKeyLoaded = true
+                (apiKeyLoadLock as java.lang.Object).notifyAll()
+            }
             // 在EDT中更新UI状态，确保密码框正确显示已保存状态
             ApplicationManager.getApplication().invokeLater {
                 updateApiKeyFieldState()
@@ -399,17 +407,24 @@ class NekoamaConfigurable : Configurable {
     }
 
     /**
-     * 获取API KEY值，如果缓存未加载则同步读取
+     * 获取API KEY值
+     * 如果缓存已加载则直接返回，否则等待后台加载完成（避免在 EDT 上执行 I/O 操作）
      */
     private fun getApiKey(): String {
-        return if (isApiKeyLoaded) {
-            cachedApiKey
-        } else {
-            // 如果缓存未加载，同步读取以确保数据正确性
-            NekoamaSecureStorage.getApiKeySync().also {
-                cachedApiKey = it
-                isApiKeyLoaded = true
+        if (isApiKeyLoaded) {
+            return cachedApiKey
+        }
+
+        // 等待后台异步加载完成（避免在 EDT 上直接调用 I/O）
+        synchronized(apiKeyLoadLock) {
+            if (!isApiKeyLoaded) {
+                try {
+                    (apiKeyLoadLock as java.lang.Object).wait(5000) // 最多等待 5 秒
+                } catch (e: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                }
             }
+            return cachedApiKey
         }
     }
 
