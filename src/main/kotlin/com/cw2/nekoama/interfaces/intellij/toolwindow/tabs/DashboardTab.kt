@@ -176,8 +176,13 @@ class DashboardTab(
             alignmentY = Component.TOP_ALIGNMENT
             border = JBUI.Borders.empty(0, 0, 4, 0)
 
-            val titleLabel = JBLabel(NekoamaBundle.message("dashboard.tab.title")).apply {
-                font = font.deriveFont(Font.BOLD, 18f)
+            // 欢迎语标题 + 图标
+            val titleLabel = JBLabel(
+                NekoamaBundle.message("dashboard.welcome.heading"),
+                AllIcons.Actions.Help,
+                JBLabel.LEADING
+            ).apply {
+                font = font.deriveFont(Font.BOLD, 15f)
                 foreground = UIUtil.getLabelForeground()
             }
             add(titleLabel)
